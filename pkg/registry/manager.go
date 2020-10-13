@@ -5,7 +5,7 @@ import (
 
 	"hypercloud-operator-go/internal/utils"
 	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
-	"hypercloud-operator-go/pkg/controller/regctl"
+	"hypercloud-operator-go/pkg/controller/repoctl"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -75,7 +75,7 @@ func SyncRegistryImage(r *RegistryApi, c client.Client, reg *regv1.Registry, sch
 		}
 	}
 
-	repoCtl := &regctl.RegistryRepository{}
+	repoCtl := &repoctl.RegistryRepository{}
 	logger.Info("For New Image, Insert Image and Versions Data from Repository")
 	for _, newImageName := range newRepositories {
 		newRepo := r.Tags(newImageName)

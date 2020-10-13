@@ -1,4 +1,4 @@
-package regctl
+package repoctl
 
 import (
 	"context"
@@ -13,24 +13,23 @@ import (
 )
 
 type RegistryRepository struct {
-	repo *regv1.Repository
 }
 
 var logger = logf.Log.WithName("registry_repository")
 
 func (r *RegistryRepository) Create(c client.Client, reg *regv1.Registry, imageName string, tags []string, scheme *runtime.Scheme) error {
-	r.repo = schemes.Repository(reg, imageName, tags)
-	if err := controllerutil.SetControllerReference(reg, r.repo, scheme); err != nil {
+	repo := schemes.Repository(reg, imageName, tags)
+	if err := controllerutil.SetControllerReference(reg, repo, scheme); err != nil {
 		logger.Error(err, "Controller reference failed")
 		return err
 	}
 
-	if err := c.Create(context.TODO(), r.repo); err != nil {
+	if err := c.Create(context.TODO(), repo); err != nil {
 		logger.Error(err, "Create failed")
 		return err
 	}
 
-	logger.Info("Created", "Registry", reg.Name, "Repository", r.repo.Name, "Namespace", reg.Namespace)
+	logger.Info("Created", "Registry", reg.Name, "Repository", repo.Name, "Namespace", reg.Namespace)
 	return nil
 }
 
@@ -48,12 +47,12 @@ func (r *RegistryRepository) Patch(c client.Client, repo *regv1.Repository, patc
 }
 
 func (r *RegistryRepository) Delete(c client.Client, reg *regv1.Registry, imageName string, scheme *runtime.Scheme) error {
-	r.repo = schemes.Repository(reg, imageName, nil)
-	if err := c.Delete(context.TODO(), r.repo); err != nil {
+	repo := schemes.Repository(reg, imageName, nil)
+	if err := c.Delete(context.TODO(), repo); err != nil {
 		logger.Error(err, "Delete failed")
 		return err
 	}
 
-	logger.Info("Deleted", "Registry", reg.Name, "Repository", r.repo.Name, "Namespace", reg.Namespace)
+	logger.Info("Deleted", "Registry", reg.Name, "Repository", repo.Name, "Namespace", reg.Namespace)
 	return nil
 }
