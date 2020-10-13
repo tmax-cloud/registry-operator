@@ -9,14 +9,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type RegistryRepository struct {
 	repo *regv1.Repository
 }
 
-var logger = log.Log.WithName("registry_repository")
+var logger = logf.Log.WithName("registry_repository")
 
 func (r *RegistryRepository) Create(c client.Client, reg *regv1.Registry, imageName string, tags []string, scheme *runtime.Scheme) error {
 	r.repo = schemes.Repository(reg, imageName, tags)

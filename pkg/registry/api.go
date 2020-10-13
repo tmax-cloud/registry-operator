@@ -101,6 +101,7 @@ func (r *RegistryApi) DockerContentDigest(imageName, tag string) (string, error)
 		return "", err
 	}
 
+	req.Header.Add("Accept", "application/vnd.docker.distribution.manifest.v2+json")
 	req.SetBasicAuth(r.Login.Username, r.Login.Password)
 	res, err := r.Client.Do(req)
 	if err != nil {
@@ -133,7 +134,7 @@ func (r *RegistryApi) DeleteManifest(imageName, digest string) error {
 		logger.Error(err, "")
 		return err
 	}
-
+	req.Header.Add("Accept", "application/vnd.docker.distribution.manifest.v2+json")
 	req.SetBasicAuth(r.Login.Username, r.Login.Password)
 	res, err := r.Client.Do(req)
 	if err != nil {

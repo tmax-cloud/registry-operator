@@ -99,8 +99,11 @@ func (r *ReconcileRepository) Reconcile(request reconcile.Request) (reconcile.Re
 				reqLogger.Error(err, "")
 				return reconcile.Result{}, err
 			}
+			reqLogger.Info("get_registry", "namespace", reg.Namespace, "name", reg.Name)
 
 			repoName, _ := splitRepoCRName(request.Name)
+			reqLogger.Info("repository", "name", repoName)
+
 			if err := sweepRegistryRepo(r.client, reg, repoName); err != nil {
 				reqLogger.Error(err, "")
 				return reconcile.Result{}, err
@@ -147,6 +150,7 @@ func patchRepo(c client.Client, reg *tmaxv1.Registry, repo *tmaxv1.Repository, d
 
 func sweepImages(c client.Client, reg *tmaxv1.Registry, repo *tmaxv1.Repository) error {
 	repoName := repo.Spec.Name
+	logz := log.WithValues("repository_namespace", repo.Namespace, "repository_name", repoName)
 	images := repo.Spec.Versions
 	delTags := []string{}
 
@@ -156,16 +160,28 @@ func sweepImages(c client.Client, reg *tmaxv1.Registry, repo *tmaxv1.Repository)
 		}
 	}
 
+	if len(delTags) == 0 {
+		logz.Info("repository_is_up_to_date")
+		return nil
+	}
+
 	deletedTags, err := deleteImagesInRepo(c, reg, repoName, delTags)
 	if err != nil {
 		return err
 	}
 
+	logz.Info("patch_repository_cr")
 	if err := patchRepo(c, reg, repo, deletedTags); err != nil {
 		return err
 	}
 
+	logz.Info("garbage_collect")
 	if err := garbageCollect(c, reg); err != nil {
+		return err
+	}
+
+	logz.Info("restart_registry", "ns/name", reg.Namespace+"/"+reg.Name)
+	if err := regctl.DeletePod(c, reg); err != nil {
 		return err
 	}
 
@@ -179,13 +195,28 @@ func sweepRegistryRepo(c client.Client, reg *tmaxv1.Registry, repoName string) e
 	if tags == nil {
 		return nil
 	}
-	if _, err := deleteImagesInRepo(c, reg, repoName, ra.Tags(repoName).Tags); err != nil {
+
+	log.Info("delete_images")
+	deletedTags, err := deleteImagesInRepo(c, reg, repoName, tags)
+	if err != nil {
 		return err
 	}
 
+	for _, tag := range deletedTags {
+		log.Info("delete", "repository_namespace", reg.Namespace, "repository_name", repoName, "tag", tag)
+	}
+
+	log.Info("garbage_collect")
 	if err := garbageCollect(c, reg); err != nil {
 		return err
 	}
+
+	log.Info("restart", "registry", reg.Namespace+"/"+reg.Name)
+	if err := regctl.DeletePod(c, reg); err != nil {
+		return err
+	}
+
+	log.Info("sweep_repo_success")
 
 	return nil
 }
@@ -195,11 +226,13 @@ func deleteImagesInRepo(c client.Client, reg *tmaxv1.Registry, repoName string, 
 	deletedTags := []string{}
 
 	for _, tag := range tags {
+		log.Info("repository", "tag", tag)
 		digest, err := ra.DockerContentDigest(repoName, tag)
 		if err != nil {
 			log.Error(err, "")
 			return deletedTags, err
 		}
+		log.Info("get", "digest", digest)
 
 		if err := ra.DeleteManifest(repoName, digest); err != nil {
 			log.Error(err, "")
@@ -212,9 +245,7 @@ func deleteImagesInRepo(c client.Client, reg *tmaxv1.Registry, repoName string, 
 }
 
 func garbageCollect(c client.Client, reg *tmaxv1.Registry) error {
-	podCtl := &regctl.RegistryPod{}
-
-	podName, err := podCtl.PodName(c, reg)
+	podName, err := regctl.PodName(c, reg)
 	if err != nil {
 		return err
 	}
@@ -232,7 +263,7 @@ func garbageCollect(c client.Client, reg *tmaxv1.Registry) error {
 
 func getRegistryByRequest(c client.Client, request reconcile.Request) (*tmaxv1.Registry, error) {
 	registry := &tmaxv1.Registry{}
-	name, _ := splitRepoCRName(request.Name)
+	_, name := splitRepoCRName(request.Name)
 	namespace := request.Namespace
 
 	err := c.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, registry)
