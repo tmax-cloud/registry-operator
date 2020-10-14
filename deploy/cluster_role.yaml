@@ -1,7 +1,6 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: registry-operator
   namespace: registry-system
 rules:
@@ -71,6 +70,18 @@ rules:
   - tmax.io
   resources:
   - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - "extensions"
+  resources:
+  - "*"
   verbs:
   - create
   - delete

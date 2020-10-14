@@ -7,8 +7,8 @@ kubectl apply -f deploy/namespace.yaml
 
 # Apply role
 kubectl apply -f deploy/service_account.yaml
-kubectl apply -f deploy/role.yaml
-kubectl apply -f deploy/role_binding.yaml
+kubectl apply -f deploy/cluster_role.yaml
+kubectl apply -f deploy/cluster_role_binding.yaml
 
 # Apply CRDs
 kubectl apply -f deploy/crds/tmax.io_registries_crd.yaml
@@ -32,5 +32,7 @@ fi
 # Deploy operator
 kubectl apply -f deploy/operator.yaml
 kubectl apply -f deploy/operator_service.yaml
+
+echo "deploy registry-operator success"
 
 exit 0

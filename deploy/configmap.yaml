@@ -27,5 +27,5 @@ data:
         threshold: 3
     notifications:
       endpoints:
-      - name: hypercloud4-operator
+      - name: registry-operator
         url: http://registry-operator-service.registry-system:28677/registry/event

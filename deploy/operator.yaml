@@ -13,7 +13,7 @@ spec:
       labels:
         hypercloud4: operator
     spec:
-      serviceAccountName: hypercloud4-admin
+      serviceAccountName: registry-operator
       containers:
         - name: registry-operator
           image: docker.io/tmaxcloudck/registry-operator:nightly

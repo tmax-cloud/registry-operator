@@ -23,7 +23,7 @@ import (
 
 const (
 	RootCASecretName      = "registry-ca"
-	RootCASecretNamespace = "hypercloud4-system"
+	RootCASecretNamespace = "registry-system"
 	RootCACert            = "ca.crt"
 	RootCAPriv            = "ca.key"
 	CertKeyFile           = "localhub.key"

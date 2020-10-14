@@ -2,7 +2,7 @@ package v1
 
 const (
 	K8sPrefix         = "hpcd-"
-	OperatorNamespace = "hypercloud4-system"
+	OperatorNamespace = "registry-system"
 	TLSPrefix         = "tls-"
 	K8sRegistryPrefix = "registry-"
 
