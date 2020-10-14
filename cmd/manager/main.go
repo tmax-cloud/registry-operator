@@ -14,11 +14,11 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 
-	"hypercloud-operator-go/pkg/apis"
-	"hypercloud-operator-go/pkg/controller"
-	regApi "hypercloud-operator-go/pkg/registry"
-	"hypercloud-operator-go/pkg/server"
-	"hypercloud-operator-go/version"
+	"registry-operator/pkg/apis"
+	"registry-operator/pkg/controller"
+	regApi "registry-operator/pkg/registry"
+	"registry-operator/pkg/server"
+	"registry-operator/version"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
@@ -90,7 +90,7 @@ func main() {
 
 	ctx := context.TODO()
 	// Become the leader before proceeding
-	err = leader.Become(ctx, "hypercloud-operator-go-lock")
+	err = leader.Become(ctx, "registry-operator-lock")
 	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)

@@ -2,10 +2,11 @@ package regctl
 
 import (
 	"context"
-	"hypercloud-operator-go/internal/utils"
-	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"registry-operator/internal/utils"
+	regv1 "registry-operator/pkg/apis/tmax/v1"
 	"strconv"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	corev1 "k8s.io/api/core/v1"
@@ -14,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"hypercloud-operator-go/internal/schemes"
+	"registry-operator/internal/schemes"
 )
 
 const SecretOpaqueTypeName = regv1.ConditionTypeSecretOpaque
@@ -30,14 +31,14 @@ func (r *RegistryCertSecret) Handle(c client.Client, reg *regv1.Registry, patchR
 	err := r.get(c, reg)
 	if err != nil && errors.IsNotFound(err) {
 		// resource is not exist : have to create
-		if  createError := r.create(c, reg, patchReg, scheme); createError != nil {
+		if createError := r.create(c, reg, patchReg, scheme); createError != nil {
 			r.logger.Error(createError, "Create failed in Handle")
 			return createError
 		}
 		patchReg.Status.PodRecreateRequired = true
 	}
 
-	if  isValid := r.compare(reg); isValid == nil {
+	if isValid := r.compare(reg); isValid == nil {
 		if deleteError := r.delete(c, patchReg); deleteError != nil {
 			r.logger.Error(deleteError, "Delete failed in Handle")
 			return deleteError
@@ -194,7 +195,7 @@ func (r *RegistryCertSecret) delete(c client.Client, patchReg *regv1.Registry) e
 	return nil
 }
 
-func (r *RegistryCertSecret) compare(reg *regv1.Registry) ([]utils.Diff) {
+func (r *RegistryCertSecret) compare(reg *regv1.Registry) []utils.Diff {
 	opaqueData := r.secretOpaque.Data
 	if string(opaqueData["ID"]) != reg.Spec.LoginId || string(opaqueData["PASSWD"]) != reg.Spec.LoginPassword {
 		return nil
@@ -211,7 +212,7 @@ func (r *RegistryCertSecret) compare(reg *regv1.Registry) ([]utils.Diff) {
 		}
 
 		val, ok = opaqueData["REGISTRY_URL"]
-		if !ok || string(val) != reg.Status.LoadBalancerIP + ":" + strconv.Itoa(reg.Spec.RegistryService.LoadBalancer.Port) {
+		if !ok || string(val) != reg.Status.LoadBalancerIP+":"+strconv.Itoa(reg.Spec.RegistryService.LoadBalancer.Port) {
 			return nil
 		}
 	} else if reg.Spec.RegistryService.ServiceType == "Ingress" {
@@ -225,14 +226,14 @@ func (r *RegistryCertSecret) compare(reg *regv1.Registry) ([]utils.Diff) {
 		}
 
 		val, ok = opaqueData["REGISTRY_URL"]
-		if !ok || string(val) != registryDomainName + ":" + strconv.Itoa(443) {
+		if !ok || string(val) != registryDomainName+":"+strconv.Itoa(443) {
 			r.logger.Error(regv1.MakeRegistryError("Wrong Registry URL"), "val", val,
-				"RegistryDomainName", registryDomainName + ":" + strconv.Itoa(443))
+				"RegistryDomainName", registryDomainName+":"+strconv.Itoa(443))
 			return nil
 		}
 	} else {
 		val, ok := opaqueData["REGISTRY_URL"]
-		if !ok || string(val) != reg.Status.ClusterIP + ":" + string(443) {
+		if !ok || string(val) != reg.Status.ClusterIP+":"+string(443) {
 			return nil
 		}
 	}
@@ -250,4 +251,3 @@ func (r *RegistryCertSecret) compare(reg *regv1.Registry) ([]utils.Diff) {
 	r.logger.Info("Succeed")
 	return []utils.Diff{}
 }
-

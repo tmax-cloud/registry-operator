@@ -2,10 +2,11 @@ package regctl
 
 import (
 	"context"
+	"registry-operator/internal/schemes"
+	"registry-operator/internal/utils"
+	regv1 "registry-operator/pkg/apis/tmax/v1"
+
 	"github.com/operator-framework/operator-sdk/pkg/status"
-	"hypercloud-operator-go/internal/schemes"
-	"hypercloud-operator-go/internal/utils"
-	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,19 +19,19 @@ const IngressTypeName = regv1.ConditionTypeIngress
 
 type RegistryIngress struct {
 	ingress *v1beta1.Ingress
-	logger *utils.RegistryLogger
+	logger  *utils.RegistryLogger
 }
 
 func (r *RegistryIngress) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	err := r.get(c, reg)
 	if err != nil {
-		if  createError := r.create(c, reg, patchReg, scheme); createError != nil {
+		if createError := r.create(c, reg, patchReg, scheme); createError != nil {
 			r.logger.Error(createError, "Create failed in Handle")
 			return createError
 		}
 	}
 
-	if  isValid := r.compare(reg); isValid == nil {
+	if isValid := r.compare(reg); isValid == nil {
 		if deleteError := r.delete(c, patchReg); deleteError != nil {
 			r.logger.Error(deleteError, "Delete failed in Handle")
 			return deleteError
@@ -43,9 +44,9 @@ func (r *RegistryIngress) Handle(c client.Client, reg *regv1.Registry, patchReg 
 
 func (r *RegistryIngress) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
-	condition := status.Condition {
+	condition := status.Condition{
 		Status: corev1.ConditionFalse,
-		Type: IngressTypeName,
+		Type:   IngressTypeName,
 	}
 
 	defer utils.SetError(err, patchReg, &condition)
@@ -88,9 +89,9 @@ func (r *RegistryIngress) Ready(c client.Client, reg *regv1.Registry, patchReg *
 }
 
 func (r *RegistryIngress) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
-	condition := status.Condition {
+	condition := status.Condition{
 		Status: corev1.ConditionFalse,
-		Type: IngressTypeName,
+		Type:   IngressTypeName,
 	}
 
 	if err := controllerutil.SetControllerReference(reg, r.ingress, scheme); err != nil {
@@ -109,14 +110,12 @@ func (r *RegistryIngress) create(c client.Client, reg *regv1.Registry, patchReg 
 	return nil
 }
 
-
 func (r *RegistryIngress) get(c client.Client, reg *regv1.Registry) error {
 	r.ingress = schemes.Ingress(reg)
 	if r.ingress == nil {
 		return regv1.MakeRegistryError("Registry has no fields Ingress required")
 	}
 	r.logger = utils.NewRegistryLogger(*r, r.ingress.Namespace, r.ingress.Name)
-
 
 	req := types.NamespacedName{Name: r.ingress.Name, Namespace: r.ingress.Namespace}
 	if err := c.Get(context.TODO(), req, r.ingress); err != nil {
@@ -128,15 +127,14 @@ func (r *RegistryIngress) get(c client.Client, reg *regv1.Registry) error {
 	return nil
 }
 
-
 func (r *RegistryIngress) patch(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
 	return nil
 }
 
 func (r *RegistryIngress) delete(c client.Client, patchReg *regv1.Registry) error {
-	condition := &status.Condition {
+	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type: IngressTypeName,
+		Type:   IngressTypeName,
 	}
 
 	if err := c.Delete(context.TODO(), r.ingress); err != nil {

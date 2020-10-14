@@ -2,10 +2,10 @@ package regctl
 
 import (
 	"context"
-	"hypercloud-operator-go/internal/schemes"
-	"hypercloud-operator-go/internal/utils"
+	"registry-operator/internal/schemes"
+	"registry-operator/internal/utils"
 
-	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
+	regv1 "registry-operator/pkg/apis/tmax/v1"
 
 	"github.com/operator-framework/operator-sdk/pkg/status"
 

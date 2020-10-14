@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
-	"hypercloud-operator-go/pkg/controller/regctl"
 	"reflect"
+	regv1 "registry-operator/pkg/apis/tmax/v1"
+	"registry-operator/pkg/controller/regctl"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

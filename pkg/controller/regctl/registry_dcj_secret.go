@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"registry-operator/internal/schemes"
+	"registry-operator/internal/utils"
+	regv1 "registry-operator/pkg/apis/tmax/v1"
+	"strconv"
+
 	"github.com/operator-framework/operator-sdk/pkg/status"
-	"hypercloud-operator-go/internal/schemes"
-	"hypercloud-operator-go/internal/utils"
-	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strconv"
 )
 
 const (
@@ -28,13 +29,13 @@ type RegistryDCJSecret struct {
 func (r *RegistryDCJSecret) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	err := r.get(c, reg)
 	if err != nil {
-		if  createError := r.create(c, reg, patchReg, scheme); createError != nil {
+		if createError := r.create(c, reg, patchReg, scheme); createError != nil {
 			r.logger.Error(createError, "Create failed in Handle")
 			return createError
 		}
 	}
 
-	if  isValid := r.compare(reg); isValid == nil {
+	if isValid := r.compare(reg); isValid == nil {
 		if deleteError := r.delete(c, patchReg); deleteError != nil {
 			r.logger.Error(deleteError, "Delete failed in Handle")
 			return deleteError
@@ -47,9 +48,9 @@ func (r *RegistryDCJSecret) Handle(c client.Client, reg *regv1.Registry, patchRe
 
 func (r *RegistryDCJSecret) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
-	condition := status.Condition {
+	condition := status.Condition{
 		Status: corev1.ConditionFalse,
-		Type: SecretDCJTypeName,
+		Type:   SecretDCJTypeName,
 	}
 
 	defer utils.SetError(err, patchReg, &condition)
@@ -76,7 +77,7 @@ func (r *RegistryDCJSecret) Ready(c client.Client, reg *regv1.Registry, patchReg
 func (r *RegistryDCJSecret) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	condition := status.Condition{
 		Status: corev1.ConditionFalse,
-		Type: SecretDCJTypeName,
+		Type:   SecretDCJTypeName,
 	}
 
 	if err := controllerutil.SetControllerReference(reg, r.secretDCJ, scheme); err != nil {
@@ -116,9 +117,9 @@ func (r *RegistryDCJSecret) patch(c client.Client, reg *regv1.Registry, patchReg
 }
 
 func (r *RegistryDCJSecret) delete(c client.Client, patchReg *regv1.Registry) error {
-	condition := &status.Condition {
+	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type: SecretDCJTypeName,
+		Type:   SecretDCJTypeName,
 	}
 
 	if err := c.Delete(context.TODO(), r.secretDCJ); err != nil {
@@ -155,7 +156,7 @@ func (r *RegistryDCJSecret) compare(reg *regv1.Registry) []utils.Diff {
 			return nil
 		}
 		loginAndPassword, _ := base64.StdEncoding.DecodeString(element.Auth)
-		if string(loginAndPassword) != reg.Spec.LoginId + ":" + reg.Spec.LoginPassword {
+		if string(loginAndPassword) != reg.Spec.LoginId+":"+reg.Spec.LoginPassword {
 			return nil
 		}
 	}

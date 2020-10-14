@@ -1,11 +1,11 @@
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
-ENV OPERATOR=/usr/local/bin/hypercloud-operator-go \
+ENV OPERATOR=/usr/local/bin/registry-operator \
     USER_UID=1001 \
-    USER_NAME=hypercloud-operator-go
+    USER_NAME=registry-operator
 
 # install operator binary
-COPY build/_output/bin/hypercloud-operator-go ${OPERATOR}
+COPY build/_output/bin/registry-operator ${OPERATOR}
 
 COPY build/bin /usr/local/bin
 RUN  /usr/local/bin/user_setup

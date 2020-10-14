@@ -2,7 +2,7 @@ package schemes
 
 import (
 	"encoding/base64"
-	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
+	regv1 "registry-operator/pkg/apis/tmax/v1"
 	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"

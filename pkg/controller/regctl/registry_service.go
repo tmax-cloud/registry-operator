@@ -2,9 +2,9 @@ package regctl
 
 import (
 	"context"
-	"hypercloud-operator-go/internal/schemes"
-	"hypercloud-operator-go/internal/utils"
-	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
+	"registry-operator/internal/schemes"
+	"registry-operator/internal/utils"
+	regv1 "registry-operator/pkg/apis/tmax/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 

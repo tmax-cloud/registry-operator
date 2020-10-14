@@ -4,8 +4,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"hypercloud-operator-go/internal/utils"
-	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
+	"registry-operator/internal/utils"
+	regv1 "registry-operator/pkg/apis/tmax/v1"
 )
 
 type RegistrySubresource interface {

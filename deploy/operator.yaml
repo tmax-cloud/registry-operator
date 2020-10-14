@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hypercloud-operator-go
+  name: registry-operator
   namespace: hypercloud4-system
 spec:
   replicas: 1
@@ -15,10 +15,10 @@ spec:
     spec:
       serviceAccountName: hypercloud4-admin
       containers:
-        - name: hypercloud-operator-go
+        - name: registry-operator
           image: dlwlsdnjsehs/registry-operator:v0.0.1
           command:
-          - hypercloud-operator-go
+          - registry-operator
           imagePullPolicy: Always
           volumeMounts:
           - name: hypercloud4-mnt
@@ -31,7 +31,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: "hypercloud-operator-go"
+              value: "registry-operator"
             - name: TZ
               value: Asia/Seoul
           ports:

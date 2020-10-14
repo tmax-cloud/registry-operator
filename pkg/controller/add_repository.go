@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"hypercloud-operator-go/pkg/controller/repository"
+	"registry-operator/pkg/controller/repository"
 )
 
 func init() {

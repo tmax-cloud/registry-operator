@@ -1,4 +1,4 @@
-module hypercloud-operator-go
+module registry-operator
 
 go 1.13
 

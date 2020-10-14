@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"hypercloud-operator-go/internal/utils"
-	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
-	"hypercloud-operator-go/pkg/controller/repoctl"
+	"registry-operator/internal/utils"
+	regv1 "registry-operator/pkg/apis/tmax/v1"
+	"registry-operator/pkg/controller/repoctl"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

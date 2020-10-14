@@ -2,7 +2,7 @@ package registry
 
 import (
 	"bytes"
-	k8sCmd "hypercloud-operator-go/internal/common/k8s"
+	k8sCmd "registry-operator/internal/common/k8s"
 )
 
 const (

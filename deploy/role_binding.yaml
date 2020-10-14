@@ -1,11 +1,11 @@
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: hypercloud-operator-go
+  name: registry-operator
 subjects:
 - kind: ServiceAccount
-  name: hypercloud-operator-go
+  name: registry-operator
 roleRef:
   kind: Role
-  name: hypercloud-operator-go
+  name: registry-operator
   apiGroup: rbac.authorization.k8s.io

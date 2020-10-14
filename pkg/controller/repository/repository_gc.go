@@ -1,11 +1,11 @@
 package repository
 
 import (
-	"hypercloud-operator-go/internal/utils"
-	tmaxv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
-	"hypercloud-operator-go/pkg/controller/regctl"
-	"hypercloud-operator-go/pkg/controller/repoctl"
-	regApi "hypercloud-operator-go/pkg/registry"
+	"registry-operator/internal/utils"
+	tmaxv1 "registry-operator/pkg/apis/tmax/v1"
+	"registry-operator/pkg/controller/regctl"
+	"registry-operator/pkg/controller/repoctl"
+	regApi "registry-operator/pkg/registry"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

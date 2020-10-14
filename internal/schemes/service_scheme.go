@@ -4,7 +4,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
+	regv1 "registry-operator/pkg/apis/tmax/v1"
 )
 
 const (

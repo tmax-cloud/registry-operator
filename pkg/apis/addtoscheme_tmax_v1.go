@@ -1,7 +1,7 @@
 package apis
 
 import (
-	v1 "hypercloud-operator-go/pkg/apis/tmax/v1"
+	v1 "registry-operator/pkg/apis/tmax/v1"
 )
 
 func init() {

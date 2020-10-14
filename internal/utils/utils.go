@@ -1,8 +1,8 @@
 package utils
 
 import (
-	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
 	"reflect"
+	regv1 "registry-operator/pkg/apis/tmax/v1"
 	"runtime"
 	"strings"
 

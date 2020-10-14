@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
+	regv1 "registry-operator/pkg/apis/tmax/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )

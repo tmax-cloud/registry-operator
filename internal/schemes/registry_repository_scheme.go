@@ -3,8 +3,8 @@ package schemes
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"hypercloud-operator-go/internal/utils"
-	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
+	"registry-operator/internal/utils"
+	regv1 "registry-operator/pkg/apis/tmax/v1"
 )
 
 func Repository(reg *regv1.Registry, imageName string, tags []string) *regv1.Repository {

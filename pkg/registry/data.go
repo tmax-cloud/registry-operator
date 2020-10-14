@@ -2,10 +2,10 @@ package registry
 
 import (
 	"context"
-	"hypercloud-operator-go/internal/schemes"
-	"hypercloud-operator-go/internal/utils"
+	"registry-operator/internal/schemes"
+	"registry-operator/internal/utils"
 
-	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
+	regv1 "registry-operator/pkg/apis/tmax/v1"
 
 	corev1 "k8s.io/api/core/v1"
 

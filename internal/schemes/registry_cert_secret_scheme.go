@@ -7,33 +7,34 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"hypercloud-operator-go/internal/utils"
-	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"math/big"
 	"net"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"registry-operator/internal/utils"
+	regv1 "registry-operator/pkg/apis/tmax/v1"
 	"strconv"
 	"strings"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	RootCASecretName = "registry-ca"
+	RootCASecretName      = "registry-ca"
 	RootCASecretNamespace = "hypercloud4-system"
-	RootCACert = "ca.crt"
-	RootCAPriv = "ca.key"
-	CertKeyFile = "localhub.key"
-	CertCrtFile = "localhub.crt"
-	TLSCert = "tls.crt"
-	TLSKey = "tls.key"
+	RootCACert            = "ca.crt"
+	RootCAPriv            = "ca.key"
+	CertKeyFile           = "localhub.key"
+	CertCrtFile           = "localhub.crt"
+	TLSCert               = "tls.crt"
+	TLSKey                = "tls.key"
 )
 
 func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secret) {
-	logger := utils.GetRegistryLogger(corev1.Secret{}, reg.Namespace, reg.Name + "secret")
-	if (!regBodyCheckForSecrets(reg)) {
+	logger := utils.GetRegistryLogger(corev1.Secret{}, reg.Namespace, reg.Name+"secret")
+	if !regBodyCheckForSecrets(reg) {
 		return nil, nil
 	}
 	secretType := corev1.SecretTypeOpaque
@@ -48,7 +49,7 @@ func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secr
 	data["CLUSTER_IP"] = []byte(reg.Status.ClusterIP)
 
 	if serviceType == "Ingress" {
-		registryDomainName := reg.Name +  "." + reg.Spec.RegistryService.Ingress.DomainName
+		registryDomainName := reg.Name + "." + reg.Spec.RegistryService.Ingress.DomainName
 		data["DOMAIN_NAME"] = []byte(registryDomainName)
 		data["REGISTRY_URL"] = []byte(registryDomainName + ":" + strconv.Itoa(port))
 	} else if serviceType == regv1.RegServiceTypeLoadBalancer {
@@ -67,7 +68,7 @@ func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secr
 		return nil, nil
 	}
 	logger.Info("Create Certificate Succeed")
-	data[CertCrtFile] = certificateBytes // have to do parse
+	data[CertCrtFile] = certificateBytes                       // have to do parse
 	privateBytes, _ := x509.MarshalPKCS8PrivateKey(privateKey) // have to do unmarshal
 
 	data[CertKeyFile] = pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privateBytes})
@@ -81,13 +82,11 @@ func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secr
 
 	logger.Info("Create Secret TLS Succeed")
 
-
-
 	return &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: regv1.K8sPrefix + strings.ToLower(reg.Name),
+				Name:      regv1.K8sPrefix + strings.ToLower(reg.Name),
 				Namespace: reg.Namespace,
-				Labels: map[string]string {
+				Labels: map[string]string{
 					"secret": "cert",
 				},
 			},
@@ -95,10 +94,10 @@ func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secr
 			Data: data,
 		},
 		&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta {
-				Name: regv1.K8sPrefix + regv1.TLSPrefix + strings.ToLower(reg.Name),
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      regv1.K8sPrefix + regv1.TLSPrefix + strings.ToLower(reg.Name),
 				Namespace: reg.Namespace,
-				Labels: map[string]string {
+				Labels: map[string]string{
 					"secret": "tls",
 				},
 			},
@@ -156,22 +155,22 @@ func makeCertificate(reg *regv1.Registry, parentCert *x509.Certificate,
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			Country: []string{"KR"},
-			Organization: []string{"tmax"},
+			Country:       []string{"KR"},
+			Organization:  []string{"tmax"},
 			StreetAddress: []string{"Seoul"},
-			CommonName: reg.Status.ClusterIP,
+			CommonName:    reg.Status.ClusterIP,
 		},
 		NotBefore: time.Now(),
-		NotAfter: time.Now().Add(time.Hour * 24 * 1000),
+		NotAfter:  time.Now().Add(time.Hour * 24 * 1000),
 
-		KeyUsage: x509.KeyUsageCRLSign,
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		IsCA: false,
+		KeyUsage:              x509.KeyUsageCRLSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		IsCA:                  false,
 		BasicConstraintsValid: true,
 	}
 
 	template.IPAddresses = []net.IP{net.ParseIP(reg.Status.ClusterIP)}
-	if reg.Spec.RegistryService.ServiceType == regv1.RegServiceTypeLoadBalancer  {
+	if reg.Spec.RegistryService.ServiceType == regv1.RegServiceTypeLoadBalancer {
 		template.IPAddresses = append(template.IPAddresses, net.ParseIP(reg.Status.LoadBalancerIP))
 	} else if reg.Spec.RegistryService.ServiceType == "Ingress" {
 		template.DNSNames = []string{reg.Name + "." + reg.Spec.RegistryService.Ingress.DomainName}
@@ -179,7 +178,7 @@ func makeCertificate(reg *regv1.Registry, parentCert *x509.Certificate,
 
 	parent := &x509.Certificate{}
 	parentPrivKey := &rsa.PrivateKey{}
-	if parentCert == nil || parentPrivateKey == nil{
+	if parentCert == nil || parentPrivateKey == nil {
 		logger.Info("There is no parent")
 		parent = &template
 		parentPrivKey = privateKey
@@ -193,7 +192,7 @@ func makeCertificate(reg *regv1.Registry, parentCert *x509.Certificate,
 		return nil, nil, err
 	}
 
-	serverCertPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: serverCertBytes});
+	serverCertPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: serverCertBytes})
 
 	_, erro := x509.ParseCertificate(serverCertBytes)
 	if erro != nil {
@@ -206,12 +205,12 @@ func makeCertificate(reg *regv1.Registry, parentCert *x509.Certificate,
 
 func regBodyCheckForSecrets(reg *regv1.Registry) bool {
 	regService := reg.Spec.RegistryService
-	if (reg.Status.ClusterIP == "") {
+	if reg.Status.ClusterIP == "" {
 		return false
 	}
-	if (regService.ServiceType == regv1.RegServiceTypeLoadBalancer && reg.Status.LoadBalancerIP == "" ) {
+	if regService.ServiceType == regv1.RegServiceTypeLoadBalancer && reg.Status.LoadBalancerIP == "" {
 		return false
-	} else if (regService.ServiceType == regv1.RegServiceTypeIngress && regService.Ingress.DomainName == "") {
+	} else if regService.ServiceType == regv1.RegServiceTypeIngress && regService.Ingress.DomainName == "" {
 		return false
 	}
 	return true
