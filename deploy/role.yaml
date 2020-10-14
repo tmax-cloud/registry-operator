@@ -3,6 +3,7 @@ kind: Role
 metadata:
   creationTimestamp: null
   name: registry-operator
+  namespace: registry-system
 rules:
 - apiGroups:
   - ""

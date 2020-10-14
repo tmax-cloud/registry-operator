@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: registry-operator
-  namespace: hypercloud4-system
+  namespace: registry-system
 spec:
   replicas: 1
   selector:
@@ -16,13 +16,10 @@ spec:
       serviceAccountName: hypercloud4-admin
       containers:
         - name: registry-operator
-          image: dlwlsdnjsehs/registry-operator:v0.0.1
+          image: docker.io/tmaxcloudck/registry-operator:nightly
           command:
           - registry-operator
           imagePullPolicy: Always
-          volumeMounts:
-          - name: hypercloud4-mnt
-            mountPath: /usr/local/bin
           env:
             - name: WATCH_NAMESPACE
               value: ""
