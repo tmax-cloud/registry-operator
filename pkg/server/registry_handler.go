@@ -9,7 +9,7 @@ import (
 
 	"hypercloud-operator-go/internal/utils"
 	regv1 "hypercloud-operator-go/pkg/apis/tmax/v1"
-	"hypercloud-operator-go/pkg/controller/regctl"
+	"hypercloud-operator-go/pkg/controller/repoctl"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,7 +75,7 @@ func createImage(event regv1.RegistryEvent) {
 		}
 	}
 
-	repoCtl := &regctl.RegistryRepository{}
+	repoCtl := &repoctl.RegistryRepository{}
 	if repositoryCRNotFound {
 		// If not exist, create repository cr
 		logger.Info("create", "repository", repositoryName, "ver", newImageTag)
