@@ -1,0 +1,5 @@
+## Append samples you want in your CSV to this file as resources ##
+resources:
+- tmax.io_v1_registry.yaml
+- tmax.io_v1_repository.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

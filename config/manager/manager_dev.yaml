@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: registry-operator
+  namespace: registry-system
+  labels:
+    control-plane: registry-operator
+spec:
+  selector:
+    matchLabels:
+      control-plane: registry-operator
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        control-plane: registry-operator
+    spec:
+      containers:
+      - command:
+        - /bin/dev/manager
+        args:
+        - --enable-leader-election
+        image: tmaxcloudck/registry-operator:0.0.1-dev
+        name: manager
+        imagePullPolicy: Always
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: OPERATOR_NAME
+            value: "registry-operator"
+          - name: TZ
+            value: Asia/Seoul
+        resources:
+          limits:
+            cpu: 100m
+            memory: 30Mi
+          requests:
+            cpu: 100m
+            memory: 20Mi
+        volumeMounts:
+        - name: manager-mnt
+          mountPath: /bin/dev
+      volumes:
+      - name: manager-mnt
+        hostPath:
+          path: "/root/go/src/github.com/tmax-cloud/registry-operator/bin/dev"
+      nodeSelector:
+        kubernetes.io/hostname: jtmgwhqxy1q
+      terminationGracePeriodSeconds: 10

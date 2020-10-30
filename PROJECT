@@ -1,0 +1,13 @@
+layout: go.kubebuilder.io/v2
+projectName: registry-operator
+repo: github.com/tmax-cloud/registry-operator
+resources:
+- group: tmax.io
+  kind: Registry
+  version: v1
+- group: tmax.io
+  kind: Repository
+  version: v1
+version: 3-alpha
+plugins:
+  go.sdk.operatorframework.io/v2-alpha: {}

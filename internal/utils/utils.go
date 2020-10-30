@@ -2,11 +2,11 @@ package utils
 
 import (
 	"reflect"
-	regv1 "registry-operator/pkg/apis/tmax/v1"
 	"runtime"
 	"strings"
 
-	"github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/operator-framework/operator-lib/status"
+	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/log"

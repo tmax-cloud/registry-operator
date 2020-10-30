@@ -1,7 +1,7 @@
 package schemes
 
 import (
-	regv1 "registry-operator/pkg/apis/tmax/v1"
+	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

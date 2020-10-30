@@ -3,7 +3,7 @@ package schemes
 import (
 	"encoding/base64"
 	"encoding/json"
-	regv1 "registry-operator/pkg/apis/tmax/v1"
+	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
