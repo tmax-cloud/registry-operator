@@ -142,7 +142,7 @@ func (r *RegistryDCJSecret) compare(reg *regv1.Registry) []utils.Diff {
 	}
 
 	dockerConfig := schemes.DockerConfig{}
-	json.Unmarshal(val, dockerConfig)
+	json.Unmarshal(val, &dockerConfig)
 	port := 443
 	clusterIP := ""
 	domainIP := ""

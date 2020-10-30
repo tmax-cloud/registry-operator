@@ -17,10 +17,10 @@ spec:
     spec:
       containers:
       - command:
-        - /manager
+        - /bin/dev/manager
         args:
         - --enable-leader-election
-        image: tmaxcloudck/registry-operator:0.0.1
+        image: tmaxcloudck/registry-operator:0.0.1-dev
         name: manager
         imagePullPolicy: Always
         env:
@@ -39,4 +39,13 @@ spec:
           requests:
             cpu: 100m
             memory: 20Mi
+        volumeMounts:
+        - name: manager-mnt
+          mountPath: /bin/dev
+      volumes:
+      - name: manager-mnt
+        hostPath:
+          path: "/root/go/src/github.com/tmax-cloud/registry-operator/bin/dev"
+      nodeSelector:
+        kubernetes.io/hostname: jtmgwhqxy1q
       terminationGracePeriodSeconds: 10

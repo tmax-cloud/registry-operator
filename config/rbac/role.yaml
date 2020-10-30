@@ -7,9 +7,16 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - tmax.io
+  - ""
   resources:
-  - registries
+  - pods
+  - services
+  - services/finalizers
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  - configmaps
+  - secrets
   verbs:
   - create
   - delete
@@ -19,17 +26,12 @@ rules:
   - update
   - watch
 - apiGroups:
-  - tmax.io
+  - apps
   resources:
-  - registries/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - tmax.io
-  resources:
-  - repositories
+  - deployments
+  - daemonsets
+  - replicasets
+  - statefulsets
   verbs:
   - create
   - delete
@@ -39,10 +41,54 @@ rules:
   - update
   - watch
 - apiGroups:
-  - tmax.io
+  - monitoring.coreos.com
   resources:
-  - repositories/status
+  - servicemonitors
   verbs:
   - get
+  - create
+- apiGroups:
+  - apps
+  resourceNames:
+  - registry-operator
+  resources:
+  - deployments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+- apiGroups:
+  - apps
+  resources:
+  - replicasets
+  - deployments
+  verbs:
+  - get
+- apiGroups:
+  - tmax.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - "extensions"
+  resources:
+  - "*"
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

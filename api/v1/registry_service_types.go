@@ -10,5 +10,5 @@ type Ingress struct {
 // use loadBalancer service type
 type LoadBalancer struct {
 	// external port. Generally use 443 port
-	Port int `json:"port",default:"443"`
+	Port int `json:"port"`
 }

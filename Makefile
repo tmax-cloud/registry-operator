@@ -12,7 +12,10 @@ endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+REGISTRY ?= tmaxcloudck
+IMG ?= $(REGISTRY)/registry-operator:$(VERSION)
+DEV_IMG ?= $(REGISTRY)/registry-operator:$(VERSION)-dev
+
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -34,7 +37,8 @@ test: generate fmt vet manifests
 
 # Build manager binary
 manager: generate fmt vet
-	go build -o bin/manager main.go
+	#go build -o bin/manager main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/manager main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
@@ -70,12 +74,20 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
-docker-build: test
+docker-build:
 	docker build . -t ${IMG}
+	
+# Build the docker image
+docker-build-dev:
+	docker build -t ${DEV_IMG} -f $(PWD)/Dockerfile.dev .
 
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+	
+# Push the docker image
+docker-push-dev:
+	docker push ${DEV_IMG}
 
 # find or download controller-gen
 # download controller-gen if necessary

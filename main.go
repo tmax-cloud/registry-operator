@@ -19,6 +19,8 @@ package main
 import (
 	"flag"
 	"os"
+	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -87,17 +89,44 @@ func main() {
 	}
 	// +kubebuilder:scaffold:builder
 
+	var wg sync.WaitGroup
+	wg.Add(2)
+
 	// Added for registry
 	setupLog.Info("Start web server")
-	go server.StartServer(mgr)
+	go func() {
+		server.StartServer(mgr)
+		wg.Done()
+	}()
+
+	// Start manager
+	go func() {
+		setupLog.Info("starting manager")
+		if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+			setupLog.Error(err, "problem running manager")
+			os.Exit(1)
+		}
+		wg.Done()
+	}()
 
 	// Added for registry
+	synced := false
+	syncRetryCount := 0
 	setupLog.Info("All registries synchronize...")
-	regApi.AllRegistrySync(mgr.GetScheme())
+	for !synced && syncRetryCount < 10 {
+		if err := regApi.AllRegistrySync(mgr.GetClient(), mgr.GetScheme()); err != nil {
+			time.Sleep(1 * time.Second)
+			syncRetryCount++
+			continue
+		}
 
-	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
-		os.Exit(1)
+		synced = true
 	}
+
+	if syncRetryCount >= 10 {
+		setupLog.Info("failed to synchronize all registries")
+	}
+
+	// Wait until webserver and manager is over
+	wg.Wait()
 }

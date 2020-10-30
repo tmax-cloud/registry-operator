@@ -1,8 +1,8 @@
 apiVersion: tmax.io/v1
 kind: Registry
 metadata:
-  name: tmax-registry2
-  namespace: reg-test2
+  name: tmax-registry
+  namespace: reg-test
 spec:
   description: test
   image: registry:2.6.2

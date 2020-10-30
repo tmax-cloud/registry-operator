@@ -234,7 +234,7 @@ func (r *RegistryCertSecret) compare(reg *regv1.Registry) []utils.Diff {
 		}
 	} else {
 		val, ok := opaqueData["REGISTRY_URL"]
-		if !ok || string(val) != reg.Status.ClusterIP+":"+string(443) {
+		if !ok || string(val) != reg.Status.ClusterIP+":"+strconv.Itoa(443) {
 			return nil
 		}
 	}

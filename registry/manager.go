@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"strings"
 
 	"github.com/tmax-cloud/registry-operator/controllers/repoctl"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -12,24 +13,28 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var logz = log.Log.WithName("registry-api")
 
-func AllRegistrySync(scheme *runtime.Scheme) {
-	c, err := client.New(config.GetConfigOrDie(), client.Options{})
-	if err != nil {
-		logz.Error(err, "Unknown error")
-	}
+func AllRegistrySync(c client.Client, scheme *runtime.Scheme) error {
+	// c, err := client.New(config.GetConfigOrDie(), client.Options{})
+	// if err != nil {
+	// 	logz.Error(err, "Unknown error")
+	// }
 
 	regList := &regv1.RegistryList{}
 
-	err = c.List(context.TODO(), regList, &client.ListOptions{})
-	if err != nil {
-		logz.Error(err, "Get regsitry list is failed")
-		return
+	if err := c.List(context.TODO(), regList, &client.ListOptions{}); err != nil {
+		if strings.Contains(err.Error(), "the cache is not started") {
+			logz.Info("the cache is not started, can not read objects")
+			return err
+		} else {
+			logz.Error(err, "Get regsitry list is failed")
+		}
+
+		return err
 	}
 
 	logz.Info("Registry list")
@@ -40,6 +45,7 @@ func AllRegistrySync(scheme *runtime.Scheme) {
 		SyncRegistryImage(ra, c, &reg, scheme)
 	}
 
+	return nil
 }
 
 func SyncRegistryImage(r *RegistryApi, c client.Client, reg *regv1.Registry, scheme *runtime.Scheme) error {
