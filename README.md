@@ -10,15 +10,15 @@ The registry-operator project is a service to launch private registries and to m
     
 2. Create CA certificate
 	```bash
-	sudo chmod 755 ./scripts/newCertFile.sh
-	./scripts/newCertFile.sh
+	sudo chmod 755 ./config/scripts/newCertFile.sh
+	./config/scripts/newCertFile.sh
 	cp ca.crt ca.key ./config/pki/
 	``` 
 
 3. Execute install.sh script
 	* Create namespace, CRDs, role, etc... Then deploy the registry-operator.
 		```bash
-		sudo chmod 755 install.sh
+		sudo chmod 755 ./config/scripts/newCertSecret.sh install.sh
 		./install.sh 
 		```
 		

@@ -9,4 +9,6 @@ if [ -n "$1" ] && [ -n "$2" ]; then
 fi
 
 echo "Create CA($CA_CRT, $CA_KEY) registry-ca secret"
-kubectl create secret generic registry-ca --from-file=ca.crt=${CA_CRT} --from-file=ca.key=${CA_KEY} -n registry-system
+kubectl create secret generic registry-ca --from-file=ca.crt=${CA_CRT} --from-file=ca.key=${CA_KEY} -n registry-system || true
+
+echo "Create CA Completed"
