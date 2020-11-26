@@ -51,6 +51,12 @@ spec:
         spec:
           description: RegistrySpec defines the desired state of Registry
           properties:
+            auth:
+              description: Auth is htpasswd or token. default is htpasswd
+              enum:
+              - htpasswd
+              - token
+              type: string
             customConfigYml:
               description: The name of the configmap where the registry config.yml
                 content
@@ -65,6 +71,14 @@ spec:
               type: string
             loginPassword:
               type: string
+            notary:
+              description: Set notary service
+              properties:
+                enabled:
+                  type: boolean
+              required:
+              - enabled
+              type: object
             persistentVolumeClaim:
               properties:
                 create:
