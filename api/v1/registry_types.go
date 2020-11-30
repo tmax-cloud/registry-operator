@@ -21,7 +21,11 @@ type RegistrySpec struct {
 	Description   string `json:"description,omitempty"`
 	LoginId       string `json:"loginId"`
 	LoginPassword string `json:"loginPassword"`
-
+	// Auth is htpasswd or token. default is htpasswd
+	// +kubebuilder:validation:Enum=htpasswd;token
+	Auth string `json:"auth,omitempty"`
+	// Set notary service
+	Notary RegistryNotary `json:"notary,omitempty"`
 	// The name of the configmap where the registry config.yml content
 	CustomConfigYml string `json:"customConfigYml,omitempty"`
 
@@ -31,6 +35,10 @@ type RegistrySpec struct {
 	// Supported service types are ingress and loadBalancer
 	RegistryService       RegistryService `json:"service"`
 	PersistentVolumeClaim RegistryPVC     `json:"persistentVolumeClaim"`
+}
+
+type RegistryNotary struct {
+	Enabled bool `json:"enabled"`
 }
 
 type RegistryDeployment struct {
