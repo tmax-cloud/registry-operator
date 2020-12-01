@@ -24,4 +24,7 @@ const (
 	ConditionTypeIngress                = status.ConditionType("IngressExist")
 	ConditionTypePvc                    = status.ConditionType("PvcExist")
 	ConditionTypeConfigMap              = status.ConditionType("ConfigMapExist")
+	ConditionTypeNotaryServer           = status.ConditionType("NotaryServerExist")
+	ConditionTypeNotarySigner           = status.ConditionType("NotarySignerExist")
+	ConditionTypeNotaryDB               = status.ConditionType("NotaryDBExist")
 )
