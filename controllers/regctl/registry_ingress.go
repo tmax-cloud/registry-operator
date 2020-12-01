@@ -52,7 +52,7 @@ func (r *RegistryIngress) Ready(c client.Client, reg *regv1.Registry, patchReg *
 		Type:   IngressTypeName,
 	}
 
-	defer utils.SetError(err, patchReg, &condition)
+	defer utils.SetCondition(err, patchReg, &condition)
 
 	if useGet {
 		if err = r.get(c, reg); err != nil {
@@ -85,6 +85,13 @@ func (r *RegistryIngress) Ready(c client.Client, reg *regv1.Registry, patchReg *
 		return err
 	}
 
+	for _, host := range r.ingress.Spec.TLS[0].Hosts {
+		newServerURL := "https://" + host + ":443"
+		if !utils.Contains(patchReg.Status.ServerURLs, newServerURL) {
+			patchReg.Status.ServerURLs = append(patchReg.Status.ServerURLs, newServerURL)
+		}
+	}
+
 	err = nil
 	condition.Status = corev1.ConditionTrue
 	r.logger.Info("Succeed")
@@ -99,13 +106,13 @@ func (r *RegistryIngress) create(c client.Client, reg *regv1.Registry, patchReg 
 
 	if err := controllerutil.SetControllerReference(reg, r.ingress, scheme); err != nil {
 		r.logger.Error(err, "Controller reference failed")
-		utils.SetError(err, patchReg, &condition)
+		utils.SetCondition(err, patchReg, &condition)
 		return err
 	}
 
 	if err := c.Create(context.TODO(), r.ingress); err != nil {
 		r.logger.Error(err, "Create failed")
-		utils.SetError(err, patchReg, &condition)
+		utils.SetCondition(err, patchReg, &condition)
 		return err
 	}
 
@@ -142,7 +149,7 @@ func (r *RegistryIngress) delete(c client.Client, patchReg *regv1.Registry) erro
 
 	if err := c.Delete(context.TODO(), r.ingress); err != nil {
 		r.logger.Error(err, "Delete failed")
-		utils.SetError(err, patchReg, condition)
+		utils.SetCondition(err, patchReg, condition)
 		return err
 	}
 

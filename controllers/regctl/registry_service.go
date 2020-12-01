@@ -2,6 +2,8 @@ package regctl
 
 import (
 	"context"
+	"strconv"
+	"strings"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 
@@ -54,7 +56,7 @@ func (r *RegistryService) Ready(c client.Client, reg *regv1.Registry, patchReg *
 		Status: corev1.ConditionFalse,
 		Type:   ServiceTypeName,
 	}
-	defer utils.SetError(err, patchReg, condition)
+	defer utils.SetCondition(err, patchReg, condition)
 
 	if useGet {
 		if err = r.get(c, reg); err != nil {
@@ -78,6 +80,10 @@ func (r *RegistryService) Ready(c client.Client, reg *regv1.Registry, patchReg *
 			return regv1.MakeRegistryError("NotReady")
 		}
 		reg.Status.LoadBalancerIP = lbIP
+		newServerURL := "https://" + lbIP + ":" + strconv.Itoa(int(r.svc.Spec.Ports[0].Port))
+		if !utils.Contains(patchReg.Status.ServerURLs, newServerURL) {
+			patchReg.Status.ServerURLs = append(patchReg.Status.ServerURLs, newServerURL)
+		}
 		r.logger.Info("LoadBalancer info", "LoadBalancer IP", lbIP)
 	} else if r.svc.Spec.Type == corev1.ServiceTypeClusterIP {
 		if r.svc.Spec.ClusterIP == "" {
@@ -87,6 +93,16 @@ func (r *RegistryService) Ready(c client.Client, reg *regv1.Registry, patchReg *
 		// [TODO]
 	}
 	reg.Status.ClusterIP = r.svc.Spec.ClusterIP
+	newServerURL := "https://" + r.svc.Spec.ClusterIP + ":" + strconv.Itoa(int(r.svc.Spec.Ports[0].Port))
+	if !utils.Contains(patchReg.Status.ServerURLs, newServerURL) {
+		patchReg.Status.ServerURLs = append(patchReg.Status.ServerURLs, newServerURL)
+	}
+
+	serviceDomainName := strings.Join([]string{r.svc.Name, r.svc.Namespace, "svc", "cluster", "local"}, ".")
+	newServerURL = "https://" + serviceDomainName + ":" + strconv.Itoa(int(r.svc.Spec.Ports[0].Port))
+	if !utils.Contains(patchReg.Status.ServerURLs, newServerURL) {
+		patchReg.Status.ServerURLs = append(patchReg.Status.ServerURLs, newServerURL)
+	}
 	condition.Status = corev1.ConditionTrue
 	err = nil
 	r.logger.Info("Succeed")
@@ -101,13 +117,13 @@ func (r *RegistryService) create(c client.Client, reg *regv1.Registry, patchReg 
 
 	if err := controllerutil.SetControllerReference(reg, r.svc, scheme); err != nil {
 		r.logger.Error(err, "Set owner reference failed")
-		utils.SetError(err, patchReg, condition)
+		utils.SetCondition(err, patchReg, condition)
 		return err
 	}
 
 	if err := c.Create(context.TODO(), r.svc); err != nil {
 		r.logger.Error(err, "Create failed")
-		utils.SetError(err, patchReg, condition)
+		utils.SetCondition(err, patchReg, condition)
 		return err
 	}
 
@@ -143,7 +159,7 @@ func (r *RegistryService) delete(c client.Client, patchReg *regv1.Registry) erro
 
 	if err := c.Delete(context.TODO(), r.svc); err != nil {
 		r.logger.Error(err, "Delete failed")
-		utils.SetError(err, patchReg, condition)
+		utils.SetCondition(err, patchReg, condition)
 		return err
 	}
 

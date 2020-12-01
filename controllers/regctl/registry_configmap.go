@@ -45,7 +45,7 @@ func (r *RegistryConfigMap) Ready(c client.Client, reg *regv1.Registry, patchReg
 		Status: corev1.ConditionFalse,
 		Type:   regv1.ConditionTypeConfigMap,
 	}
-	defer utils.SetError(err, patchReg, condition)
+	defer utils.SetCondition(err, patchReg, condition)
 
 	if useGet {
 		err = r.get(c, reg)

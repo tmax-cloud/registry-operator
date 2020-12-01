@@ -62,7 +62,7 @@ func (r *RegistryDeployment) Ready(c client.Client, reg *regv1.Registry, patchRe
 		Status: corev1.ConditionFalse,
 		Type:   regv1.ConditionTypeDeployment,
 	}
-	defer utils.SetError(err, patchReg, condition)
+	defer utils.SetCondition(err, patchReg, condition)
 	if useGet {
 		err = r.get(c, reg)
 		if err != nil {

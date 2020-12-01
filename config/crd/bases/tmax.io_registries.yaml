@@ -316,6 +316,10 @@ spec:
               type: boolean
             reason:
               type: string
+            serverURLs:
+              items:
+                type: string
+              type: array
           required:
           - capacity
           - conditions
@@ -324,6 +328,7 @@ spec:
           - phaseChangedAt
           - podRecreateRequired
           - reason
+          - serverURLs
           type: object
       required:
       - spec
