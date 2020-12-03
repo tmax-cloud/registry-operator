@@ -25,6 +25,7 @@ const (
 	ConditionTypeIngress                = status.ConditionType("IngressExist")
 	ConditionTypePvc                    = status.ConditionType("PvcExist")
 	ConditionTypeConfigMap              = status.ConditionType("ConfigMapExist")
+	ConditionKeycloakRealm              = status.ConditionType("KeycloakRealm")
 
 	// Notary conditions
 	ConditionTypeNotaryDBPod         = status.ConditionType("NotaryDBPodExist")
