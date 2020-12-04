@@ -49,8 +49,8 @@ func (r *RegistryPod) Ready(c client.Client, reg *regv1.Registry, patchReg *regv
 		Type:   regv1.ConditionTypeContainer,
 		Status: corev1.ConditionFalse,
 	}
-	defer utils.SetError(err, patchReg, podCondition)
-	defer utils.SetError(err, patchReg, contCondition)
+	defer utils.SetCondition(err, patchReg, podCondition)
+	defer utils.SetCondition(err, patchReg, contCondition)
 
 	if r.pod == nil || useGet {
 		err = r.get(c, reg)

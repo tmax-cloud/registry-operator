@@ -64,7 +64,7 @@ func (r *RegistryCertSecret) Ready(c client.Client, reg *regv1.Registry, patchRe
 		Type:   SecretTLSTypeName,
 	}
 
-	defer utils.SetError(opaqueErr, patchReg, condition)
+	defer utils.SetCondition(opaqueErr, patchReg, condition)
 
 	if useGet {
 		if opaqueErr = r.get(c, reg); opaqueErr != nil {
@@ -86,7 +86,7 @@ func (r *RegistryCertSecret) Ready(c client.Client, reg *regv1.Registry, patchRe
 	}
 	condition.Status = corev1.ConditionTrue
 
-	defer utils.SetError(err, patchReg, tlsCondition)
+	defer utils.SetCondition(err, patchReg, tlsCondition)
 	err = regv1.MakeRegistryError("Secret TLS Error")
 	if _, ok := r.secretTLS.Data[schemes.TLSCert]; !ok {
 		r.logger.Error(err, "No certificate in data")
@@ -116,24 +116,24 @@ func (r *RegistryCertSecret) create(c client.Client, reg *regv1.Registry, patchR
 	}
 
 	if err := controllerutil.SetControllerReference(reg, r.secretOpaque, scheme); err != nil {
-		utils.SetError(err, patchReg, condition)
+		utils.SetCondition(err, patchReg, condition)
 		return err
 	}
 
 	if err := controllerutil.SetControllerReference(reg, r.secretTLS, scheme); err != nil {
-		utils.SetError(err, patchReg, tlsCondition)
+		utils.SetCondition(err, patchReg, tlsCondition)
 		return err
 	}
 
 	if err := c.Create(context.TODO(), r.secretOpaque); err != nil {
 		r.logger.Error(err, "Create failed")
-		utils.SetError(err, patchReg, condition)
+		utils.SetCondition(err, patchReg, condition)
 		return err
 	}
 
 	if err := c.Create(context.TODO(), r.secretTLS); err != nil {
 		r.logger.Error(err, "Create failed")
-		utils.SetError(err, patchReg, tlsCondition)
+		utils.SetCondition(err, patchReg, tlsCondition)
 		return err
 	}
 
@@ -183,13 +183,13 @@ func (r *RegistryCertSecret) delete(c client.Client, patchReg *regv1.Registry) e
 
 	if err := c.Delete(context.TODO(), r.secretOpaque); err != nil {
 		r.logger.Error(err, "Delete failed")
-		utils.SetError(err, patchReg, condition)
+		utils.SetCondition(err, patchReg, condition)
 		return err
 	}
 
 	if err := c.Delete(context.TODO(), r.secretTLS); err != nil {
 		r.logger.Error(err, "Delete failed")
-		utils.SetError(err, patchReg, tlsCondition)
+		utils.SetCondition(err, patchReg, tlsCondition)
 		return err
 	}
 

@@ -59,7 +59,7 @@ func (r *RegistryPVC) Ready(c client.Client, reg *regv1.Registry, patchReg *regv
 		Type:   regv1.ConditionTypePvc,
 	}
 
-	defer utils.SetError(err, patchReg, condition)
+	defer utils.SetCondition(err, patchReg, condition)
 
 	if r.pvc == nil || useGet {
 		err := r.get(c, reg)

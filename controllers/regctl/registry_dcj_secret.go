@@ -56,7 +56,7 @@ func (r *RegistryDCJSecret) Ready(c client.Client, reg *regv1.Registry, patchReg
 		Type:   SecretDCJTypeName,
 	}
 
-	defer utils.SetError(err, patchReg, &condition)
+	defer utils.SetCondition(err, patchReg, &condition)
 
 	if useGet {
 		if err = r.get(c, reg); err != nil {
@@ -84,13 +84,13 @@ func (r *RegistryDCJSecret) create(c client.Client, reg *regv1.Registry, patchRe
 	}
 
 	if err := controllerutil.SetControllerReference(reg, r.secretDCJ, scheme); err != nil {
-		utils.SetError(err, patchReg, &condition)
+		utils.SetCondition(err, patchReg, &condition)
 		return err
 	}
 
 	if err := c.Create(context.TODO(), r.secretDCJ); err != nil {
 		r.logger.Error(err, "Create failed")
-		utils.SetError(err, patchReg, &condition)
+		utils.SetCondition(err, patchReg, &condition)
 		return err
 	}
 
@@ -127,7 +127,7 @@ func (r *RegistryDCJSecret) delete(c client.Client, patchReg *regv1.Registry) er
 
 	if err := c.Delete(context.TODO(), r.secretDCJ); err != nil {
 		r.logger.Error(err, "Delete failed")
-		utils.SetError(err, patchReg, condition)
+		utils.SetCondition(err, patchReg, condition)
 		return err
 	}
 

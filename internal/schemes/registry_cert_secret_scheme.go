@@ -7,13 +7,14 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/internal/utils"
 	"math/big"
 	"net"
 	"strconv"
 	"strings"
 	"time"
+
+	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/utils"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -170,10 +171,12 @@ func makeCertificate(reg *regv1.Registry, parentCert *x509.Certificate,
 	}
 
 	template.IPAddresses = []net.IP{net.ParseIP(reg.Status.ClusterIP)}
+	serviceDomainName := strings.Join([]string{reg.Name, reg.Namespace, "svc", "cluster", "local"}, ".")
+	template.DNSNames = []string{serviceDomainName}
 	if reg.Spec.RegistryService.ServiceType == regv1.RegServiceTypeLoadBalancer {
 		template.IPAddresses = append(template.IPAddresses, net.ParseIP(reg.Status.LoadBalancerIP))
 	} else if reg.Spec.RegistryService.ServiceType == "Ingress" {
-		template.DNSNames = []string{reg.Name + "." + reg.Spec.RegistryService.Ingress.DomainName}
+		template.DNSNames = append(template.DNSNames, reg.Name+"."+reg.Spec.RegistryService.Ingress.DomainName)
 	}
 
 	parent := &x509.Certificate{}
