@@ -58,10 +58,15 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// Fetch the Registry reg
 	reg := &regv1.Registry{}
+	kc := &regctl.KeycloakController{}
 	err := r.Get(context.TODO(), req.NamespacedName, reg)
 	if err != nil {
 		r.Log.Info("Error on get registry")
 		if errors.IsNotFound(err) {
+			if err := kc.DeleteRealm(req.Namespace, req.Name); err != nil {
+				r.Log.Info("Couldn't delete keycloak realm")
+			}
+
 			r.Log.Info("Not Found Error")
 			return reconcile.Result{}, nil
 		}
@@ -123,6 +128,14 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 			}
 		}
 	}
+
+	if reg.Status.Conditions.IsFalseFor(regv1.ConditionKeycloakRealm) {
+		kc := &regctl.KeycloakController{}
+		if err := kc.CreateRealm(reg); err != nil {
+			return err
+		}
+	}
+
 	if requeueErr != nil {
 		return requeueErr
 	}
