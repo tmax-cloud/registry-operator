@@ -23,6 +23,7 @@ type NotaryServer struct {
 	logger *utils.RegistryLogger
 }
 
+// Handle is to create notary server pod.
 func (nt *NotaryServer) Handle(c client.Client, notary *regv1.Notary, patchNotary *regv1.Notary, scheme *runtime.Scheme) error {
 	if err := nt.get(c, notary); err != nil {
 		if errors.IsNotFound(err) {
@@ -39,55 +40,48 @@ func (nt *NotaryServer) Handle(c client.Client, notary *regv1.Notary, patchNotar
 	return nil
 }
 
+// Ready is to create notary server pod.
 func (nt *NotaryServer) Ready(c client.Client, notary *regv1.Notary, patchNotary *regv1.Notary, useGet bool) error {
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   regv1.ConditionTypeDeployment,
+		Type:   regv1.ConditionTypeNotaryServerPod,
 	}
+
+	defer utils.SetCondition(err, patchNotary, condition)
+
 	if useGet {
 		err = nt.get(c, notary)
 		if err != nil {
-			nt.logger.Error(err, "Deployment error")
+			nt.logger.Error(err, "get pod error")
 			return err
 		}
 	}
 
-	if nt.pod == nil {
-		nt.logger.Info("NotReady")
-
-		err = regv1.MakeRegistryError("NotReady")
-		return err
-	}
+	// TODO: check if not ready
 
 	nt.logger.Info("Ready")
 	condition.Status = corev1.ConditionTrue
 	return nil
 }
 
-func (nt *NotaryServer) create(c client.Client, reg *regv1.Notary, patchReg *regv1.Notary, scheme *runtime.Scheme) error {
-	if err := controllerutil.SetControllerReference(reg, nt.pod, scheme); err != nil {
-		nt.logger.Error(err, "SetOwnerReference Failed")
-		condition := status.Condition{
-			Status:  corev1.ConditionFalse,
-			Type:    regv1.ConditionTypeNotaryServerPod,
-			Message: err.Error(),
-		}
+func (nt *NotaryServer) create(c client.Client, notary *regv1.Notary, patchNotary *regv1.Notary, scheme *runtime.Scheme) error {
+	var err error = nil
+	condition := &status.Condition{
+		Status: corev1.ConditionFalse,
+		Type:   regv1.ConditionTypeNotaryServerPod,
+	}
 
-		patchReg.Status.Conditions.SetCondition(condition)
+	defer utils.SetCondition(err, patchNotary, condition)
+
+	if err = controllerutil.SetControllerReference(notary, nt.pod, scheme); err != nil {
+		nt.logger.Error(err, "SetOwnerReference Failed")
+
 		return nil
 	}
 
 	nt.logger.Info("Create notary server pod")
-	err := c.Create(context.TODO(), nt.pod)
-	if err != nil {
-		condition := status.Condition{
-			Status:  corev1.ConditionFalse,
-			Type:    regv1.ConditionTypeNotaryServerPod,
-			Message: err.Error(),
-		}
-
-		patchReg.Status.Conditions.SetCondition(condition)
+	if err = c.Create(context.TODO(), nt.pod); err != nil {
 		nt.logger.Error(err, "Creating notary server pod is failed.")
 		return nil
 	}
@@ -101,27 +95,28 @@ func (nt *NotaryServer) get(c client.Client, notary *regv1.Notary) error {
 
 	req := types.NamespacedName{Name: nt.pod.Name, Namespace: nt.pod.Namespace}
 
-	err := c.Get(context.TODO(), req, nt.pod)
-	if err != nil {
+	if err := c.Get(context.TODO(), req, nt.pod); err != nil {
 		nt.logger.Error(err, "Get notary server pod is failed")
 		return err
+
 	}
 
 	return nil
 }
 
-func (nt *NotaryServer) delete(c client.Client, patchReg *regv1.Notary) error {
-	if err := c.Delete(context.TODO(), nt.pod); err != nil {
-		nt.logger.Error(err, "Unknown error delete deployment")
+func (nt *NotaryServer) delete(c client.Client, patchNotary *regv1.Notary) error {
+	var err error = nil
+	condition := &status.Condition{
+		Status: corev1.ConditionFalse,
+		Type:   regv1.ConditionTypeNotaryServerPod,
+	}
+
+	defer utils.SetCondition(err, patchNotary, condition)
+
+	if err = c.Delete(context.TODO(), nt.pod); err != nil {
+		nt.logger.Error(err, "Unknown error delete pod")
 		return err
 	}
-
-	condition := status.Condition{
-		Type:   regv1.ConditionTypeDeployment,
-		Status: corev1.ConditionFalse,
-	}
-
-	patchReg.Status.Conditions.SetCondition(condition)
 
 	return nil
 }
