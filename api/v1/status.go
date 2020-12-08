@@ -14,6 +14,7 @@ const (
 	StatusSkipped   = Status("Skipped")
 	StatusCreating  = Status("Creating")
 
+	// Registry conditions
 	ConditionTypeDeployment             = status.ConditionType("DeploymentExist")
 	ConditionTypePod                    = status.ConditionType("PodRunning")
 	ConditionTypeContainer              = status.ConditionType("ContainerReady")
@@ -24,7 +25,9 @@ const (
 	ConditionTypeIngress                = status.ConditionType("IngressExist")
 	ConditionTypePvc                    = status.ConditionType("PvcExist")
 	ConditionTypeConfigMap              = status.ConditionType("ConfigMapExist")
-	ConditionTypeNotaryServer           = status.ConditionType("NotaryServerExist")
-	ConditionTypeNotarySigner           = status.ConditionType("NotarySignerExist")
-	ConditionTypeNotaryDB               = status.ConditionType("NotaryDBExist")
+
+	// Notary conditions
+	ConditionTypeNotaryServerPod = status.ConditionType("NotaryServerPodExist")
+	ConditionTypeNotarySignerPod = status.ConditionType("NotarySignerPodExist")
+	ConditionTypeNotaryDBPod     = status.ConditionType("NotaryDBPodExist")
 )

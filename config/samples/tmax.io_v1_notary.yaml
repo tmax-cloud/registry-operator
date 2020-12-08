@@ -1,0 +1,7 @@
+apiVersion: tmax.io/v1
+kind: Notary
+metadata:
+  name: notary-sample
+spec:
+  # Add fields here
+  foo: bar
