@@ -40,7 +40,7 @@ func (nt *NotaryServer) Handle(c client.Client, notary *regv1.Notary, patchNotar
 	return nil
 }
 
-// Ready is to create notary server pod.
+// Ready is to check if the pod is ready and to set the condition
 func (nt *NotaryServer) Ready(c client.Client, notary *regv1.Notary, patchNotary *regv1.Notary, useGet bool) error {
 	var err error = nil
 	condition := &status.Condition{
