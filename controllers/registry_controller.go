@@ -45,6 +45,7 @@ type RegistryReconciler struct {
 
 // +kubebuilder:rbac:groups=tmax.io,resources=registries,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=tmax.io,resources=registries/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
@@ -131,7 +132,7 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 
 	if reg.Status.Conditions.IsFalseFor(regv1.ConditionKeycloakRealm) {
 		kc := &regctl.KeycloakController{}
-		if err := kc.CreateRealm(reg); err != nil {
+		if err := kc.CreateRealm(reg.Namespace, reg.Name, patchReg); err != nil {
 			return err
 		}
 	}
