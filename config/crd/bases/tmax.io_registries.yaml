@@ -326,9 +326,7 @@ spec:
           - message
           - phase
           - phaseChangedAt
-          - podRecreateRequired
           - reason
-          - serverURLs
           type: object
       required:
       - spec
