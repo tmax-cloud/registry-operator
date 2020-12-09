@@ -32,11 +32,16 @@ func GetRegistryLogger(subresource interface{}, resNamespace, resName string) lo
 	return log.Log.WithValues(typeName+".Namespace", resNamespace, typeName+".Name", resName, typeName+".Api", funcName)
 }
 
-func SetCondition(error error, patchReg *regv1.Registry, condition *status.Condition) {
+func SetCondition(error error, patch interface{}, condition *status.Condition) {
 	if error != nil {
 		condition.Message = error.Error()
 	}
-	patchReg.Status.Conditions.SetCondition(*condition)
+	switch p := patch.(type) {
+	case *regv1.Registry:
+		p.Status.Conditions.SetCondition(*condition)
+	case *regv1.Notary:
+		p.Status.Conditions.SetCondition(*condition)
+	}
 }
 
 type RegistryLogger struct {

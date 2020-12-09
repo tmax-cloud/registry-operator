@@ -87,6 +87,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Repository")
 		os.Exit(1)
 	}
+	if err = (&controllers.NotaryReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("Notary"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Notary")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	var wg sync.WaitGroup

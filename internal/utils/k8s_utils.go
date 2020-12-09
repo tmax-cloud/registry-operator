@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"reflect"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -43,4 +44,8 @@ func (p *Patcher) Type() types.PatchType {
 
 func (p *Patcher) Data(obj runtime.Object) ([]byte, error) {
 	return p.DataBytes, nil
+}
+
+func BuildServiceHostname(name, namespace string) string {
+	return strings.Join([]string{name, namespace, "svc", "cluster", "local"}, ".")
 }

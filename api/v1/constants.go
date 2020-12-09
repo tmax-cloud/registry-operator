@@ -5,6 +5,7 @@ const (
 	OperatorNamespace = "registry-system"
 	TLSPrefix         = "tls-"
 	K8sRegistryPrefix = "registry-"
+	K8sNotaryPrefix   = "notary-"
 
 	CustomObjectGroup = "tmax.io"
 
