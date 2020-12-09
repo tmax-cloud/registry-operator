@@ -27,7 +27,14 @@ const (
 	ConditionTypeConfigMap              = status.ConditionType("ConfigMapExist")
 
 	// Notary conditions
-	ConditionTypeNotaryServerPod = status.ConditionType("NotaryServerPodExist")
-	ConditionTypeNotarySignerPod = status.ConditionType("NotarySignerPodExist")
-	ConditionTypeNotaryDBPod     = status.ConditionType("NotaryDBPodExist")
+	ConditionTypeNotaryDBPod         = status.ConditionType("NotaryDBPodExist")
+	ConditionTypeNotaryDBPVC         = status.ConditionType("NotaryDBPVCExist")
+	ConditionTypeNotaryDBService     = status.ConditionType("NotaryDBServiceExist")
+	ConditionTypeNotaryServerIngress = status.ConditionType("NotaryServerIngressExist")
+	ConditionTypeNotaryServerPod     = status.ConditionType("NotaryServerPodExist")
+	ConditionTypeNotaryServerSecret  = status.ConditionType("NotaryServerSecretExist")
+	ConditionTypeNotaryServerService = status.ConditionType("NotaryServerServiceExist")
+	ConditionTypeNotarySignerPod     = status.ConditionType("NotarySignerPodExist")
+	ConditionTypeNotarySignerSecret  = status.ConditionType("NotarySignerSecretExist")
+	ConditionTypeNotarySignerService = status.ConditionType("NotarySignerServiceExist")
 )

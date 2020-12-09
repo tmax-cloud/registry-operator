@@ -14,7 +14,7 @@ const (
 
 const (
 	SubTypeNotaryDBPod = SubresourceType(iota)
-	SubTypeNotaryDBPvc
+	SubTypeNotaryDBPVC
 	SubTypeNotaryDBService
 	SubTypeNotaryServerIngress
 	SubTypeNotaryServerPod
@@ -28,10 +28,10 @@ const (
 // SubresourceName returns Notary's or Registry's subresource name
 func SubresourceName(subresource interface{}, subresourceType SubresourceType) string {
 	switch res := subresource.(type) {
-	case regv1.Notary:
+	case *regv1.Notary:
 		switch subresourceType {
 		// Notary DB
-		case SubTypeNotaryDBPod, SubTypeNotaryDBPvc, SubTypeNotaryDBService:
+		case SubTypeNotaryDBPod, SubTypeNotaryDBPVC, SubTypeNotaryDBService:
 			return regv1.K8sPrefix + regv1.K8sNotaryPrefix + NotaryDBPrefix + res.Name
 
 		// Notary Server
@@ -43,7 +43,7 @@ func SubresourceName(subresource interface{}, subresourceType SubresourceType) s
 			return regv1.K8sPrefix + regv1.K8sNotaryPrefix + NotarySignerPrefix + res.Name
 		}
 
-		// TODO: regv1.Registry
+		// TODO: *regv1.Registry
 	}
 
 	return ""

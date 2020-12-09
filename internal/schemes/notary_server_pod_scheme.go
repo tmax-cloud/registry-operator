@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	ServerImage      = "tmaxcloudck/notary_server:latest"
+	ServerImage      = "tmaxcloudck/notary_server:0.6.2-rc1"
 	ServerTlsCrtPath = "/certs/server/tls.crt"
 	ServerTlsKeyPath = "/certs/server/tls.key"
-	RootCAPath       = "/certs/rootca/root-ca.crt"
+	ServerRootCAPath = "/certs/rootca/root-ca.crt"
 )
 
 func NotaryServerPod(notary *regv1.Notary) *corev1.Pod {
@@ -51,7 +51,7 @@ func NotaryServerPod(notary *regv1.Notary) *corev1.Pod {
 						},
 						corev1.EnvVar{
 							Name:  "NOTARY_SERVER_TRUST_SERVICE_TLS_CA_FILE",
-							Value: RootCAPath,
+							Value: ServerRootCAPath,
 						},
 						corev1.EnvVar{
 							Name:  "NOTARY_SERVER_TRUST_SERVICE_KEY_ALGORITHM",
@@ -83,7 +83,7 @@ func NotaryServerPod(notary *regv1.Notary) *corev1.Pod {
 						},
 						corev1.EnvVar{
 							Name:  "NOTARY_SERVER_AUTH_OPTIONS_ROOTCERTBUNDLE",
-							Value: RootCAPath,
+							Value: ServerRootCAPath,
 						},
 						corev1.EnvVar{
 							Name:  "NOTARY_SERVER_STORAGE_BACKEND",
@@ -109,7 +109,12 @@ func NotaryServerPod(notary *regv1.Notary) *corev1.Pod {
 						},
 						corev1.VolumeMount{
 							Name:      "root-ca",
-							MountPath: path.Dir(RootCAPath),
+							MountPath: path.Dir(ServerRootCAPath),
+						},
+					},
+					Ports: []corev1.ContainerPort{
+						corev1.ContainerPort{
+							ContainerPort: 4443,
 						},
 					},
 				},
