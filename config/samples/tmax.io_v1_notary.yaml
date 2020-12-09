@@ -2,6 +2,19 @@ apiVersion: tmax.io/v1
 kind: Notary
 metadata:
   name: notary-sample
+  namespace: reg-test
 spec:
   # Add fields here
-  foo: bar
+  rootCASecret: test
+  authConfig:
+    realm: realm
+    service: service
+    issuer: issuer
+  serviceType: LoadBalancer
+  persistentVolumeClaim:
+    create:
+      accessModes: [ReadWriteMany]
+      storageSize: 10Gi
+      storageClassName: csi-cephfs-sc
+      volumeMode: Filesystem
+      deleteWithPvc: true
