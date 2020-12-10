@@ -15,8 +15,7 @@ import (
 )
 
 var (
-	// TODO: hypercloud의 keycloak 서비스와 맞추기
-	keycloakServer = "https://keycloak-test-service.reg-test.svc.cluster.local:8443"
+	keycloakServer = os.Getenv("KEYCLOAK_SERVICE")
 	keycloakUser   = os.Getenv("KEYCLOAK_USERNAME")
 	keycloakPwd    = os.Getenv("KEYCLOAK_PASSWORD")
 )
@@ -104,6 +103,10 @@ func (c *KeycloakController) DeleteRealm(namespace string, name string) error {
 	if err != nil {
 		c.logger.Error(err, "Couldn't get access token from keycloak")
 		return err
+	}
+
+	if !c.isExistRealm(token.AccessToken, c.name) {
+		return nil
 	}
 
 	// Delete realm

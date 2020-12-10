@@ -41,11 +41,11 @@ type RegistryReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+	kc     regctl.KeycloakController
 }
 
 // +kubebuilder:rbac:groups=tmax.io,resources=registries,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=tmax.io,resources=registries/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
@@ -59,12 +59,11 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// Fetch the Registry reg
 	reg := &regv1.Registry{}
-	kc := &regctl.KeycloakController{}
 	err := r.Get(context.TODO(), req.NamespacedName, reg)
 	if err != nil {
 		r.Log.Info("Error on get registry")
 		if errors.IsNotFound(err) {
-			if err := kc.DeleteRealm(req.Namespace, req.Name); err != nil {
+			if err := r.kc.DeleteRealm(req.Namespace, req.Name); err != nil {
 				r.Log.Info("Couldn't delete keycloak realm")
 			}
 
@@ -108,6 +107,12 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 
 	defer r.patch(reg, patchReg)
 
+	if reg.Status.Conditions.IsFalseFor(regv1.ConditionKeycloakRealm) {
+		if err := r.kc.CreateRealm(reg.Namespace, reg.Name, patchReg); err != nil {
+			return err
+		}
+	}
+
 	// Check if subresources are created.
 	for _, sctl := range collectSubController {
 		subresourceType := reflect.TypeOf(sctl).String()
@@ -127,13 +132,6 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 			} else {
 				return err
 			}
-		}
-	}
-
-	if reg.Status.Conditions.IsFalseFor(regv1.ConditionKeycloakRealm) {
-		kc := &regctl.KeycloakController{}
-		if err := kc.CreateRealm(reg.Namespace, reg.Name, patchReg); err != nil {
-			return err
 		}
 	}
 

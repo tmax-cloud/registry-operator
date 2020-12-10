@@ -32,6 +32,8 @@ spec:
             value: "registry-operator"
           - name: TZ
             value: Asia/Seoul
+          - name: KEYCLOAK_SERVICE
+            value: https://keycloak-test-service.reg-test.svc.cluster.local:8443
           - name: KEYCLOAK_USERNAME
             valueFrom:
                 secretKeyRef:
