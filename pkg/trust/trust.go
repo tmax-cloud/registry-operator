@@ -84,17 +84,17 @@ func New(image *Image, passPhrase tmaxiov1.TrustPass, path string, ca []byte) (*
 	return n, nil
 }
 
-func (n notaryRepo) GetPassphrase(id string) (string, error) {
+func (n *notaryRepo) GetPassphrase(id string) (string, error) {
 	return n.passPhrase.GetKeyPass(id)
 }
 
-func (n notaryRepo) CreateRootKey() error {
+func (n *notaryRepo) CreateRootKey() error {
 	log.Info(fmt.Sprintf("Creating root key"))
 	_, err := n.repo.GetCryptoService().Create(data.CanonicalRootRole, "", data.ECDSAKey)
 	return err
 }
 
-func (n notaryRepo) SignImage() error {
+func (n *notaryRepo) SignImage() error {
 	log.Info(fmt.Sprintf("Signing image %s", n.image.GetImageNameWithHost()))
 	imgDigest, size, err := n.image.GetImageManifest()
 	if err != nil {
@@ -137,15 +137,15 @@ func (n notaryRepo) SignImage() error {
 	return nil
 }
 
-func (n notaryRepo) keyPath(keyId string) string {
+func (n *notaryRepo) keyPath(keyId string) string {
 	return fmt.Sprintf("%s/private/%s.key", n.notaryPath, keyId)
 }
 
-func (n notaryRepo) WriteKey(keyId string, key []byte) error {
+func (n *notaryRepo) WriteKey(keyId string, key []byte) error {
 	return ioutil.WriteFile(n.keyPath(keyId), key, 0600)
 }
 
-func (n notaryRepo) ReadRootKey() (string, []byte, error) {
+func (n *notaryRepo) ReadRootKey() (string, []byte, error) {
 	key, err := n.getRootKey()
 	if err != nil {
 		return "", nil, err
@@ -156,7 +156,7 @@ func (n notaryRepo) ReadRootKey() (string, []byte, error) {
 	return key, keyVal, err
 }
 
-func (n notaryRepo) ReadTargetKey() (string, []byte, error) {
+func (n *notaryRepo) ReadTargetKey() (string, []byte, error) {
 	key, err := n.getTargetKey()
 	if err != nil {
 		return "", nil, err
@@ -167,11 +167,11 @@ func (n notaryRepo) ReadTargetKey() (string, []byte, error) {
 	return key, keyVal, err
 }
 
-func (n notaryRepo) ClearDir() error {
+func (n *notaryRepo) ClearDir() error {
 	return os.RemoveAll(n.notaryPath)
 }
 
-func (n notaryRepo) InitNotaryRepoWithSigners() error {
+func (n *notaryRepo) InitNotaryRepoWithSigners() error {
 	rootKey, err := n.getRootKey()
 	if err != nil {
 		return err
@@ -184,7 +184,7 @@ func (n notaryRepo) InitNotaryRepoWithSigners() error {
 	return nil
 }
 
-func (n notaryRepo) getKey(role data.RoleName) (string, error) {
+func (n *notaryRepo) getKey(role data.RoleName) (string, error) {
 	keys := n.repo.GetCryptoService().ListKeys(role)
 	if len(keys) < 1 {
 		return "", fmt.Errorf("no root key found")
@@ -193,15 +193,15 @@ func (n notaryRepo) getKey(role data.RoleName) (string, error) {
 	return keys[0], nil
 }
 
-func (n notaryRepo) getRootKey() (string, error) {
+func (n *notaryRepo) getRootKey() (string, error) {
 	return n.getKey(data.CanonicalRootRole)
 }
 
-func (n notaryRepo) getTargetKey() (string, error) {
+func (n *notaryRepo) getTargetKey() (string, error) {
 	return n.getKey(data.CanonicalTargetsRole)
 }
 
-func (n notaryRepo) passRetriever() notary.PassRetriever {
+func (n *notaryRepo) passRetriever() notary.PassRetriever {
 	return func(id, _ string, createNew bool, attempts int) (string, bool, error) {
 		if createNew {
 			n.passPhrase.AddKeyPass(id, utils.RandomString(10))

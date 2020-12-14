@@ -89,11 +89,11 @@ func NewImage(uri, registryServer, notaryServer, basicAuth string, ca []byte) (*
 	return r, nil
 }
 
-func (r Image) GetImageNameWithHost() string {
+func (r *Image) GetImageNameWithHost() string {
 	return path.Join(r.Host, r.Name)
 }
 
-func (r Image) GetImageManifest() (string, int64, error) {
+func (r *Image) GetImageManifest() (string, int64, error) {
 	u, err := url.Parse(r.ServerUrl)
 	if err != nil {
 		return "", 0, err
@@ -144,7 +144,7 @@ const (
 	TokenTypeNotary   = TokenType("notary")
 )
 
-func (r Image) GetToken(tokenType TokenType) (string, error) {
+func (r *Image) GetToken(tokenType TokenType) (string, error) {
 	t, ok := r.Tokens[tokenType]
 	if !ok {
 		err := r.fetchToken(tokenType)
@@ -159,7 +159,7 @@ func (r Image) GetToken(tokenType TokenType) (string, error) {
 	return t, nil
 }
 
-func (r Image) fetchToken(tokenType TokenType) error {
+func (r *Image) fetchToken(tokenType TokenType) error {
 	// Ping
 	var server string
 	switch tokenType {
