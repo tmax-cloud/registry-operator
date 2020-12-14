@@ -11,11 +11,18 @@ const (
 )
 
 func NotaryDBPod(notary *regv1.Notary) *corev1.Pod {
+	var pvcName string
 	labels := make(map[string]string)
 	resName := SubresourceName(notary, SubTypeNotaryDBPod)
 	labels["app"] = "notary-db"
 	labels["apps"] = resName
 	labels[resName] = "lb"
+
+	if notary.Spec.PersistentVolumeClaim.Exist != nil {
+		pvcName = notary.Spec.PersistentVolumeClaim.Exist.PvcName
+	} else {
+		pvcName = SubresourceName(notary, SubTypeNotaryDBPVC)
+	}
 
 	pod := &corev1.Pod{
 		ObjectMeta: v1.ObjectMeta{
@@ -43,6 +50,22 @@ func NotaryDBPod(notary *regv1.Notary) *corev1.Pod {
 					Ports: []corev1.ContainerPort{
 						corev1.ContainerPort{
 							ContainerPort: 4443,
+						},
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						corev1.VolumeMount{
+							Name:      "data",
+							MountPath: "/var/lib/mysql",
+						},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				corev1.Volume{
+					Name: "data",
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: pvcName,
 						},
 					},
 				},
