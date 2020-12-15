@@ -22,7 +22,7 @@ type RegistrySpec struct {
 	LoginId       string `json:"loginId"`
 	LoginPassword string `json:"loginPassword"`
 	// Auth is htpasswd or token. default is htpasswd
-	// +kubebuilder:validation:Enum=htpasswd;token
+	// +kubebuilder:validation:Enum=Htpasswd;Token
 	Auth string `json:"auth,omitempty"`
 	// Set notary service
 	Notary RegistryNotary `json:"notary,omitempty"`
@@ -39,6 +39,10 @@ type RegistrySpec struct {
 
 type RegistryNotary struct {
 	Enabled bool `json:"enabled"`
+	// use Ingress or LoadBalancer
+	// +kubebuilder:validation:Enum=Ingress;LoadBalancer
+	ServiceType           NotaryServiceType `json:"serviceType"`
+	PersistentVolumeClaim NotaryPVC         `json:"persistentVolumeClaim"`
 }
 
 type RegistryDeployment struct {
@@ -57,6 +61,7 @@ const (
 
 type RegistryService struct {
 	// use Ingress or LoadBalancer
+	// +kubebuilder:validation:Enum=Ingress;LoadBalancer
 	ServiceType RegistryServiceType `json:"serviceType"`
 	// use ingress service type
 	Ingress Ingress `json:"ingress,omitempty"`

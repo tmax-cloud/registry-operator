@@ -30,6 +30,19 @@ type NotarySpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 	RootCASecret string     `json:"rootCASecret"`
 	AuthConfig   AuthConfig `json:"authConfig"`
+	// +kubebuilder:validation:Enum=Ingress;LoadBalancer
+	ServiceType           NotaryServiceType `json:"serviceType"`
+	PersistentVolumeClaim NotaryPVC         `json:"persistentVolumeClaim"`
+}
+
+type NotaryServiceType string
+
+type NotaryPVC struct {
+	// +kubebuilder:validation:OneOf
+	Exist *ExistPvc `json:"exist,omitempty"` // [TODO] One Of
+
+	// +kubebuilder:validation:OneOf
+	Create *CreatePvc `json:"create,omitempty"` // [TODO] One Of
 }
 
 type AuthConfig struct {

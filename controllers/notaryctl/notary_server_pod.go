@@ -18,13 +18,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-type NotaryServer struct {
+type NotaryServerPod struct {
 	pod    *corev1.Pod
 	logger *utils.RegistryLogger
 }
 
 // Handle is to create notary server pod.
-func (nt *NotaryServer) Handle(c client.Client, notary *regv1.Notary, patchNotary *regv1.Notary, scheme *runtime.Scheme) error {
+func (nt *NotaryServerPod) Handle(c client.Client, notary *regv1.Notary, patchNotary *regv1.Notary, scheme *runtime.Scheme) error {
 	if err := nt.get(c, notary); err != nil {
 		if errors.IsNotFound(err) {
 			if err := nt.create(c, notary, patchNotary, scheme); err != nil {
@@ -41,7 +41,7 @@ func (nt *NotaryServer) Handle(c client.Client, notary *regv1.Notary, patchNotar
 }
 
 // Ready is to check if the pod is ready and to set the condition
-func (nt *NotaryServer) Ready(c client.Client, notary *regv1.Notary, patchNotary *regv1.Notary, useGet bool) error {
+func (nt *NotaryServerPod) Ready(c client.Client, notary *regv1.Notary, patchNotary *regv1.Notary, useGet bool) error {
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
@@ -58,14 +58,23 @@ func (nt *NotaryServer) Ready(c client.Client, notary *regv1.Notary, patchNotary
 		}
 	}
 
-	// TODO: check if not ready
+	if nt.pod == nil {
+		nt.logger.Info("Pod is nil")
+		err = regv1.MakeRegistryError(regv1.PodNotFound)
+		return err
+	}
+
+	if nt.pod.Status.Phase != corev1.PodRunning {
+		err = regv1.MakeRegistryError(regv1.PodNotRunning)
+		return err
+	}
 
 	nt.logger.Info("Ready")
 	condition.Status = corev1.ConditionTrue
 	return nil
 }
 
-func (nt *NotaryServer) create(c client.Client, notary *regv1.Notary, patchNotary *regv1.Notary, scheme *runtime.Scheme) error {
+func (nt *NotaryServerPod) create(c client.Client, notary *regv1.Notary, patchNotary *regv1.Notary, scheme *runtime.Scheme) error {
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
@@ -89,7 +98,7 @@ func (nt *NotaryServer) create(c client.Client, notary *regv1.Notary, patchNotar
 	return nil
 }
 
-func (nt *NotaryServer) get(c client.Client, notary *regv1.Notary) error {
+func (nt *NotaryServerPod) get(c client.Client, notary *regv1.Notary) error {
 	nt.pod = schemes.NotaryServerPod(notary)
 	nt.logger = utils.NewRegistryLogger(*nt, nt.pod.Namespace, nt.pod.Name)
 
@@ -104,7 +113,7 @@ func (nt *NotaryServer) get(c client.Client, notary *regv1.Notary) error {
 	return nil
 }
 
-func (nt *NotaryServer) delete(c client.Client, patchNotary *regv1.Notary) error {
+func (nt *NotaryServerPod) delete(c client.Client, patchNotary *regv1.Notary) error {
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
