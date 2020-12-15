@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	"net/http"
@@ -45,7 +44,7 @@ func NewImage(uri, registryServer, notaryServer, basicAuth string, ca []byte) (*
 	img = WithDefaultTag(img)
 	r.Host = img.Hostname()
 	r.Name = img.RemoteName()
-	if tagged, isTagged := img.(reference.NamedTagged); isTagged {
+	if tagged, isTagged := img.(NamedTagged); isTagged {
 		r.Tag = tagged.Tag()
 	} else {
 		return nil, fmt.Errorf("no tag given")
