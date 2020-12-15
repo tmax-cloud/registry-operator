@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"github.com/tmax-cloud/registry-operator/pkg/apiserver"
 	"os"
 	"sync"
 	"time"
@@ -96,6 +97,10 @@ func main() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	// API Server
+	apiServer := apiserver.New()
+	go apiServer.Start()
 
 	var wg sync.WaitGroup
 	wg.Add(2)

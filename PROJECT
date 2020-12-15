@@ -11,6 +11,15 @@ resources:
 - group: tmax.io
   kind: Notary
   version: v1
+- group: tmax.io
+  kind: ImageSign
+  version: v1
+- group: tmax.io
+  kind: SignerKey
+  version: v1
+- group: tmax.io
+  kind: ImageSignRequest
+  version: v1
 version: 3-alpha
 plugins:
   go.sdk.operatorframework.io/v2-alpha: {}
