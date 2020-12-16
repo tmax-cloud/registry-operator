@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	SignerImage      = "tmaxcloudck/notary_signer:0.6.2-rc1"
-	SignerTlsCrtPath = "/certs/signer/tls.crt"
-	SignerTlsKeyPath = "/certs/signer/tls.key"
-	SignerRootCAPath = "/certs/rootca/root-ca.crt"
+	signerImage      = "tmaxcloudck/notary_signer:0.6.2-rc1"
+	signerTLSCrtPath = "/certs/signer/tls.crt"
+	signerTLSKeyPath = "/certs/signer/tls.key"
+	signerRootCAPath = "/certs/rootca/ca.crt"
 )
 
 func NotarySignerPod(notary *regv1.Notary) *corev1.Pod {
@@ -23,6 +23,8 @@ func NotarySignerPod(notary *regv1.Notary) *corev1.Pod {
 	labels["apps"] = resName
 	labels[resName] = "lb"
 
+	mode := int32(511)
+
 	pod := &corev1.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      resName,
@@ -31,83 +33,90 @@ func NotarySignerPod(notary *regv1.Notary) *corev1.Pod {
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
-				corev1.Container{
-					Name:    "notary-server",
-					Image:   SignerImage,
-					Command: []string{"/usr/bin/env", "sh"},
-					Args:    []string{"-c", "/notary/signer/migrate.sh && notary-signer -config=/notary/signer/signer-config.json"},
+				{
+					Name:            "notary-signer",
+					Image:           signerImage,
+					ImagePullPolicy: corev1.PullAlways,
+					Command:         []string{"/usr/bin/env", "sh"},
+					Args:            []string{"-c", "/var/lib/notary/migrations/migrate.sh && notary-signer -config=/var/lib/notary/fixtures/custom/signer-config.json"},
 					Env: []corev1.EnvVar{
-						corev1.EnvVar{
+						{
+							Name:  "NOTARY_SIGNER_LOGGING_LEVEL",
+							Value: "debug",
+						},
+						{
 							Name:  "NOTARY_SIGNER_STORAGE_BACKEND",
 							Value: "mysql",
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SIGNER_STORAGE_DB_URL",
 							Value: "signer@tcp(" + utils.BuildServiceHostname(SubresourceName(notary, SubTypeNotaryDBService), notary.Namespace) + ":3306)/notarysigner?parseTime=True",
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SIGNER_SERVER_HTTP_ADDR",
 							Value: ":4444",
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SIGNER_SERVER_GRPC_ADDR",
 							Value: ":7899",
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SIGNER_SERVER_TLS_CERT_FILE",
-							Value: SignerTlsCrtPath,
+							Value: signerTLSCrtPath,
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SIGNER_SERVER_TLS_KEY_FILE",
-							Value: SignerTlsKeyPath,
+							Value: signerTLSKeyPath,
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SIGNER_SERVER_CLIENT_CA_FILE",
-							Value: SignerRootCAPath,
+							Value: signerRootCAPath,
 						},
-						corev1.EnvVar{
+						{
 							Name:  "MIGRATIONS_PATH",
-							Value: "/var/lib/notary/migrations/server/mysql",
+							Value: "/var/lib/notary/migrations/signer/mysql",
 						},
-						corev1.EnvVar{
+						{
 							Name:  "DB_URL",
 							Value: "mysql://signer@tcp(" + utils.BuildServiceHostname(SubresourceName(notary, SubTypeNotaryDBService), notary.Namespace) + ":3306)/notarysigner",
 						},
 					},
 					VolumeMounts: []corev1.VolumeMount{
-						corev1.VolumeMount{
+						{
 							Name:      "signer-tls",
-							MountPath: path.Dir(SignerTlsCrtPath),
+							MountPath: path.Dir(signerTLSCrtPath),
 						},
-						corev1.VolumeMount{
+						{
 							Name:      "root-ca",
-							MountPath: path.Dir(SignerRootCAPath),
+							MountPath: path.Dir(signerRootCAPath),
 						},
 					},
 					Ports: []corev1.ContainerPort{
-						corev1.ContainerPort{
+						{
 							ContainerPort: 4444,
 						},
-						corev1.ContainerPort{
+						{
 							ContainerPort: 7899,
 						},
 					},
 				},
 			},
 			Volumes: []corev1.Volume{
-				corev1.Volume{
+				{
 					Name: "signer-tls",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: SubresourceName(notary, SubTypeNotarySignerSecret),
+							DefaultMode: &mode,
+							SecretName:  SubresourceName(notary, SubTypeNotarySignerSecret),
 						},
 					},
 				},
-				corev1.Volume{
+				{
 					Name: "root-ca",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: notary.Spec.RootCASecret,
+							DefaultMode: &mode,
+							SecretName:  notary.Spec.RootCASecret,
 						},
 					},
 				},
