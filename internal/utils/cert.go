@@ -43,7 +43,7 @@ func NewCertPair(key *rsa.PrivateKey, isCA bool) (*CertPair, error) {
 		Template: &x509.Certificate{
 			SerialNumber:          serialNumber,
 			NotBefore:             time.Now(),
-			NotAfter:              time.Now().Add(time.Hour * 24 * 365 * 1),
+			NotAfter:              time.Now().Add(time.Hour * 24 * 365 * 10),
 			KeyUsage:              x509.KeyUsageCRLSign,
 			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 			IsCA:                  isCA,
