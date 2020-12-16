@@ -41,6 +41,7 @@ type NotaryReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=tmax.io,resources=notaries,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=tmax.io,resources=notaries/status,verbs=get;update;patch
 
@@ -140,7 +141,15 @@ func (r *NotaryReconciler) patch(origin, target *regv1.Notary) error {
 func collectNotarySubController(serviceType regv1.NotaryServiceType) []notaryctl.NotarySubresource {
 	collection := []notaryctl.NotarySubresource{}
 	// [TODO] Add Subresources in here
-	collection = append(collection, &notaryctl.NotaryDBPVC{}, &notaryctl.NotaryDBPod{}, &notaryctl.NotaryServerPod{}, &notaryctl.NotarySignerPod{})
+	collection = append(collection,
+		&notaryctl.NotaryDBPVC{}, &notaryctl.NotaryDBService{},
+		&notaryctl.NotaryServerService{}, &notaryctl.NotarySignerService{},
+		&notaryctl.NotaryServerSecret{},
+		&notaryctl.NotarySignerSecret{},
+		&notaryctl.NotaryDBPod{},
+		&notaryctl.NotaryServerPod{},
+		&notaryctl.NotarySignerPod{},
+	)
 	// if serviceType == "Ingress" {
 	// 	collection = append(collection, &notaryctl.NotaryDB{})
 	// }

@@ -145,8 +145,20 @@ spec:
                 - type
                 type: object
               type: array
+            serverClusterIP:
+              type: string
+            serverLoadBalancerIP:
+              type: string
+            signerClusterIP:
+              type: string
+            signerLoadBalancerIP:
+              type: string
           required:
           - conditions
+          - serverClusterIP
+          - serverLoadBalancerIP
+          - signerClusterIP
+          - signerLoadBalancerIP
           type: object
       type: object
   version: v1
