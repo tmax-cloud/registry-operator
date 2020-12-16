@@ -54,8 +54,8 @@ spec:
             auth:
               description: Auth is htpasswd or token. default is htpasswd
               enum:
-              - htpasswd
-              - token
+              - Htpasswd
+              - Token
               type: string
             customConfigYml:
               description: The name of the configmap where the registry config.yml
@@ -76,8 +76,55 @@ spec:
               properties:
                 enabled:
                   type: boolean
+                persistentVolumeClaim:
+                  properties:
+                    create:
+                      properties:
+                        accessModes:
+                          items:
+                            enum:
+                            - ReadWriteOnce
+                            - ReadWriteMany
+                            type: string
+                          type: array
+                        deleteWithPvc:
+                          description: Delete the pvc as well when this registry is
+                            deleted
+                          type: boolean
+                        storageClassName:
+                          type: string
+                        storageSize:
+                          description: 'enter the desired storage size (ex: 10Gi)'
+                          type: string
+                        volumeMode:
+                          enum:
+                          - Filesystem
+                          - Block
+                          type: string
+                      required:
+                      - accessModes
+                      - storageClassName
+                      - storageSize
+                      type: object
+                    exist:
+                      properties:
+                        pvcName:
+                          description: Use the pvc you have created
+                          type: string
+                      required:
+                      - pvcName
+                      type: object
+                  type: object
+                serviceType:
+                  description: use Ingress or LoadBalancer
+                  enum:
+                  - Ingress
+                  - LoadBalancer
+                  type: string
               required:
               - enabled
+              - persistentVolumeClaim
+              - serviceType
               type: object
             persistentVolumeClaim:
               properties:
@@ -245,6 +292,9 @@ spec:
                   type: object
                 serviceType:
                   description: use Ingress or LoadBalancer
+                  enum:
+                  - Ingress
+                  - LoadBalancer
                   type: string
               required:
               - serviceType
