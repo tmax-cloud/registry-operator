@@ -32,6 +32,18 @@ spec:
             value: "registry-operator"
           - name: TZ
             value: Asia/Seoul
+          - name: KEYCLOAK_SERVICE
+            value: https://keycloak-test-service.reg-test.svc.cluster.local:8443
+          - name: KEYCLOAK_USERNAME
+            valueFrom:
+                secretKeyRef:
+                  name: keycloak-secret
+                  key: username
+          - name: KEYCLOAK_PASSWORD
+            valueFrom:
+                secretKeyRef:
+                  name: keycloak-secret
+                  key: password
         resources:
           limits:
             cpu: 100m

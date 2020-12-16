@@ -41,6 +41,7 @@ type RegistryReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+	kc     regctl.KeycloakController
 }
 
 // +kubebuilder:rbac:groups=tmax.io,resources=registries,verbs=get;list;watch;create;update;patch;delete
@@ -62,6 +63,10 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err != nil {
 		r.Log.Info("Error on get registry")
 		if errors.IsNotFound(err) {
+			if err := r.kc.DeleteRealm(req.Namespace, req.Name); err != nil {
+				r.Log.Info("Couldn't delete keycloak realm")
+			}
+
 			r.Log.Info("Not Found Error")
 			return reconcile.Result{}, nil
 		}
@@ -102,6 +107,12 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 
 	defer r.patch(reg, patchReg)
 
+	if reg.Status.Conditions.IsFalseFor(regv1.ConditionKeycloakRealm) {
+		if err := r.kc.CreateRealm(reg.Namespace, reg.Name, patchReg); err != nil {
+			return err
+		}
+	}
+
 	// Check if subresources are created.
 	for _, sctl := range collectSubController {
 		subresourceType := reflect.TypeOf(sctl).String()
@@ -123,6 +134,7 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 			}
 		}
 	}
+
 	if requeueErr != nil {
 		return requeueErr
 	}
