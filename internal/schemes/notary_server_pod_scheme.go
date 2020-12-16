@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	ServerImage      = "tmaxcloudck/notary_server:0.6.2-rc1"
-	ServerTlsCrtPath = "/certs/server/tls.crt"
-	ServerTlsKeyPath = "/certs/server/tls.key"
-	ServerRootCAPath = "/certs/rootca/root-ca.crt"
+	serverImage      = "tmaxcloudck/notary_server:0.6.2-rc1"
+	serverTLSCrtPath = "/certs/server/tls.crt"
+	serverTLSKeyPath = "/certs/server/tls.key"
+	serverRootCAPath = "/certs/rootca/ca.crt"
 )
 
 func NotaryServerPod(notary *regv1.Notary) *corev1.Pod {
@@ -23,6 +23,8 @@ func NotaryServerPod(notary *regv1.Notary) *corev1.Pod {
 	labels["apps"] = resName
 	labels[resName] = "lb"
 
+	mode := int32(511)
+
 	pod := &corev1.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      resName,
@@ -31,106 +33,131 @@ func NotaryServerPod(notary *regv1.Notary) *corev1.Pod {
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
-				corev1.Container{
-					Name:    "notary-server",
-					Image:   ServerImage,
-					Command: []string{"/usr/bin/env", "sh"},
-					Args:    []string{"-c", "/notary/server/migrate.sh && notary-server -config=/notary/server/server-config.json"},
+				{
+					Name:            "notary-server",
+					Image:           serverImage,
+					ImagePullPolicy: corev1.PullAlways,
+					Command:         []string{"/usr/bin/env", "sh"},
+					Args:            []string{"-c", "/var/lib/notary/migrations/migrate.sh && notary-server -config=/var/lib/notary/fixtures/custom/server-config.json"},
 					Env: []corev1.EnvVar{
-						corev1.EnvVar{
+						{
+							Name:  "NOTARY_SERVER_SERVER_HTTP_ADDR",
+							Value: ":4443",
+						},
+						{
+							Name:  "NOTARY_SERVER_SERVER_TLS_CERT_FILE",
+							Value: serverTLSCrtPath,
+						},
+						{
+							Name:  "NOTARY_SERVER_SERVER_TLS_KEY_FILE",
+							Value: serverTLSKeyPath,
+						},
+						{
+							Name:  "NOTARY_SERVER_SERVER_CLIENT_CA_FILE",
+							Value: serverRootCAPath,
+						},
+						{
+							Name:  "NOTARY_SERVER_LOGGING_LEVEL",
+							Value: "debug",
+						},
+						{
 							Name:  "NOTARY_SERVER_TRUST_SERVICE_TYPE",
 							Value: "remote",
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SERVER_TRUST_SERVICE_HOSTNAME",
 							Value: utils.BuildServiceHostname(SubresourceName(notary, SubTypeNotarySignerService), notary.Namespace),
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SERVER_TRUST_SERVICE_PORT",
 							Value: "7899",
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SERVER_TRUST_SERVICE_TLS_CA_FILE",
-							Value: ServerRootCAPath,
+							Value: serverRootCAPath,
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SERVER_TRUST_SERVICE_KEY_ALGORITHM",
 							Value: "ecdsa",
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SERVER_TRUST_SERVICE_TLS_CLIENT_CERT",
-							Value: ServerTlsCrtPath,
+							Value: serverTLSCrtPath,
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SERVER_TRUST_SERVICE_TLS_CLIENT_KEY",
-							Value: ServerTlsKeyPath,
+							Value: serverTLSKeyPath,
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SERVER_AUTH_TYPE",
 							Value: "token",
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SERVER_AUTH_OPTIONS_REALM",
 							Value: notary.Spec.AuthConfig.Realm,
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SERVER_AUTH_OPTIONS_SERVICE",
 							Value: notary.Spec.AuthConfig.Service,
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SERVER_AUTH_OPTIONS_ISSUER",
 							Value: notary.Spec.AuthConfig.Issuer,
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SERVER_AUTH_OPTIONS_ROOTCERTBUNDLE",
-							Value: ServerRootCAPath,
+							Value: serverRootCAPath,
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SERVER_STORAGE_BACKEND",
 							Value: "mysql",
 						},
-						corev1.EnvVar{
+						{
 							Name:  "NOTARY_SERVER_STORAGE_DB_URL",
 							Value: "server@tcp(" + utils.BuildServiceHostname(SubresourceName(notary, SubTypeNotaryDBService), notary.Namespace) + ":3306)/notaryserver?parseTime=True",
 						},
-						corev1.EnvVar{
+						{
 							Name:  "MIGRATIONS_PATH",
 							Value: "/var/lib/notary/migrations/server/mysql",
 						},
-						corev1.EnvVar{
+						{
 							Name:  "DB_URL",
 							Value: "mysql://server@tcp(" + utils.BuildServiceHostname(SubresourceName(notary, SubTypeNotaryDBService), notary.Namespace) + ":3306)/notaryserver",
 						},
 					},
 					VolumeMounts: []corev1.VolumeMount{
-						corev1.VolumeMount{
+						{
 							Name:      "server-tls",
-							MountPath: path.Dir(ServerTlsCrtPath),
+							MountPath: path.Dir(serverTLSCrtPath),
 						},
-						corev1.VolumeMount{
+						{
 							Name:      "root-ca",
-							MountPath: path.Dir(ServerRootCAPath),
+							MountPath: path.Dir(serverRootCAPath),
 						},
 					},
 					Ports: []corev1.ContainerPort{
-						corev1.ContainerPort{
+						{
 							ContainerPort: 4443,
 						},
 					},
 				},
 			},
 			Volumes: []corev1.Volume{
-				corev1.Volume{
+				{
+					Name: "server-tls",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: SubresourceName(notary, SubTypeNotaryServerSecret),
+							DefaultMode: &mode,
+							SecretName:  SubresourceName(notary, SubTypeNotaryServerSecret),
 						},
 					},
 				},
-				corev1.Volume{
+				{
+					Name: "root-ca",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: notary.Spec.RootCASecret,
+							DefaultMode: &mode,
+							SecretName:  notary.Spec.RootCASecret,
 						},
 					},
 				},
