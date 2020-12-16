@@ -45,6 +45,18 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - pods
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - secrets
   verbs:
   - create
@@ -78,6 +90,26 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - tmax.io
+  resources:
+  - notaries
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - tmax.io
+  resources:
+  - notaries/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - tmax.io
   resources:

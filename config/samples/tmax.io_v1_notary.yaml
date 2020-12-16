@@ -5,7 +5,7 @@ metadata:
   namespace: reg-test
 spec:
   # Add fields here
-  rootCASecret: test
+  rootCASecret: registry-ca
   authConfig:
     realm: realm
     service: service
