@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	DBImage = "mariadb:10.4"
+	DBImage = "tmaxcloudck/notary_mysql:0.6.2-rc1"
 )
 
 func NotaryDBPod(notary *regv1.Notary) *corev1.Pod {
