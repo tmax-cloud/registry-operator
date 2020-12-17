@@ -56,11 +56,11 @@ type NotaryStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Conditions           status.Conditions `json:"conditions"`
-	ServerClusterIP      string            `json:"serverClusterIP"`
-	ServerLoadBalancerIP string            `json:"serverLoadBalancerIP"`
-	SignerClusterIP      string            `json:"signerClusterIP"`
-	SignerLoadBalancerIP string            `json:"signerLoadBalancerIP"`
+	Conditions           status.Conditions `json:"conditions,omitempty"`
+	ServerClusterIP      string            `json:"serverClusterIP,omitempty"`
+	ServerLoadBalancerIP string            `json:"serverLoadBalancerIP,omitempty"`
+	SignerClusterIP      string            `json:"signerClusterIP,omitempty"`
+	SignerLoadBalancerIP string            `json:"signerLoadBalancerIP,omitempty"`
 }
 
 // +kubebuilder:object:root=true
