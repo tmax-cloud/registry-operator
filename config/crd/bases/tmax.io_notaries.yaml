@@ -153,12 +153,6 @@ spec:
               type: string
             signerLoadBalancerIP:
               type: string
-          required:
-          - conditions
-          - serverClusterIP
-          - serverLoadBalancerIP
-          - signerClusterIP
-          - signerLoadBalancerIP
           type: object
       type: object
   version: v1
