@@ -127,6 +127,15 @@ func (c *KeycloakController) DeleteRealm(namespace string, name string) error {
 	return nil
 }
 
+func (c *KeycloakController) GetUserAccessToken(user, password, realm string) (string, error) {
+	token, err := c.client.LoginAdmin(context.Background(), user, password, realm)
+	if err != nil {
+		return "", err
+	}
+
+	return token.AccessToken, nil
+}
+
 func (c *KeycloakController) isExistRealm(token string, name string) bool {
 	if _, err := c.client.GetRealm(context.Background(), token, name); err != nil {
 		return false

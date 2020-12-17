@@ -2,6 +2,7 @@ package regctl
 
 import (
 	"context"
+	"path"
 	"strings"
 
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
@@ -27,6 +28,7 @@ const (
 )
 
 type RegistryDeployment struct {
+	KcCtl  *KeycloakController
 	deploy *appsv1.Deployment
 	logger *utils.RegistryLogger
 }
@@ -113,14 +115,57 @@ func (r *RegistryDeployment) create(c client.Client, reg *regv1.Registry, patchR
 	return nil
 }
 
+func (r *RegistryDeployment) getAuthConfig() *regv1.AuthConfig {
+	auth := &regv1.AuthConfig{}
+	auth.Realm = r.KcCtl.GetRealmName()
+	auth.Service = r.KcCtl.GetDockerV2ClientName()
+	auth.Issuer = "https://" + path.Join(keycloakServer, "auth", "realms", auth.Realm)
+
+	return auth
+}
+
+func (r *RegistryDeployment) getToken(c client.Client, reg *regv1.Registry) (string, error) {
+	certCtl := &RegistryCertSecret{}
+
+	// get user and password
+	user, pwd, err := certCtl.GetUserSecret(c, reg)
+	if err != nil {
+		return "", err
+	}
+
+	// get realm
+	realm := r.KcCtl.GetRealmName()
+
+	// get token
+	token, err := r.KcCtl.GetUserAccessToken(user, pwd, realm)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
 func (r *RegistryDeployment) get(c client.Client, reg *regv1.Registry) error {
-	r.deploy = schemes.Deployment(reg)
+	token, err := r.getToken(c, reg)
+	if err != nil {
+		if err != nil {
+			r.logger.Error(err, "Get token is failed")
+			return err
+		}
+	}
+
+	deploy, err := schemes.Deployment(reg, r.getAuthConfig(), token)
+	if err != nil {
+		r.logger.Error(err, "Get regsitry deployment scheme is failed")
+		return err
+	}
+
+	r.deploy = deploy
 	r.logger = utils.NewRegistryLogger(*r, r.deploy.Namespace, r.deploy.Name)
 
 	req := types.NamespacedName{Name: r.deploy.Name, Namespace: r.deploy.Namespace}
 
-	err := c.Get(context.TODO(), req, r.deploy)
-	if err != nil {
+	if err := c.Get(context.TODO(), req, r.deploy); err != nil {
 		r.logger.Error(err, "Get regsitry deployment is failed")
 		return err
 	}

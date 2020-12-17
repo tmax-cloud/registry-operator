@@ -107,8 +107,8 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 
 	defer r.patch(reg, patchReg)
 
+	r.kc = regctl.NewKeycloakController(reg.Namespace, reg.Name)
 	if reg.Status.Conditions.IsFalseFor(regv1.ConditionTypeKeycloakRealm) {
-		r.kc = regctl.NewKeycloakController(reg.Namespace, reg.Name)
 		if err := r.kc.CreateRealm(reg.Namespace, reg.Name, patchReg); err != nil {
 			return err
 		}
@@ -213,7 +213,7 @@ func collectSubController(reg *regv1.Registry, kc *regctl.KeycloakController) []
 	}
 
 	collection = append(collection, &regctl.RegistryPVC{}, &regctl.RegistryService{}, &regctl.RegistryCertSecret{},
-		&regctl.RegistryDCJSecret{}, &regctl.RegistryConfigMap{}, &regctl.RegistryDeployment{}, &regctl.RegistryPod{})
+		&regctl.RegistryDCJSecret{}, &regctl.RegistryConfigMap{}, &regctl.RegistryDeployment{KcCtl: kc}, &regctl.RegistryPod{})
 
 	if reg.Spec.RegistryService.ServiceType == "Ingress" {
 		collection = append(collection, &regctl.RegistryIngress{})

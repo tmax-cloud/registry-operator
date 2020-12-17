@@ -36,6 +36,7 @@ type CertType int
 const (
 	certTypeNotaryServer CertType = iota
 	certTypeNotarySigner
+	certTypeRegistry
 )
 
 // NewCertFactory is ...
@@ -64,6 +65,14 @@ func (f *CertFactory) CreateCertPair(source interface{}, certType CertType) (*ut
 			return nil, err
 		}
 		out = pair
+
+	case certTypeRegistry:
+		pair, err := ct.CreateCertPair(&RegistryCert{}, source)
+		if err != nil {
+			return nil, err
+		}
+		out = pair
+
 	default:
 		return nil, fmt.Errorf("not supported cert type")
 	}
@@ -179,6 +188,46 @@ func (n *NotarySignerCert) GetSubject() *pkix.Name {
 		Organization:  []string{"tmax"},
 		StreetAddress: []string{"Seoul"},
 		CommonName:    "notary-signer.tmax.co.kr",
+	}
+
+	return subject
+}
+
+// RegistryCert is Registry's Certificate
+type RegistryCert struct{}
+
+func (c *RegistryCert) GetSanIP(registry interface{}) []net.IP {
+	reg := registry.(*regv1.Registry)
+
+	ips := []net.IP{}
+	if len(reg.Status.ClusterIP) > 0 {
+		ips = append(ips, net.ParseIP(reg.Status.ClusterIP))
+	}
+	if len(reg.Status.LoadBalancerIP) > 0 {
+		ips = append(ips, net.ParseIP(reg.Status.LoadBalancerIP))
+	}
+
+	return ips
+}
+
+func (c *RegistryCert) GetSanDNS(registry interface{}) []string {
+	reg := registry.(*regv1.Registry)
+
+	domains := []string{}
+	if reg.Spec.RegistryService.ServiceType == "Ingress" {
+		// domains = append(domains, getNotaryIngressDomain())
+	}
+	domains = append(domains, utils.BuildServiceHostname(SubresourceName(reg, SubTypeNotarySignerService), reg.Namespace))
+
+	return domains
+}
+
+func (c *RegistryCert) GetSubject() *pkix.Name {
+	subject := &pkix.Name{
+		Country:       []string{"KR"},
+		Organization:  []string{"tmax"},
+		StreetAddress: []string{"Seoul"},
+		CommonName:    "registry.tmax.co.kr",
 	}
 
 	return subject
