@@ -115,6 +115,8 @@ spec:
                       - pvcName
                       type: object
                   type: object
+                rootCASecret:
+                  type: string
                 serviceType:
                   description: use Ingress or LoadBalancer
                   enum:
@@ -124,6 +126,7 @@ spec:
               required:
               - enabled
               - persistentVolumeClaim
+              - rootCASecret
               - serviceType
               type: object
             persistentVolumeClaim:

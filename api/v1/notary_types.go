@@ -37,6 +37,11 @@ type NotarySpec struct {
 
 type NotaryServiceType string
 
+const (
+	NotaryServiceTypeIngress      = NotaryServiceType("Ingress")
+	NotaryServiceTypeLoadBalancer = NotaryServiceType("LoadBalancer")
+)
+
 type NotaryPVC struct {
 	// +kubebuilder:validation:OneOf
 	Exist *ExistPvc `json:"exist,omitempty"` // [TODO] One Of

@@ -1,0 +1,150 @@
+package regctl
+
+import (
+	"context"
+	"path"
+
+	"github.com/operator-framework/operator-lib/status"
+	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/schemes"
+	"github.com/tmax-cloud/registry-operator/internal/utils"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+)
+
+type RegistryNotary struct {
+	KcCtl  *KeycloakController
+	not    *regv1.Notary
+	logger *utils.RegistryLogger
+}
+
+func (r *RegistryNotary) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+	if err := r.get(c, reg); err != nil {
+		if errors.IsNotFound(err) {
+			if err := r.create(c, reg, patchReg, scheme); err != nil {
+				r.logger.Error(err, "create notary error")
+				return err
+			}
+		} else {
+			r.logger.Error(err, "notary is error")
+			return err
+		}
+	}
+
+	r.logger.Info("Check if patch exists.")
+	diff := r.compare(reg)
+	if len(diff) > 0 {
+		r.logger.Info("patch exists.")
+		r.patch(c, reg, patchReg, diff)
+	}
+
+	return nil
+}
+
+func (r *RegistryNotary) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+	var err error = nil
+	condition := &status.Condition{
+		Status: corev1.ConditionFalse,
+		Type:   regv1.ConditionTypeNotary,
+	}
+
+	defer utils.SetCondition(err, patchReg, condition)
+
+	if r.not == nil || useGet {
+		err := r.get(c, reg)
+		if err != nil {
+			r.logger.Error(err, "notary error")
+			return err
+		}
+	}
+
+	r.logger.Info("Ready")
+	return nil
+}
+
+func (r *RegistryNotary) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+	if reg.Spec.PersistentVolumeClaim.Exist != nil {
+		r.logger.Info("Use exist registry notary. Need not to create notary.")
+		return nil
+	}
+
+	if reg.Spec.PersistentVolumeClaim.Create.DeleteWithPvc {
+		if err := controllerutil.SetControllerReference(reg, r.not, scheme); err != nil {
+			r.logger.Error(err, "SetOwnerReference Failed")
+			condition := status.Condition{
+				Status:  corev1.ConditionFalse,
+				Type:    regv1.ConditionTypeNotary,
+				Message: err.Error(),
+			}
+
+			patchReg.Status.Conditions.SetCondition(condition)
+			return err
+		}
+	}
+
+	r.logger.Info("Create registry notary")
+	err := c.Create(context.TODO(), r.not)
+	if err != nil {
+		condition := status.Condition{
+			Status:  corev1.ConditionFalse,
+			Type:    regv1.ConditionTypeNotary,
+			Message: err.Error(),
+		}
+
+		patchReg.Status.Conditions.SetCondition(condition)
+		r.logger.Error(err, "Creating registry notary is failed.")
+		return err
+	}
+
+	return nil
+}
+
+func (r *RegistryNotary) getAuthConfig() *regv1.AuthConfig {
+	auth := &regv1.AuthConfig{}
+	auth.Realm = r.KcCtl.GetRealmName()
+	auth.Service = r.KcCtl.GetDockerV2ClientName()
+	auth.Issuer = "https://" + path.Join(keycloakServer, "auth", "realms", auth.Realm)
+
+	return auth
+}
+
+func (r *RegistryNotary) get(c client.Client, reg *regv1.Registry) error {
+	r.not = schemes.Notary(reg, r.getAuthConfig())
+	r.logger = utils.NewRegistryLogger(*r, r.not.Namespace, r.not.Name)
+
+	req := types.NamespacedName{Name: r.not.Name, Namespace: r.not.Namespace}
+	err := c.Get(context.TODO(), req, r.not)
+	if err != nil {
+		r.logger.Error(err, "Get regsitry notary is failed")
+		return err
+	}
+
+	return nil
+}
+
+func (r *RegistryNotary) patch(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
+	return nil
+}
+
+func (r *RegistryNotary) delete(c client.Client, patchReg *regv1.Registry) error {
+	if err := c.Delete(context.TODO(), r.not); err != nil {
+		r.logger.Error(err, "Unknown error delete notary")
+		return err
+	}
+
+	condition := status.Condition{
+		Type:   regv1.ConditionTypeNotary,
+		Status: corev1.ConditionFalse,
+	}
+
+	patchReg.Status.Conditions.SetCondition(condition)
+	return nil
+}
+
+func (r *RegistryNotary) compare(reg *regv1.Registry) []utils.Diff {
+	return nil
+}
