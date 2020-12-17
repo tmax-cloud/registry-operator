@@ -41,7 +41,7 @@ type RegistryReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
-	kc     regctl.KeycloakController
+	kc     *regctl.KeycloakController
 }
 
 // +kubebuilder:rbac:groups=tmax.io,resources=registries,verbs=get;list;watch;create;update;patch;delete
@@ -63,6 +63,7 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err != nil {
 		r.Log.Info("Error on get registry")
 		if errors.IsNotFound(err) {
+			r.kc = regctl.NewKeycloakController(req.Namespace, req.Name)
 			if err := r.kc.DeleteRealm(req.Namespace, req.Name); err != nil {
 				r.Log.Info("Couldn't delete keycloak realm")
 			}
@@ -102,16 +103,18 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 	subResourceLogger.Info("Creating all Subresources")
 
 	var requeueErr error = nil
-	collectSubController := collectSubController(reg.Spec.RegistryService.ServiceType)
 	patchReg := reg.DeepCopy() // Target to Patch object
 
 	defer r.patch(reg, patchReg)
 
-	if reg.Status.Conditions.IsFalseFor(regv1.ConditionKeycloakRealm) {
+	if reg.Status.Conditions.IsFalseFor(regv1.ConditionTypeKeycloakRealm) {
+		r.kc = regctl.NewKeycloakController(reg.Namespace, reg.Name)
 		if err := r.kc.CreateRealm(reg.Namespace, reg.Name, patchReg); err != nil {
 			return err
 		}
 	}
+
+	collectSubController := collectSubController(reg, r.kc)
 
 	// Check if subresources are created.
 	for _, sctl := range collectSubController {
@@ -202,12 +205,17 @@ func (r *RegistryReconciler) patch(origin, target *regv1.Registry) error {
 	return nil
 }
 
-func collectSubController(serviceType regv1.RegistryServiceType) []regctl.RegistrySubresource {
+func collectSubController(reg *regv1.Registry, kc *regctl.KeycloakController) []regctl.RegistrySubresource {
 	collection := []regctl.RegistrySubresource{}
-	// [TODO] Add Subresources in here
+
+	if reg.Spec.Notary.Enabled {
+		collection = append(collection, &regctl.RegistryNotary{KcCtl: kc})
+	}
+
 	collection = append(collection, &regctl.RegistryPVC{}, &regctl.RegistryService{}, &regctl.RegistryCertSecret{},
 		&regctl.RegistryDCJSecret{}, &regctl.RegistryConfigMap{}, &regctl.RegistryDeployment{}, &regctl.RegistryPod{})
-	if serviceType == "Ingress" {
+
+	if reg.Spec.RegistryService.ServiceType == "Ingress" {
 		collection = append(collection, &regctl.RegistryIngress{})
 	}
 

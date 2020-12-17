@@ -32,6 +32,8 @@ const (
 	SubTypeNotarySignerPod
 	SubTypeNotarySignerSecret
 	SubTypeNotarySignerService
+
+	SubTypeRegistryNotary
 )
 
 // SubresourceName returns Notary's or Registry's subresource name
@@ -52,7 +54,11 @@ func SubresourceName(subresource interface{}, subresourceType SubresourceType) s
 			return regv1.K8sPrefix + regv1.K8sNotaryPrefix + NotarySignerPrefix + res.Name
 		}
 
-		// TODO: *regv1.Registry
+	case *regv1.Registry:
+		switch subresourceType {
+		case SubTypeRegistryNotary:
+			return res.Name
+		}
 	}
 
 	return ""

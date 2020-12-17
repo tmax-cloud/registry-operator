@@ -7,11 +7,13 @@ import (
 	"os"
 
 	gocloak "github.com/Nerzal/gocloak/v7"
+	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-lib/status"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -24,10 +26,10 @@ var (
 type KeycloakController struct {
 	name   string
 	client gocloak.GoCloak
-	logger *utils.RegistryLogger
+	logger logr.Logger
 }
 
-func (c *KeycloakController) makeController(namespace string, name string) {
+func NewKeycloakController(namespace, name string) *KeycloakController {
 	client := gocloak.NewClient(keycloakServer)
 	restyClient := client.RestyClient()
 	restyClient.SetDebug(true)
@@ -35,19 +37,28 @@ func (c *KeycloakController) makeController(namespace string, name string) {
 	restyClient.SetTLSClientConfig(&tls.Config{
 		InsecureSkipVerify: true,
 	})
+	logger := logf.Log.WithName("keycloak controller").WithValues("namespace", namespace, "registry name", name)
+	return &KeycloakController{
+		name:   fmt.Sprintf("%s-%s", namespace, name),
+		client: client,
+		logger: logger,
+	}
+}
 
-	c.client = client
-	c.logger = utils.NewRegistryLogger(*c, namespace, name+" registry's keycloak realm")
-	c.name = fmt.Sprintf("%s-%s", namespace, name)
+func (c *KeycloakController) GetRealmName() string {
+	return c.name
+}
+
+func (c *KeycloakController) GetDockerV2ClientName() string {
+	return c.name + "-docker-client"
 }
 
 // CreateRealm is ...
 func (c *KeycloakController) CreateRealm(namespace string, name string, patchReg *regv1.Registry) error {
-	c.makeController(namespace, name)
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   regv1.ConditionKeycloakRealm,
+		Type:   regv1.ConditionTypeKeycloakRealm,
 	}
 
 	defer utils.SetCondition(err, patchReg, condition)
@@ -78,7 +89,7 @@ func (c *KeycloakController) CreateRealm(namespace string, name string, patchReg
 	}
 
 	// make docker client
-	clientName := c.name + "-docker-client"
+	clientName := c.GetDockerV2ClientName()
 	protocol := "docker-v2"
 	_, err = c.client.CreateClient(context.Background(), token.AccessToken, c.name, gocloak.Client{
 		ClientID: &clientName,
@@ -96,8 +107,6 @@ func (c *KeycloakController) CreateRealm(namespace string, name string, patchReg
 
 // DeleteRealm is ...
 func (c *KeycloakController) DeleteRealm(namespace string, name string) error {
-	c.makeController(namespace, name)
-
 	// login admin
 	token, err := c.client.LoginAdmin(context.Background(), keycloakUser, keycloakPwd, "master")
 	if err != nil {
