@@ -88,12 +88,12 @@ type RegistryStatus struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
-	Conditions          status.Conditions `json:"conditions"`
-	Phase               string            `json:"phase"`
-	Message             string            `json:"message"`
-	Reason              string            `json:"reason"`
-	PhaseChangedAt      metav1.Time       `json:"phaseChangedAt"`
-	Capacity            string            `json:"capacity"`
+	Conditions          status.Conditions `json:"conditions,omitempty"`
+	Phase               string            `json:"phase,omitempty"`
+	Message             string            `json:"message,omitempty"`
+	Reason              string            `json:"reason,omitempty"`
+	PhaseChangedAt      metav1.Time       `json:"phaseChangedAt,omitempty"`
+	Capacity            string            `json:"capacity,omitempty"`
 	ClusterIP           string            `json:"clusterIP,omitempty"`
 	LoadBalancerIP      string            `json:"loadBalancerIP,omitempty"`
 	PodRecreateRequired bool              `json:"podRecreateRequired,omitempty"`

@@ -35,7 +35,7 @@ func (r *RegistryCertSecret) Handle(c client.Client, reg *regv1.Registry, patchR
 			r.logger.Error(createError, "Create failed in Handle")
 			return createError
 		}
-		patchReg.Status.PodRecreateRequired = true
+		// patchReg.Status.PodRecreateRequired = true
 	}
 
 	if isValid := r.compare(reg); isValid == nil {

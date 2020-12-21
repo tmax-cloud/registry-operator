@@ -11,7 +11,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -72,13 +71,6 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 						{
 							Image: reg.Spec.Image,
 							Name:  "registry",
-							Lifecycle: &corev1.Lifecycle{
-								PostStart: &corev1.Handler{
-									Exec: &corev1.ExecAction{
-										Command: []string{"/bin/sh", "-c", "mkdir /auth; htpasswd -Bbn $ID $PASSWD > /auth/htpasswd"},
-									},
-								},
-							},
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("0.2"),
@@ -132,7 +124,7 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 									MountPath: configMapMountPath,
 								},
 								{
-									Name:      "certs",
+									Name:      "tls",
 									MountPath: path.Dir(registryTLSKeyPath),
 								},
 								{
@@ -140,46 +132,46 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 									MountPath: path.Dir(registryRootCAPath),
 								},
 							},
-							ReadinessProbe: &corev1.Probe{
-								PeriodSeconds:       3,
-								SuccessThreshold:    1,
-								TimeoutSeconds:      1,
-								InitialDelaySeconds: 5,
-								FailureThreshold:    10,
-								Handler: corev1.Handler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/v2/_catalog",
-										Port: intstr.IntOrString{IntVal: RegistryTargetPort},
-										HTTPHeaders: []corev1.HTTPHeader{
-											corev1.HTTPHeader{
-												Name:  "authorization",
-												Value: "Bearer " + token,
-											},
-										},
-										Scheme: corev1.URISchemeHTTPS,
-									},
-								},
-							},
-							LivenessProbe: &corev1.Probe{
-								PeriodSeconds:       5,
-								SuccessThreshold:    1,
-								TimeoutSeconds:      30,
-								InitialDelaySeconds: 5,
-								FailureThreshold:    10,
-								Handler: corev1.Handler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/v2/_catalog",
-										Port: intstr.IntOrString{IntVal: RegistryTargetPort},
-										HTTPHeaders: []corev1.HTTPHeader{
-											corev1.HTTPHeader{
-												Name:  "authorization",
-												Value: "Bearer " + token,
-											},
-										},
-										Scheme: corev1.URISchemeHTTPS,
-									},
-								},
-							},
+							// ReadinessProbe: &corev1.Probe{
+							// 	PeriodSeconds:       3,
+							// 	SuccessThreshold:    1,
+							// 	TimeoutSeconds:      1,
+							// 	InitialDelaySeconds: 5,
+							// 	FailureThreshold:    10,
+							// 	Handler: corev1.Handler{
+							// 		HTTPGet: &corev1.HTTPGetAction{
+							// 			Path: "/v2/_catalog",
+							// 			Port: intstr.IntOrString{IntVal: RegistryTargetPort},
+							// 			HTTPHeaders: []corev1.HTTPHeader{
+							// 				corev1.HTTPHeader{
+							// 					Name:  "authorization",
+							// 					Value: "Bearer " + token,
+							// 				},
+							// 			},
+							// 			Scheme: corev1.URISchemeHTTPS,
+							// 		},
+							// 	},
+							// },
+							// LivenessProbe: &corev1.Probe{
+							// 	PeriodSeconds:       5,
+							// 	SuccessThreshold:    1,
+							// 	TimeoutSeconds:      30,
+							// 	InitialDelaySeconds: 5,
+							// 	FailureThreshold:    10,
+							// 	Handler: corev1.Handler{
+							// 		HTTPGet: &corev1.HTTPGetAction{
+							// 			Path: "/v2/_catalog",
+							// 			Port: intstr.IntOrString{IntVal: RegistryTargetPort},
+							// 			HTTPHeaders: []corev1.HTTPHeader{
+							// 				corev1.HTTPHeader{
+							// 					Name:  "authorization",
+							// 					Value: "Bearer " + token,
+							// 				},
+							// 			},
+							// 			Scheme: corev1.URISchemeHTTPS,
+							// 		},
+							// 	},
+							// },
 						},
 					},
 					Volumes: []corev1.Volume{
@@ -192,10 +184,10 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 							},
 						},
 						corev1.Volume{
-							Name: "certs",
+							Name: "tls",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: regv1.K8sPrefix + reg.Name,
+									SecretName: regv1.K8sPrefix + regv1.TLSPrefix + reg.Name,
 								},
 							},
 						},

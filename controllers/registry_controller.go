@@ -109,12 +109,13 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 
 	r.kc = regctl.NewKeycloakController(reg.Namespace, reg.Name)
 	if reg.Status.Conditions.IsFalseFor(regv1.ConditionTypeKeycloakRealm) {
-		if err := r.kc.CreateRealm(reg.Namespace, reg.Name, patchReg); err != nil {
+		if err := r.kc.CreateRealm(reg, patchReg); err != nil {
 			return err
 		}
 	}
 
 	collectSubController := collectSubController(reg, r.kc)
+	printSubresources(log, collectSubController)
 
 	// Check if subresources are created.
 	for _, sctl := range collectSubController {
@@ -220,4 +221,32 @@ func collectSubController(reg *regv1.Registry, kc *regctl.KeycloakController) []
 	}
 
 	return collection
+}
+
+func printSubresources(log logr.Logger, subresources []regctl.RegistrySubresource) {
+	var printStr []string
+	for _, res := range subresources {
+		switch res.(type) {
+		case *regctl.RegistryNotary:
+			printStr = append(printStr, "RegistryNotary")
+		case *regctl.RegistryPVC:
+			printStr = append(printStr, "RegistryPVC")
+		case *regctl.RegistryService:
+			printStr = append(printStr, "RegistryService")
+		case *regctl.RegistryCertSecret:
+			printStr = append(printStr, "RegistryCertSecret")
+		case *regctl.RegistryDCJSecret:
+			printStr = append(printStr, "RegistryDCJSecret")
+		case *regctl.RegistryConfigMap:
+			printStr = append(printStr, "RegistryConfigMap")
+		case *regctl.RegistryDeployment:
+			printStr = append(printStr, "RegistryDeployment")
+		case *regctl.RegistryPod:
+			printStr = append(printStr, "RegistryPod")
+		case *regctl.RegistryIngress:
+			printStr = append(printStr, "RegistryIngress")
+		}
+	}
+
+	log.Info("debug", "subresources", printStr)
 }

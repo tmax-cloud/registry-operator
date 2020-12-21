@@ -27,7 +27,7 @@ func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secr
 	data["ID"] = []byte(reg.Spec.LoginId)
 	data["PASSWD"] = []byte(reg.Spec.LoginPassword)
 
-	cert, err := NewCertFactory(c).CreateCertPair(reg, certTypeNotarySigner)
+	cert, err := NewCertFactory(c).CreateCertPair(reg, certTypeRegistry)
 	if err != nil {
 		logger.Error(err, "")
 		return nil, nil

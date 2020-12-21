@@ -26,13 +26,11 @@ func GetRootCert(namespace string) (*corev1.Secret, error) {
 	}
 
 	secret, err := getRootCASecret(c, namespace)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
-	}
-
-	secret, err = createRootCASecret(c, namespace)
-	if err != nil {
-		return nil, err
+	if err != nil && errors.IsNotFound(err) {
+		secret, err = createRootCASecret(c, namespace)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return secret, nil

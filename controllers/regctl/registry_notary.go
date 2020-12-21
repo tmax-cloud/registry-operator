@@ -62,6 +62,8 @@ func (r *RegistryNotary) Ready(c client.Client, reg *regv1.Registry, patchReg *r
 		}
 	}
 
+	condition.Status = corev1.ConditionTrue
+
 	r.logger.Info("Ready")
 	return nil
 }
@@ -105,9 +107,9 @@ func (r *RegistryNotary) create(c client.Client, reg *regv1.Registry, patchReg *
 
 func (r *RegistryNotary) getAuthConfig() *regv1.AuthConfig {
 	auth := &regv1.AuthConfig{}
-	auth.Realm = r.KcCtl.GetRealmName()
+	auth.Realm = keycloakServer + "/" + path.Join("auth", "realms", r.KcCtl.GetRealmName(), "protocol", "docker-v2", "auth")
 	auth.Service = r.KcCtl.GetDockerV2ClientName()
-	auth.Issuer = "https://" + path.Join(keycloakServer, "auth", "realms", auth.Realm)
+	auth.Issuer = keycloakServer + "/" + path.Join("auth", "realms", r.KcCtl.GetRealmName())
 
 	return auth
 }

@@ -117,9 +117,9 @@ func (r *RegistryDeployment) create(c client.Client, reg *regv1.Registry, patchR
 
 func (r *RegistryDeployment) getAuthConfig() *regv1.AuthConfig {
 	auth := &regv1.AuthConfig{}
-	auth.Realm = r.KcCtl.GetRealmName()
+	auth.Realm = keycloakServer + "/" + path.Join("auth", "realms", r.KcCtl.GetRealmName(), "protocol", "docker-v2", "auth")
 	auth.Service = r.KcCtl.GetDockerV2ClientName()
-	auth.Issuer = "https://" + path.Join(keycloakServer, "auth", "realms", auth.Realm)
+	auth.Issuer = keycloakServer + "/" + path.Join("auth", "realms", r.KcCtl.GetRealmName())
 
 	return auth
 }
@@ -146,6 +146,7 @@ func (r *RegistryDeployment) getToken(c client.Client, reg *regv1.Registry) (str
 }
 
 func (r *RegistryDeployment) get(c client.Client, reg *regv1.Registry) error {
+	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, regv1.K8sPrefix+reg.Name)
 	token, err := r.getToken(c, reg)
 	if err != nil {
 		if err != nil {
@@ -161,7 +162,6 @@ func (r *RegistryDeployment) get(c client.Client, reg *regv1.Registry) error {
 	}
 
 	r.deploy = deploy
-	r.logger = utils.NewRegistryLogger(*r, r.deploy.Namespace, r.deploy.Name)
 
 	req := types.NamespacedName{Name: r.deploy.Name, Namespace: r.deploy.Namespace}
 
