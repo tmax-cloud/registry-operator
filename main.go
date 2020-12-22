@@ -18,11 +18,13 @@ package main
 
 import (
 	"flag"
-	"github.com/tmax-cloud/registry-operator/pkg/apiserver"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/tmax-cloud/registry-operator/pkg/apiserver"
+
+	regApi "github.com/tmax-cloud/registry-operator/registry"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -32,7 +34,6 @@ import (
 
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/controllers"
-	regApi "github.com/tmax-cloud/registry-operator/registry"
 	"github.com/tmax-cloud/registry-operator/server"
 	// +kubebuilder:scaffold:imports
 )
@@ -56,6 +57,7 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
@@ -139,6 +141,7 @@ func main() {
 	if syncRetryCount >= 10 {
 		setupLog.Info("failed to synchronize all registries")
 	}
+	// [TEST]//
 
 	// Wait until webserver and manager is over
 	wg.Wait()

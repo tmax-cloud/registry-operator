@@ -1,10 +1,9 @@
-package regctl
+package keycloakctl
 
 import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"os"
 
 	gocloak "github.com/Nerzal/gocloak/v7"
 	"github.com/go-logr/logr"
@@ -17,12 +16,12 @@ import (
 )
 
 var (
-	keycloakServer = os.Getenv("KEYCLOAK_SERVICE")
-	keycloakUser   = os.Getenv("KEYCLOAK_USERNAME")
-	keycloakPwd    = os.Getenv("KEYCLOAK_PASSWORD")
-	// keycloakServer = "https://172.22.11.9:8443"
-	// keycloakUser   = "admin"
-	// keycloakPwd    = "admin"
+	// KeycloakServer = os.Getenv("KEYCLOAK_SERVICE")
+	// keycloakUser   = os.Getenv("KEYCLOAK_USERNAME")
+	// keycloakPwd    = os.Getenv("KEYCLOAK_PASSWORD")
+	KeycloakServer = "https://172.22.11.9:8443"
+	keycloakUser   = "admin"
+	keycloakPwd    = "admin"
 )
 
 // KeycloakController is ...
@@ -33,7 +32,7 @@ type KeycloakController struct {
 }
 
 func NewKeycloakController(namespace, name string) *KeycloakController {
-	client := gocloak.NewClient(keycloakServer)
+	client := gocloak.NewClient(KeycloakServer)
 	restyClient := client.RestyClient()
 	restyClient.SetDebug(true)
 	// TODO: 인증서 추가할 것
@@ -54,6 +53,17 @@ func (c *KeycloakController) GetRealmName() string {
 
 func (c *KeycloakController) GetDockerV2ClientName() string {
 	return c.name + "-docker-client"
+}
+
+func (c *KeycloakController) GetAdminToken() string {
+	// login admin
+	token, err := c.client.LoginAdmin(context.Background(), keycloakUser, keycloakPwd, "master")
+	if err != nil {
+		c.logger.Error(err, "Couldn't get access token from keycloak")
+		return ""
+	}
+
+	return token.AccessToken
 }
 
 // CreateRealm is ...
@@ -160,8 +170,8 @@ func (c *KeycloakController) CreateUser(token, user, password string) error {
 	return nil
 }
 
-func (c *KeycloakController) GetUserAccessToken(user, password, realm string) (string, error) {
-	token, err := c.client.LoginAdmin(context.Background(), user, password, realm)
+func (c *KeycloakController) GetUserAccessToken(user, password string) (string, error) {
+	token, err := c.client.LoginAdmin(context.Background(), user, password, c.GetRealmName())
 	if err != nil {
 		return "", err
 	}

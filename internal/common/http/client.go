@@ -1,4 +1,4 @@
-package registry
+package http
 
 import (
 	"crypto/tls"
@@ -11,13 +11,13 @@ type Authorizer struct {
 	Password string
 }
 
-type httpClient struct {
+type HttpClient struct {
 	Login Authorizer
 	URL   string
 	*http.Client
 }
 
-func NewHTTPClient(url, username, password string) *httpClient {
+func NewHTTPClient(url, username, password string) *HttpClient {
 	caCert := CAData()
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
@@ -30,7 +30,7 @@ func NewHTTPClient(url, username, password string) *httpClient {
 		},
 	}
 
-	return &httpClient{
+	return &HttpClient{
 		URL:    url,
 		Login:  Authorizer{Username: username, Password: password},
 		Client: c,

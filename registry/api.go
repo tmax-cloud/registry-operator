@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/controllers/keycloakctl"
+	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -21,26 +24,51 @@ type Repository struct {
 }
 
 type RegistryApi struct {
-	*httpClient
+	*cmhttp.HttpClient
+	kcCli *keycloakctl.KeycloakClient
 }
 
 var logger = log.Log.WithName("registry-api")
 
 func NewRegistryApi(reg *regv1.Registry) *RegistryApi {
 	ra := &RegistryApi{}
-	regURL := RegistryUrl(reg)
+	regURL := registryUrl(reg)
+	if regURL == "" {
+		return nil
+	}
 
-	ra.httpClient = NewHTTPClient(regURL, reg.Spec.LoginId, reg.Spec.LoginPassword)
+	ra.HttpClient = cmhttp.NewHTTPClient(regURL, reg.Spec.LoginId, reg.Spec.LoginPassword)
+	kcCtl := keycloakctl.NewKeycloakController(reg.Namespace, reg.Name)
+	ra.kcCli = keycloakctl.NewKeycloakClient(reg.Spec.LoginId, reg.Spec.LoginPassword, kcCtl.GetRealmName(), kcCtl.GetDockerV2ClientName())
+
 	return ra
 }
 
+func registryUrl(reg *regv1.Registry) string {
+	url := reg.Status.ServerURLs[0]
+	if url == "" {
+		return ""
+	}
+
+	return url
+}
+
 func (r *RegistryApi) Catalog() *Repositories {
+	logger.Info("call", "api", r.URL+"/v2/_catalog")
 	req, err := http.NewRequest(http.MethodGet, r.URL+"/v2/_catalog", nil)
 	if err != nil {
 		logger.Error(err, "")
 		return nil
 	}
-	req.SetBasicAuth(r.Login.Username, r.Login.Password)
+
+	scopes := []string{"registry:catalog:*"}
+	token, err := r.kcCli.GetToken(scopes)
+	if err != nil {
+		logger.Error(err, "")
+		return nil
+	}
+	req.Header.Add("Authorization", "Bearer "+token)
+
 	res, err := r.Client.Do(req)
 	if err != nil {
 		logger.Error(err, "")
@@ -71,12 +99,21 @@ func (r *RegistryApi) Catalog() *Repositories {
 
 func (r *RegistryApi) Tags(imageName string) *Repository {
 	repo := &Repository{}
+	logger.Info("call", "api", r.URL+"/v2/"+imageName+"/tags/list")
 	req, err := http.NewRequest(http.MethodGet, r.URL+"/v2/"+imageName+"/tags/list", nil)
 	if err != nil {
 		logger.Error(err, "")
 		return nil
 	}
-	req.SetBasicAuth(r.Login.Username, r.Login.Password)
+
+	scopes := []string{strings.Join([]string{"repository", imageName, "pull"}, ":")}
+	token, err := r.kcCli.GetToken(scopes)
+	if err != nil {
+		logger.Error(err, "")
+		return nil
+	}
+	req.Header.Add("Authorization", "Bearer "+token)
+
 	res, err := r.Client.Do(req)
 	if err != nil {
 		logger.Error(err, "")
@@ -95,6 +132,7 @@ func (r *RegistryApi) Tags(imageName string) *Repository {
 }
 
 func (r *RegistryApi) DockerContentDigest(imageName, tag string) (string, error) {
+	logger.Info("call", "api", r.URL+"/v2/"+imageName+"/manifests/"+tag)
 	req, err := http.NewRequest(http.MethodGet, r.URL+"/v2/"+imageName+"/manifests/"+tag, nil)
 	if err != nil {
 		logger.Error(err, "")
@@ -102,7 +140,14 @@ func (r *RegistryApi) DockerContentDigest(imageName, tag string) (string, error)
 	}
 
 	req.Header.Add("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-	req.SetBasicAuth(r.Login.Username, r.Login.Password)
+	scopes := []string{strings.Join([]string{"repository", imageName, "pull"}, ":")}
+	token, err := r.kcCli.GetToken(scopes)
+	if err != nil {
+		logger.Error(err, "")
+		return "", err
+	}
+	req.Header.Add("Authorization", "Bearer "+token)
+
 	res, err := r.Client.Do(req)
 	if err != nil {
 		logger.Error(err, "")
@@ -129,13 +174,21 @@ func (r *RegistryApi) DockerContentDigest(imageName, tag string) (string, error)
 }
 
 func (r *RegistryApi) DeleteManifest(imageName, digest string) error {
+	logger.Info("call", "api", r.URL+"/v2/"+imageName+"/manifests/"+digest)
 	req, err := http.NewRequest(http.MethodDelete, r.URL+"/v2/"+imageName+"/manifests/"+digest, nil)
 	if err != nil {
 		logger.Error(err, "")
 		return err
 	}
 	req.Header.Add("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-	req.SetBasicAuth(r.Login.Username, r.Login.Password)
+	scopes := []string{strings.Join([]string{"repository", imageName, "*"}, ":")}
+	token, err := r.kcCli.GetToken(scopes)
+	if err != nil {
+		logger.Error(err, "")
+		return err
+	}
+	req.Header.Add("Authorization", "Bearer "+token)
+
 	res, err := r.Client.Do(req)
 	if err != nil {
 		logger.Error(err, "")

@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/controllers/keycloakctl"
 	"github.com/tmax-cloud/registry-operator/controllers/regctl"
 )
 
@@ -41,7 +42,7 @@ type RegistryReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
-	kc     *regctl.KeycloakController
+	kc     *keycloakctl.KeycloakController
 }
 
 // +kubebuilder:rbac:groups=tmax.io,resources=registries,verbs=get;list;watch;create;update;patch;delete
@@ -63,7 +64,7 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err != nil {
 		r.Log.Info("Error on get registry")
 		if errors.IsNotFound(err) {
-			r.kc = regctl.NewKeycloakController(req.Namespace, req.Name)
+			r.kc = keycloakctl.NewKeycloakController(req.Namespace, req.Name)
 			if err := r.kc.DeleteRealm(req.Namespace, req.Name); err != nil {
 				r.Log.Info("Couldn't delete keycloak realm")
 			}
@@ -107,7 +108,7 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 
 	defer r.patch(reg, patchReg)
 
-	r.kc = regctl.NewKeycloakController(reg.Namespace, reg.Name)
+	r.kc = keycloakctl.NewKeycloakController(reg.Namespace, reg.Name)
 	if reg.Status.Conditions.IsFalseFor(regv1.ConditionTypeKeycloakRealm) {
 		if err := r.kc.CreateRealm(reg, patchReg); err != nil {
 			return err
@@ -206,15 +207,16 @@ func (r *RegistryReconciler) patch(origin, target *regv1.Registry) error {
 	return nil
 }
 
-func collectSubController(reg *regv1.Registry, kc *regctl.KeycloakController) []regctl.RegistrySubresource {
+func collectSubController(reg *regv1.Registry, kc *keycloakctl.KeycloakController) []regctl.RegistrySubresource {
 	collection := []regctl.RegistrySubresource{}
 
 	if reg.Spec.Notary.Enabled {
 		collection = append(collection, &regctl.RegistryNotary{KcCtl: kc})
 	}
 
+	kcCli := keycloakctl.NewKeycloakClient(reg.Spec.LoginId, reg.Spec.LoginPassword, kc.GetRealmName(), kc.GetDockerV2ClientName())
 	collection = append(collection, &regctl.RegistryPVC{}, &regctl.RegistryService{}, &regctl.RegistryCertSecret{},
-		&regctl.RegistryDCJSecret{}, &regctl.RegistryConfigMap{}, &regctl.RegistryDeployment{KcCtl: kc}, &regctl.RegistryPod{})
+		&regctl.RegistryDCJSecret{}, &regctl.RegistryConfigMap{}, &regctl.RegistryDeployment{KcCli: kcCli}, &regctl.RegistryPod{})
 
 	if reg.Spec.RegistryService.ServiceType == "Ingress" {
 		collection = append(collection, &regctl.RegistryIngress{})

@@ -9,6 +9,7 @@ import (
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/controllers/keycloakctl"
 
 	"github.com/operator-framework/operator-lib/status"
 	appsv1 "k8s.io/api/apps/v1"
@@ -28,7 +29,7 @@ const (
 )
 
 type RegistryDeployment struct {
-	KcCtl  *KeycloakController
+	KcCli  *keycloakctl.KeycloakClient
 	deploy *appsv1.Deployment
 	logger *utils.RegistryLogger
 }
@@ -117,27 +118,17 @@ func (r *RegistryDeployment) create(c client.Client, reg *regv1.Registry, patchR
 
 func (r *RegistryDeployment) getAuthConfig() *regv1.AuthConfig {
 	auth := &regv1.AuthConfig{}
-	auth.Realm = keycloakServer + "/" + path.Join("auth", "realms", r.KcCtl.GetRealmName(), "protocol", "docker-v2", "auth")
-	auth.Service = r.KcCtl.GetDockerV2ClientName()
-	auth.Issuer = keycloakServer + "/" + path.Join("auth", "realms", r.KcCtl.GetRealmName())
+	auth.Realm = keycloakctl.KeycloakServer + "/" + path.Join("auth", "realms", r.KcCli.GetRealm(), "protocol", "docker-v2", "auth")
+	auth.Service = r.KcCli.GetService()
+	auth.Issuer = keycloakctl.KeycloakServer + "/" + path.Join("auth", "realms", r.KcCli.GetRealm())
 
 	return auth
 }
 
 func (r *RegistryDeployment) getToken(c client.Client, reg *regv1.Registry) (string, error) {
-	certCtl := &RegistryCertSecret{}
-
-	// get user and password
-	user, pwd, err := certCtl.GetUserSecret(c, reg)
-	if err != nil {
-		return "", err
-	}
-
-	// get realm
-	realm := r.KcCtl.GetRealmName()
-
 	// get token
-	token, err := r.KcCtl.GetUserAccessToken(user, pwd, realm)
+	scopes := []string{"registry:catalog:*"}
+	token, err := r.KcCli.GetToken(scopes)
 	if err != nil {
 		return "", err
 	}

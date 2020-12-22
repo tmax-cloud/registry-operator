@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/tmax-cloud/registry-operator/controllers/repoctl"
@@ -30,10 +31,9 @@ func AllRegistrySync(c client.Client, scheme *runtime.Scheme) error {
 		if strings.Contains(err.Error(), "the cache is not started") {
 			logz.Info("the cache is not started, can not read objects")
 			return err
-		} else {
-			logz.Error(err, "Get regsitry list is failed")
 		}
 
+		logz.Error(err, "Get regsitry list is failed")
 		return err
 	}
 
@@ -41,6 +41,9 @@ func AllRegistrySync(c client.Client, scheme *runtime.Scheme) error {
 	for _, reg := range regList.Items {
 		logz.Info("Registry", "Name", reg.Name, "Namespace", reg.Namespace)
 		ra := NewRegistryApi(&reg)
+		if ra == nil {
+			return fmt.Errorf("couldn't get registry api caller")
+		}
 		logz.Info("Synchronize registry repositories")
 		SyncRegistryImage(ra, c, &reg, scheme)
 	}
