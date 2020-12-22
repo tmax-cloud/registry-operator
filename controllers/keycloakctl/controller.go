@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"os"
 
 	gocloak "github.com/Nerzal/gocloak/v7"
 	"github.com/go-logr/logr"
@@ -16,12 +17,9 @@ import (
 )
 
 var (
-	// KeycloakServer = os.Getenv("KEYCLOAK_SERVICE")
-	// keycloakUser   = os.Getenv("KEYCLOAK_USERNAME")
-	// keycloakPwd    = os.Getenv("KEYCLOAK_PASSWORD")
-	KeycloakServer = "https://172.22.11.9:8443"
-	keycloakUser   = "admin"
-	keycloakPwd    = "admin"
+	KeycloakServer = os.Getenv("KEYCLOAK_SERVICE")
+	keycloakUser   = os.Getenv("KEYCLOAK_USERNAME")
+	keycloakPwd    = os.Getenv("KEYCLOAK_PASSWORD")
 )
 
 // KeycloakController is ...
