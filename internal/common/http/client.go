@@ -18,7 +18,7 @@ type HttpClient struct {
 }
 
 func NewHTTPClient(url, username, password string) *HttpClient {
-	caCert := CAData()
+	caCert, _ := CAData()
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 

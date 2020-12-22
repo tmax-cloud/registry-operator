@@ -5,10 +5,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path"
-	"strings"
 
 	"github.com/go-logr/logr"
 	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
+	"github.com/tmax-cloud/registry-operator/internal/utils"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -45,7 +45,7 @@ func (c *KeycloakClient) GetToken(scopes []string) (string, error) {
 		params["scope"] = scopes
 	}
 
-	reqURL = c.addQueryParams(reqURL, params)
+	reqURL = utils.AddQueryParams(reqURL, params)
 
 	c.logger.Info("call", "api", reqURL)
 	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
@@ -81,25 +81,6 @@ func (c *KeycloakClient) GetToken(scopes []string) (string, error) {
 
 func (c *KeycloakClient) tokenURL() string {
 	return c.URL + "/" + path.Join("auth", "realms", c.realm, "protocol", "docker-v2", "auth")
-}
-
-func (c *KeycloakClient) addQueryParams(url string, params map[string][]string) string {
-	isFirst := false
-	if !strings.Contains(url, "?") {
-		url += "?"
-		isFirst = true
-	}
-	for key, values := range params {
-		for _, v := range values {
-			if !isFirst {
-				url += "&"
-			}
-			url += strings.Join([]string{key, v}, "=")
-			isFirst = false
-		}
-	}
-
-	return url
 }
 
 type KeycloakTokenResponse struct {

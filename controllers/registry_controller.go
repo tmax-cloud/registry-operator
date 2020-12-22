@@ -210,17 +210,17 @@ func (r *RegistryReconciler) patch(origin, target *regv1.Registry) error {
 func collectSubController(reg *regv1.Registry, kc *keycloakctl.KeycloakController) []regctl.RegistrySubresource {
 	collection := []regctl.RegistrySubresource{}
 
-	if reg.Spec.Notary.Enabled {
-		collection = append(collection, &regctl.RegistryNotary{KcCtl: kc})
-	}
+	// if reg.Spec.Notary.Enabled {
+	// 	collection = append(collection, &regctl.RegistryNotary{KcCtl: kc})
+	// }
 
-	kcCli := keycloakctl.NewKeycloakClient(reg.Spec.LoginId, reg.Spec.LoginPassword, kc.GetRealmName(), kc.GetDockerV2ClientName())
-	collection = append(collection, &regctl.RegistryPVC{}, &regctl.RegistryService{}, &regctl.RegistryCertSecret{},
-		&regctl.RegistryDCJSecret{}, &regctl.RegistryConfigMap{}, &regctl.RegistryDeployment{KcCli: kcCli}, &regctl.RegistryPod{})
+	// kcCli := keycloakctl.NewKeycloakClient(reg.Spec.LoginId, reg.Spec.LoginPassword, kc.GetRealmName(), kc.GetDockerV2ClientName())
+	// collection = append(collection, &regctl.RegistryPVC{}, &regctl.RegistryService{}, &regctl.RegistryCertSecret{},
+	// 	&regctl.RegistryDCJSecret{}, &regctl.RegistryConfigMap{}, &regctl.RegistryDeployment{KcCli: kcCli}, &regctl.RegistryPod{})
 
-	if reg.Spec.RegistryService.ServiceType == "Ingress" {
-		collection = append(collection, &regctl.RegistryIngress{})
-	}
+	// if reg.Spec.RegistryService.ServiceType == "Ingress" {
+	// 	collection = append(collection, &regctl.RegistryIngress{})
+	// }
 
 	return collection
 }

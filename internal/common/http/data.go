@@ -16,26 +16,31 @@ import (
 
 var logger logr.Logger = logf.Log.WithName("common http")
 
-func CAData() []byte {
+func CAData() ([]byte, []byte) {
 	c, err := client.New(config.GetConfigOrDie(), client.Options{})
 	if err != nil {
 		logger.Error(err, "Unknown error")
-		return nil
+		return nil, nil
 	}
 
 	secret := &corev1.Secret{}
 	err = c.Get(context.TODO(), types.NamespacedName{Name: schemes.RootCASecretName, Namespace: schemes.RootCASecretNamespace}, secret)
 	if err != nil {
 		logger.Error(err, "Unknown error")
-		return nil
+		return nil, nil
 	}
 
 	data := secret.Data
 	cacrt, exist := data[schemes.RootCACert]
 	if !exist {
 		logger.Info("CA is not found")
-		return nil
+		return nil, nil
+	}
+	cakey, exist := data[schemes.RootCAPriv]
+	if !exist {
+		logger.Info("CA key is not found")
+		return nil, nil
 	}
 
-	return cacrt
+	return cacrt, cakey
 }

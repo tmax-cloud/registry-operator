@@ -1,16 +1,22 @@
 package keycloakctl
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
+	"path"
 
 	gocloak "github.com/Nerzal/gocloak/v7"
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-lib/status"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -22,11 +28,17 @@ var (
 	keycloakPwd    = os.Getenv("KEYCLOAK_PASSWORD")
 )
 
+const (
+	rootCAName = regv1.K8sPrefix + regv1.K8sRegistryPrefix + "rootca"
+)
+
 // KeycloakController is ...
 type KeycloakController struct {
-	name   string
-	client gocloak.GoCloak
-	logger logr.Logger
+	name       string
+	client     gocloak.GoCloak
+	logger     logr.Logger
+	token      string
+	httpClient *cmhttp.HttpClient
 }
 
 func NewKeycloakController(namespace, name string) *KeycloakController {
@@ -38,10 +50,20 @@ func NewKeycloakController(namespace, name string) *KeycloakController {
 		InsecureSkipVerify: true,
 	})
 	logger := logf.Log.WithName("keycloak controller").WithValues("namespace", namespace, "registry name", name)
+
+	// login admin
+	token, err := client.LoginAdmin(context.Background(), keycloakUser, keycloakPwd, "master")
+	if err != nil {
+		logger.Error(err, "Couldn't get access token from keycloak")
+		return nil
+	}
+
 	return &KeycloakController{
-		name:   fmt.Sprintf("%s-%s", namespace, name),
-		client: client,
-		logger: logger,
+		name:       fmt.Sprintf("%s-%s", namespace, name),
+		client:     client,
+		logger:     logger,
+		token:      token.AccessToken,
+		httpClient: cmhttp.NewHTTPClient(KeycloakServer, keycloakUser, keycloakPwd),
 	}
 }
 
@@ -74,18 +96,11 @@ func (c *KeycloakController) CreateRealm(reg, patchReg *regv1.Registry) error {
 
 	defer utils.SetCondition(err, patchReg, condition)
 
-	// login admin
-	token, err := c.client.LoginAdmin(context.Background(), keycloakUser, keycloakPwd, "master")
-	if err != nil {
-		c.logger.Error(err, "Couldn't get access token from keycloak")
-		condition.Message = err.Error()
-		return err
-	}
-
-	if !c.isExistRealm(token.AccessToken, c.name) {
+	if !c.isExistRealm(c.name) {
 		// make new realm
 		realmEnabled := true
-		_, err = c.client.CreateRealm(context.Background(), token.AccessToken, gocloak.RealmRepresentation{
+		_, err = c.client.CreateRealm(context.Background(), c.token, gocloak.RealmRepresentation{
+			ID:      &c.name,
 			Realm:   &c.name,
 			Enabled: &realmEnabled,
 		})
@@ -98,7 +113,7 @@ func (c *KeycloakController) CreateRealm(reg, patchReg *regv1.Registry) error {
 		// make docker client
 		clientName := c.GetDockerV2ClientName()
 		protocol := "docker-v2"
-		_, err = c.client.CreateClient(context.Background(), token.AccessToken, c.name, gocloak.Client{
+		_, err = c.client.CreateClient(context.Background(), c.token, c.name, gocloak.Client{
 			ClientID: &clientName,
 			Protocol: &protocol,
 		})
@@ -109,9 +124,17 @@ func (c *KeycloakController) CreateRealm(reg, patchReg *regv1.Registry) error {
 		}
 	}
 
-	if !c.isExistUser(token.AccessToken, reg.Spec.LoginId) {
+	if !c.isExistCertificate() {
+		if err := c.AddCertificate(); err != nil {
+			c.logger.Error(err, "Couldn't create a certificate component")
+			condition.Message = err.Error()
+			return err
+		}
+	}
+
+	if !c.isExistUser(reg.Spec.LoginId) {
 		c.logger.Info("CreateUser", "username", reg.Spec.LoginId)
-		if err := c.CreateUser(token.AccessToken, reg.Spec.LoginId, reg.Spec.LoginPassword); err != nil {
+		if err := c.CreateUser(c.token, reg.Spec.LoginId, reg.Spec.LoginPassword); err != nil {
 			return err
 		}
 	}
@@ -122,19 +145,12 @@ func (c *KeycloakController) CreateRealm(reg, patchReg *regv1.Registry) error {
 
 // DeleteRealm is ...
 func (c *KeycloakController) DeleteRealm(namespace string, name string) error {
-	// login admin
-	token, err := c.client.LoginAdmin(context.Background(), keycloakUser, keycloakPwd, "master")
-	if err != nil {
-		c.logger.Error(err, "Couldn't get access token from keycloak")
-		return err
-	}
-
-	if !c.isExistRealm(token.AccessToken, c.name) {
+	if !c.isExistRealm(c.name) {
 		return nil
 	}
 
 	// Delete realm
-	if err := c.client.DeleteRealm(context.Background(), token.AccessToken, c.name); err != nil {
+	if err := c.client.DeleteRealm(context.Background(), c.token, c.name); err != nil {
 		c.logger.Error(err, "Couldn't delete the realm named "+c.name)
 		return err
 	}
@@ -142,6 +158,7 @@ func (c *KeycloakController) DeleteRealm(namespace string, name string) error {
 	return nil
 }
 
+// CreateUser creates new user
 func (c *KeycloakController) CreateUser(token, user, password string) error {
 	enabled := true
 	newUser := gocloak.User{Username: &user, Enabled: &enabled}
@@ -168,27 +185,74 @@ func (c *KeycloakController) CreateUser(token, user, password string) error {
 	return nil
 }
 
-func (c *KeycloakController) GetUserAccessToken(user, password string) (string, error) {
-	token, err := c.client.LoginAdmin(context.Background(), user, password, c.GetRealmName())
-	if err != nil {
-		return "", err
+func (c *KeycloakController) AddCertificate() error {
+	reqURL := c.componentURL()
+	cacrt, cakey := cmhttp.CAData()
+	cacrt = utils.RemovePemBlock(cacrt, "CERTIFICATE")
+	cakey = utils.RemovePemBlock(cakey, "PRIVATEE KEY")
+	component := Component{
+		Name:         rootCAName,
+		ProviderID:   "rsa",
+		ProviderType: "org.keycloak.keys.KeyProvider",
+		ParentID:     c.GetRealmName(),
+		ComponentConfig: &ComponentConfig{
+			Priority:    []string{"500"},
+			Enabled:     []string{"true"},
+			Active:      []string{"true"},
+			Algorithm:   []string{"RS256"},
+			PrivateKey:  []string{string(cakey)},
+			Certificate: []string{string(cacrt)},
+		},
 	}
 
-	return token.AccessToken, nil
+	body, err := json.Marshal(component)
+	if err != nil {
+		return err
+	}
+
+	c.logger.Info("call", "api", reqURL)
+	c.logger.Info("call", "body", string(body))
+	req, err := http.NewRequest(http.MethodPost, reqURL, bytes.NewBuffer(body))
+	if err != nil {
+		c.logger.Error(err, "")
+		return err
+	}
+
+	req.Header.Set("Content-type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.token)
+
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		c.logger.Error(err, "")
+		return err
+	}
+
+	resBody, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		c.logger.Error(err, "")
+		return err
+	}
+	c.logger.Info("add certificate success", "response", string(resBody))
+
+	return nil
 }
 
-func (c *KeycloakController) isExistRealm(token string, name string) bool {
-	if _, err := c.client.GetRealm(context.Background(), token, name); err != nil {
+func (c *KeycloakController) componentURL() string {
+	return KeycloakServer + "/" + path.Join("auth", keycloakUser, "realms", c.GetRealmName(), "components")
+}
+
+func (c *KeycloakController) isExistRealm(name string) bool {
+	if _, err := c.client.GetRealm(context.Background(), c.token, name); err != nil {
 		return false
 	}
 
 	return true
 }
 
-func (c *KeycloakController) isExistUser(token string, username string) bool {
+func (c *KeycloakController) isExistUser(username string) bool {
 	users, err := c.client.GetUsers(
 		context.TODO(),
-		token,
+		c.token,
 		c.GetRealmName(),
 		gocloak.GetUsersParams{
 			Username: gocloak.StringP(username),
@@ -200,4 +264,46 @@ func (c *KeycloakController) isExistUser(token string, username string) bool {
 	}
 
 	return true
+}
+
+func (c *KeycloakController) isExistCertificate() bool {
+	reqURL := c.componentURL()
+	parent := []string{c.GetRealmName()}
+	keyType := []string{"org.keycloak.keys.KeyProvider"}
+	params := map[string][]string{"parent": parent, "type": keyType}
+	reqURL = utils.AddQueryParams(reqURL, params)
+
+	c.logger.Info("call", "api", reqURL)
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		c.logger.Error(err, "")
+		return false
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.token)
+
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		c.logger.Error(err, "")
+		return false
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		c.logger.Error(err, "")
+		return false
+	}
+	components := Components{}
+	if err := json.Unmarshal(body, components); err != nil {
+		c.logger.Info("contents", "components", string(body))
+		return false
+	}
+
+	for _, comp := range components {
+		if comp.Name == rootCAName {
+			return true
+		}
+	}
+
+	return false
 }

@@ -45,6 +45,9 @@ func NewRegistryApi(reg *regv1.Registry) *RegistryApi {
 }
 
 func registryUrl(reg *regv1.Registry) string {
+	if len(reg.Status.ServerURLs) == 0 {
+		return ""
+	}
 	url := reg.Status.ServerURLs[0]
 	if url == "" {
 		return ""
