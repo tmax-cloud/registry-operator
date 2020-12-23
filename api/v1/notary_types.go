@@ -71,6 +71,7 @@ type NotaryStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:path=notaries,scope=Namespaced,shortName=not
 
 // Notary is the Schema for the notaries API
 type Notary struct {

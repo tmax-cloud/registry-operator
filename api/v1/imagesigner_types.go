@@ -44,11 +44,11 @@ type ImageSignerStatus struct {
 }
 
 type SignerKeyState struct {
-	Created   bool        `json:"created"`
-	Reason    string      `json:"reason,omitempty"`
-	Message   string      `json:"message,omitempty"`
-	RootKeyID string      `json:"rootKeyId"`
-	CreatedAt metav1.Time `json:"createdAt"`
+	Created   bool         `json:"created,omitempty"`
+	Reason    string       `json:"reason,omitempty"`
+	Message   string       `json:"message,omitempty"`
+	RootKeyID string       `json:"rootKeyId,omitempty"`
+	CreatedAt *metav1.Time `json:"createdAt,omitempty"`
 }
 
 // +kubebuilder:object:root=true

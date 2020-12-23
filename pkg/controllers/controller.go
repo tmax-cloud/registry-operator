@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+
 	apiv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -37,7 +38,7 @@ func (c *SigningController) CreateRootKey(owner *apiv1.ImageSigner, scheme *runt
 	log.Info("create root key")
 
 	// Create dummy notary repository
-	img, err := trust.NewImage("dummy/dummy:dummy", "", "", "", nil)
+	img, err := trust.NewImage("dummy.com/dummy:dummy", "", "", "", nil)
 	if err != nil {
 		return nil, err
 	}

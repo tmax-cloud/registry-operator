@@ -6,10 +6,14 @@ import (
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var log = logf.Log.WithName("controllers")
 
 func updateSignerStatus(c client.Client, signer *tmaxiov1.ImageSigner) error {
 	if err := c.Status().Update(context.TODO(), signer); err != nil {
+		log.Error(err, "update signer status failed")
 		return err
 	}
 
@@ -19,8 +23,9 @@ func updateSignerStatus(c client.Client, signer *tmaxiov1.ImageSigner) error {
 func makeSignerStatus(signer *tmaxiov1.ImageSigner, created bool, reason, message string, key *tmaxiov1.TrustKey) {
 	signer.Status.SignerKeyState = &tmaxiov1.SignerKeyState{}
 	if created {
+		now := metav1.Now()
 		signer.Status.Created = true
-		signer.Status.CreatedAt = metav1.Now()
+		signer.Status.CreatedAt = &now
 		signer.Status.RootKeyID = key.ID
 	} else {
 		signer.Status.Created = false

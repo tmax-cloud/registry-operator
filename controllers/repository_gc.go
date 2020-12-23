@@ -5,15 +5,12 @@ import (
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	regApi "github.com/tmax-cloud/registry-operator/registry"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/controllers/regctl"
 	"github.com/tmax-cloud/registry-operator/controllers/repoctl"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logf.Log.WithName("controller_repository")
 
 func sweepImages(c client.Client, reg *regv1.Registry, repo *regv1.Repository) error {
 	repoName := repo.Spec.Name
