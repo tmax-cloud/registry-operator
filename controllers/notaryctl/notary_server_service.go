@@ -3,6 +3,7 @@ package notaryctl
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/operator-framework/operator-lib/status"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -64,6 +65,7 @@ func (nt *NotaryServerService) Ready(c client.Client, notary *regv1.Notary, patc
 		}
 
 		notary.Status.ServerLoadBalancerIP = lb.Ingress[0].IP
+		patchNotary.Status.NotaryURL = "https://" + notary.Status.ServerLoadBalancerIP + ":" + strconv.Itoa(schemes.NotaryServerDefaultPort)
 	}
 
 	nt.logger.Info("Ready")

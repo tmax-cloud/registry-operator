@@ -66,6 +66,7 @@ type NotaryStatus struct {
 	ServerLoadBalancerIP string            `json:"serverLoadBalancerIP,omitempty"`
 	SignerClusterIP      string            `json:"signerClusterIP,omitempty"`
 	SignerLoadBalancerIP string            `json:"signerLoadBalancerIP,omitempty"`
+	NotaryURL            string            `json:"notaryURL,omitempty"`
 }
 
 // +kubebuilder:object:root=true

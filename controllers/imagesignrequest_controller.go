@@ -19,9 +19,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/pkg/controllers"
+	controller "github.com/tmax-cloud/registry-operator/pkg/controllers"
 	"github.com/tmax-cloud/registry-operator/pkg/trust"
 )
 
@@ -157,15 +158,13 @@ func (r *ImageSignRequestReconciler) findRegistryByHost(hostname string) (*tmaxi
 	targetFound := false
 	for _, r := range regList.Items {
 		log.Info(r.Name)
-		for _, h := range r.Status.ServerURLs {
-			serverUrl := strings.TrimPrefix(h, "https://")
-			serverUrl = strings.TrimPrefix(serverUrl, "http://")
-			serverUrl = strings.TrimSuffix(serverUrl, "/")
+		serverUrl := strings.TrimPrefix(r.Status.ServerURL, "https://")
+		serverUrl = strings.TrimPrefix(serverUrl, "http://")
+		serverUrl = strings.TrimSuffix(serverUrl, "/")
 
-			if serverUrl == hostname {
-				targetReg = r
-				targetFound = true
-			}
+		if serverUrl == hostname {
+			targetReg = r
+			targetFound = true
 		}
 	}
 
