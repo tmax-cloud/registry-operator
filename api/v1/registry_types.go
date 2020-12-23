@@ -38,8 +38,7 @@ type RegistrySpec struct {
 }
 
 type RegistryNotary struct {
-	Enabled      bool   `json:"enabled"`
-	RootCASecret string `json:"rootCASecret"`
+	Enabled bool `json:"enabled"`
 	// use Ingress or LoadBalancer
 	// +kubebuilder:validation:Enum=Ingress;LoadBalancer
 	ServiceType           NotaryServiceType `json:"serviceType"`

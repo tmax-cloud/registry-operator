@@ -45,6 +45,13 @@ type ImageSignRequestReconciler struct {
 // +kubebuilder:rbac:groups=tmax.io,resources=imagesignrequests,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=tmax.io,resources=imagesignrequests/status,verbs=get;update;patch
 
+// +kubebuilder:rbac:groups=tmax.io,resources=signerkeys,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=tmax.io,resources=signerkeys/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=apiregistration.k8s.io,resourceNames=v1.registry.tmax.io,resources=apiservices,verbs=get;update;patch
+// +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
+// +kubebuilder:rbac:groups=core,resourceNames=extension-apiserver-authentication,resources=configmaps,verbs=get
+// +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
+
 func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 	log := r.Log.WithValues("imagesignrequest", req.NamespacedName)

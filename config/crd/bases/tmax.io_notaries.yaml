@@ -145,6 +145,8 @@ spec:
                 - type
                 type: object
               type: array
+            notaryURL:
+              type: string
             serverClusterIP:
               type: string
             serverLoadBalancerIP:

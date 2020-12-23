@@ -86,7 +86,7 @@ func (f *CertFactory) CreateCertPair(source interface{}, certType CertType) (*ut
 }
 
 func (f *CertFactory) setParent(cert *utils.CertPair) {
-	parentCert, parentPrivKey := getCertificateFromFile(f.client)
+	parentCert, parentPrivKey := getRootCACertificate(f.client)
 	cert.SetParent(parentCert, parentPrivKey)
 }
 

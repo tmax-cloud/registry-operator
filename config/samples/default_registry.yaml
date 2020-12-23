@@ -10,7 +10,6 @@ spec:
   loginPassword: tmax123
   notary:
     enabled: true
-    rootCASecret: hpcd-registry-rootca
     serviceType: LoadBalancer
     persistentVolumeClaim:
       create:
