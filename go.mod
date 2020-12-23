@@ -4,9 +4,7 @@ go 1.13
 
 require (
 	github.com/Nerzal/gocloak/v7 v7.8.0
-	github.com/Shopify/logrus-bugsnag v0.0.0-20171204204709-577dee27f20d // indirect
 	github.com/bugsnag/bugsnag-go v1.7.0 // indirect
-	github.com/bugsnag/panicwrap v1.2.0 // indirect
 	github.com/cloudflare/cfssl v1.5.0 // indirect
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/go-metrics v0.0.1 // indirect

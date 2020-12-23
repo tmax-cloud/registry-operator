@@ -1,24 +1,28 @@
 package schemes
 
 import (
-	"encoding/base64"
-	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"path"
 	"strconv"
+
+	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/common/certs"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
-	ConfigMapMountPath   = "/etc/docker/registry"
-	SecretCertMountPath  = "/certs"
-	RegistryPVCMountPath = "/var/lib/registry"
+	configMapMountPath   = "/etc/docker/registry"
+	registryPVCMountPath = "/var/lib/registry"
+
+	registryTLSCrtPath = "/certs/registry/tls.crt"
+	registryTLSKeyPath = "/certs/registry/tls.key"
+	registryRootCAPath = "/certs/rootca/ca.crt"
 )
 
-func Deployment(reg *regv1.Registry) *appsv1.Deployment {
+func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*appsv1.Deployment, error) {
 	var resName, pvcMountPath, pvcName, configMapName string
 	resName = regv1.K8sPrefix + reg.Name
 	label := map[string]string{}
@@ -27,7 +31,7 @@ func Deployment(reg *regv1.Registry) *appsv1.Deployment {
 	label[resName] = "lb"
 
 	if len(reg.Spec.PersistentVolumeClaim.MountPath) == 0 {
-		pvcMountPath = RegistryPVCMountPath
+		pvcMountPath = registryPVCMountPath
 	} else {
 		pvcMountPath = reg.Spec.PersistentVolumeClaim.MountPath
 	}
@@ -38,13 +42,14 @@ func Deployment(reg *regv1.Registry) *appsv1.Deployment {
 		pvcName = regv1.K8sPrefix + reg.Name
 	}
 
-	idPasswd := reg.Spec.LoginId + ":" + reg.Spec.LoginPassword
-	loginAuth := base64.StdEncoding.EncodeToString([]byte(idPasswd))
-
 	if len(reg.Spec.CustomConfigYml) != 0 {
 		configMapName = reg.Spec.CustomConfigYml
 	} else {
 		configMapName = regv1.K8sPrefix + reg.Name
+	}
+
+	if _, err := certs.GetRootCert(reg.Namespace); err != nil {
+		return nil, err
 	}
 
 	deployment := &appsv1.Deployment{
@@ -66,13 +71,6 @@ func Deployment(reg *regv1.Registry) *appsv1.Deployment {
 						{
 							Image: reg.Spec.Image,
 							Name:  "registry",
-							Lifecycle: &corev1.Lifecycle{
-								PostStart: &corev1.Handler{
-									Exec: &corev1.ExecAction{
-										Command: []string{"/bin/sh", "-c", "mkdir /auth; htpasswd -Bbn $ID $PASSWD > /auth/htpasswd"},
-									},
-								},
-							},
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("0.2"),
@@ -89,15 +87,23 @@ func Deployment(reg *regv1.Registry) *appsv1.Deployment {
 							Env: []corev1.EnvVar{
 								{
 									Name:  "REGISTRY_AUTH",
-									Value: "htpasswd",
+									Value: "token",
 								},
 								{
-									Name:  "REGISTRY_AUTH_HTPASSWD_REALM",
-									Value: "Registry Realm",
+									Name:  "REGISTRY_AUTH_TOKEN_REALM",
+									Value: auth.Realm,
 								},
 								{
-									Name:  "REGISTRY_AUTH_HTPASSWD_PATH",
-									Value: "/auth/htpasswd",
+									Name:  "REGISTRY_AUTH_TOKEN_SERVICE",
+									Value: auth.Service,
+								},
+								{
+									Name:  "REGISTRY_AUTH_TOKEN_ISSUER",
+									Value: auth.Issuer,
+								},
+								{
+									Name:  "REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE",
+									Value: registryRootCAPath,
 								},
 								{
 									Name:  "REGISTRY_HTTP_ADDR",
@@ -105,86 +111,67 @@ func Deployment(reg *regv1.Registry) *appsv1.Deployment {
 								},
 								{
 									Name:  "REGISTRY_HTTP_TLS_CERTIFICATE",
-									Value: "/certs/localhub.crt",
+									Value: registryTLSCrtPath,
 								},
 								{
 									Name:  "REGISTRY_HTTP_TLS_KEY",
-									Value: "/certs/localhub.key",
-								},
-								// from secret
-								{
-									Name: "ID",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: regv1.K8sPrefix + reg.Name,
-											},
-											Key: "ID",
-										},
-									},
-								},
-								{
-									Name: "PASSWD",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: regv1.K8sPrefix + reg.Name,
-											},
-											Key: "PASSWD",
-										},
-									},
+									Value: registryTLSKeyPath,
 								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "config",
-									MountPath: ConfigMapMountPath,
+									MountPath: configMapMountPath,
 								},
 								{
-									Name:      "certs",
-									MountPath: SecretCertMountPath,
+									Name:      "tls",
+									MountPath: path.Dir(registryTLSKeyPath),
+								},
+								{
+									Name:      "rootca",
+									MountPath: path.Dir(registryRootCAPath),
 								},
 							},
-							ReadinessProbe: &corev1.Probe{
-								PeriodSeconds:       3,
-								SuccessThreshold:    1,
-								TimeoutSeconds:      1,
-								InitialDelaySeconds: 5,
-								FailureThreshold:    10,
-								Handler: corev1.Handler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/v2/_catalog",
-										Port: intstr.IntOrString{IntVal: RegistryTargetPort},
-										HTTPHeaders: []corev1.HTTPHeader{
-											corev1.HTTPHeader{
-												Name:  "authorization",
-												Value: "Basic " + loginAuth,
-											},
-										},
-										Scheme: corev1.URISchemeHTTPS,
-									},
-								},
-							},
-							LivenessProbe: &corev1.Probe{
-								PeriodSeconds:       5,
-								SuccessThreshold:    1,
-								TimeoutSeconds:      30,
-								InitialDelaySeconds: 5,
-								FailureThreshold:    10,
-								Handler: corev1.Handler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/v2/_catalog",
-										Port: intstr.IntOrString{IntVal: RegistryTargetPort},
-										HTTPHeaders: []corev1.HTTPHeader{
-											corev1.HTTPHeader{
-												Name:  "authorization",
-												Value: "Basic " + loginAuth,
-											},
-										},
-										Scheme: corev1.URISchemeHTTPS,
-									},
-								},
-							},
+							// ReadinessProbe: &corev1.Probe{
+							// 	PeriodSeconds:       3,
+							// 	SuccessThreshold:    1,
+							// 	TimeoutSeconds:      1,
+							// 	InitialDelaySeconds: 5,
+							// 	FailureThreshold:    10,
+							// 	Handler: corev1.Handler{
+							// 		HTTPGet: &corev1.HTTPGetAction{
+							// 			Path: "/v2/_catalog",
+							// 			Port: intstr.IntOrString{IntVal: RegistryTargetPort},
+							// 			HTTPHeaders: []corev1.HTTPHeader{
+							// 				corev1.HTTPHeader{
+							// 					Name:  "authorization",
+							// 					Value: "Bearer " + token,
+							// 				},
+							// 			},
+							// 			Scheme: corev1.URISchemeHTTPS,
+							// 		},
+							// 	},
+							// },
+							// LivenessProbe: &corev1.Probe{
+							// 	PeriodSeconds:       5,
+							// 	SuccessThreshold:    1,
+							// 	TimeoutSeconds:      30,
+							// 	InitialDelaySeconds: 5,
+							// 	FailureThreshold:    10,
+							// 	Handler: corev1.Handler{
+							// 		HTTPGet: &corev1.HTTPGetAction{
+							// 			Path: "/v2/_catalog",
+							// 			Port: intstr.IntOrString{IntVal: RegistryTargetPort},
+							// 			HTTPHeaders: []corev1.HTTPHeader{
+							// 				corev1.HTTPHeader{
+							// 					Name:  "authorization",
+							// 					Value: "Bearer " + token,
+							// 				},
+							// 			},
+							// 			Scheme: corev1.URISchemeHTTPS,
+							// 		},
+							// 	},
+							// },
 						},
 					},
 					Volumes: []corev1.Volume{
@@ -197,10 +184,18 @@ func Deployment(reg *regv1.Registry) *appsv1.Deployment {
 							},
 						},
 						corev1.Volume{
-							Name: "certs",
+							Name: "tls",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: regv1.K8sPrefix + reg.Name,
+									SecretName: regv1.K8sPrefix + regv1.TLSPrefix + reg.Name,
+								},
+							},
+						},
+						corev1.Volume{
+							Name: "rootca",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: certs.RootCASecretName,
 								},
 							},
 						},
@@ -234,5 +229,5 @@ func Deployment(reg *regv1.Registry) *appsv1.Deployment {
 		deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[0].VolumeMounts, vm)
 	}
 
-	return deployment
+	return deployment, nil
 }

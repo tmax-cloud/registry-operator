@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"fmt"
+
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	regApi "github.com/tmax-cloud/registry-operator/registry"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -55,6 +57,9 @@ func sweepImages(c client.Client, reg *regv1.Registry, repo *regv1.Repository) e
 
 func sweepRegistryRepo(c client.Client, reg *regv1.Registry, repoName string) error {
 	ra := regApi.NewRegistryApi(reg)
+	if ra == nil {
+		return fmt.Errorf("couldn't get registry api caller")
+	}
 
 	tags := ra.Tags(repoName).Tags
 	if tags == nil {
@@ -88,6 +93,9 @@ func sweepRegistryRepo(c client.Client, reg *regv1.Registry, repoName string) er
 
 func deleteImagesInRepo(c client.Client, reg *regv1.Registry, repoName string, tags []string) ([]string, error) {
 	ra := regApi.NewRegistryApi(reg)
+	if ra == nil {
+		return nil, fmt.Errorf("couldn't get registry api caller")
+	}
 	deletedTags := []string{}
 
 	for _, tag := range tags {

@@ -5,11 +5,11 @@ metadata:
   namespace: reg-test
 spec:
   # Add fields here
-  rootCASecret: registry-ca
+  rootCASecret: hpcd-registry-rootca
   authConfig:
-    realm: realm
-    service: service
-    issuer: issuer
+    realm: https://172.22.11.9:8443/auth/realms/reg-test-tmax-registry/protocol/docker-v2/auth
+    service: reg-test-tmax-registry-docker-client
+    issuer: https://172.22.11.9:8443/auth/realms/reg-test-tmax-registry
   serviceType: LoadBalancer
   persistentVolumeClaim:
     create:

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"strings"
 	"time"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -106,4 +107,14 @@ func generateSerialNumber() (*big.Int, error) {
 	}
 
 	return serialNumber, nil
+}
+
+func RemovePemBlock(data []byte, blockType string) []byte {
+	dataStr := string(data)
+	// utilLogger.Info("trim", "before", dataStr)
+	dataStr = strings.TrimLeft(dataStr, "-----BEGIN "+blockType+"-----\n")
+	dataStr = strings.TrimRight(dataStr, "-----END "+blockType+"-----\n")
+	dataStr = strings.ReplaceAll(dataStr, "\n", " ")
+	// utilLogger.Info("trim", "result", dataStr)
+	return []byte(dataStr)
 }

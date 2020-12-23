@@ -8,6 +8,17 @@ spec:
   description: test
   loginId: tmax
   loginPassword: tmax123
+  notary:
+    enabled: true
+    rootCASecret: hpcd-registry-rootca
+    serviceType: LoadBalancer
+    persistentVolumeClaim:
+      create:
+        accessModes: [ReadWriteOnce]
+        storageSize: 10Gi
+        storageClassName: csi-cephfs-sc
+        volumeMode: Filesystem
+        deleteWithPvc: true
     #customConfigYml: my-registry-config
     #replicaSet:
     #tolerations:

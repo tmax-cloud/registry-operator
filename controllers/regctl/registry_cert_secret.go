@@ -2,7 +2,6 @@ package regctl
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/operator-framework/operator-lib/status"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -36,7 +35,7 @@ func (r *RegistryCertSecret) Handle(c client.Client, reg *regv1.Registry, patchR
 			r.logger.Error(createError, "Create failed in Handle")
 			return createError
 		}
-		patchReg.Status.PodRecreateRequired = true
+		// patchReg.Status.PodRecreateRequired = true
 	}
 
 	if isValid := r.compare(reg); isValid == nil {
@@ -73,17 +72,6 @@ func (r *RegistryCertSecret) Ready(c client.Client, reg *regv1.Registry, patchRe
 		}
 	}
 
-	// DATA Check
-	opaqueErr = regv1.MakeRegistryError("Secret Opaque Error")
-	if _, ok := r.secretOpaque.Data[schemes.CertCrtFile]; !ok {
-		r.logger.Error(opaqueErr, "No certificate in data")
-		return nil
-	}
-
-	if _, ok := r.secretOpaque.Data[schemes.CertKeyFile]; !ok {
-		r.logger.Error(opaqueErr, "No private key in data")
-		return nil
-	}
 	condition.Status = corev1.ConditionTrue
 
 	defer utils.SetCondition(err, patchReg, tlsCondition)
@@ -102,6 +90,18 @@ func (r *RegistryCertSecret) Ready(c client.Client, reg *regv1.Registry, patchRe
 	err = nil
 	r.logger.Info("Succeed")
 	return nil
+}
+
+func (r *RegistryCertSecret) GetUserSecret(c client.Client, reg *regv1.Registry) (username, password string, err error) {
+	if opaqueErr := r.get(c, reg); opaqueErr != nil {
+		r.logger.Error(opaqueErr, "Get failed")
+		err = opaqueErr
+		return
+	}
+
+	username = string(r.secretOpaque.Data["ID"])
+	password = string(r.secretOpaque.Data["PASSWD"])
+	return
 }
 
 func (r *RegistryCertSecret) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
@@ -197,58 +197,5 @@ func (r *RegistryCertSecret) delete(c client.Client, patchReg *regv1.Registry) e
 }
 
 func (r *RegistryCertSecret) compare(reg *regv1.Registry) []utils.Diff {
-	opaqueData := r.secretOpaque.Data
-	if string(opaqueData["ID"]) != reg.Spec.LoginId || string(opaqueData["PASSWD"]) != reg.Spec.LoginPassword {
-		return nil
-	}
-
-	if string(opaqueData["CLUSTER_IP"]) != reg.Status.ClusterIP {
-		return nil
-	}
-
-	if reg.Spec.RegistryService.ServiceType == regv1.RegServiceTypeLoadBalancer {
-		val, ok := opaqueData["LB_IP"]
-		if !ok || string(val) != reg.Status.LoadBalancerIP {
-			return nil
-		}
-
-		val, ok = opaqueData["REGISTRY_URL"]
-		if !ok || string(val) != reg.Status.LoadBalancerIP+":"+strconv.Itoa(reg.Spec.RegistryService.LoadBalancer.Port) {
-			return nil
-		}
-	} else if reg.Spec.RegistryService.ServiceType == "Ingress" {
-		r.logger.Info("IngressType")
-		registryDomainName := reg.Name + "." + reg.Spec.RegistryService.Ingress.DomainName
-		val, ok := opaqueData["DOMAIN_NAME"]
-		if !ok || string(val) != registryDomainName {
-			r.logger.Error(regv1.MakeRegistryError("Wrong Domain Name"), "Domain Name", val,
-				"RegistryDomainName", registryDomainName)
-			return nil
-		}
-
-		val, ok = opaqueData["REGISTRY_URL"]
-		if !ok || string(val) != registryDomainName+":"+strconv.Itoa(443) {
-			r.logger.Error(regv1.MakeRegistryError("Wrong Registry URL"), "val", val,
-				"RegistryDomainName", registryDomainName+":"+strconv.Itoa(443))
-			return nil
-		}
-	} else {
-		val, ok := opaqueData["REGISTRY_URL"]
-		if !ok || string(val) != reg.Status.ClusterIP+":"+strconv.Itoa(443) {
-			return nil
-		}
-	}
-
-	_, ok := opaqueData[schemes.CertCrtFile]
-	if !ok {
-		return nil
-	}
-
-	_, ok = opaqueData[schemes.CertKeyFile]
-	if !ok {
-		return nil
-	}
-
-	r.logger.Info("Succeed")
 	return []utils.Diff{}
 }
