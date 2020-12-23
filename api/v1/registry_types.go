@@ -97,7 +97,8 @@ type RegistryStatus struct {
 	ClusterIP           string            `json:"clusterIP,omitempty"`
 	LoadBalancerIP      string            `json:"loadBalancerIP,omitempty"`
 	PodRecreateRequired bool              `json:"podRecreateRequired,omitempty"`
-	ServerURLs          []string          `json:"serverURLs,omitempty"`
+	ServerURL           string            `json:"serverURL,omitempty"`
+	NotaryURL           string            `json:"notaryURL,omitempty"`
 }
 
 // +kubebuilder:object:root=true
