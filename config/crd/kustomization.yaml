@@ -2,9 +2,12 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
+- bases/tmax.io_imagesigners.yaml
+- bases/tmax.io_imagesignrequests.yaml
+- bases/tmax.io_notaries.yaml
 - bases/tmax.io_registries.yaml
 - bases/tmax.io_repositories.yaml
-- bases/tmax.io_notaries.yaml
+- bases/tmax.io_signerkeys.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

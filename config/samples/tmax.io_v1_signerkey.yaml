@@ -1,0 +1,7 @@
+apiVersion: tmax.io/v1
+kind: SignerKey
+metadata:
+  name: signerkey-sample
+spec:
+  # Add fields here
+  foo: bar

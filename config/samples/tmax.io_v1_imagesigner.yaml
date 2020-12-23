@@ -1,0 +1,11 @@
+apiVersion: tmax.io/v1
+kind: ImageSigner
+metadata:
+  name: yun
+spec:
+  # Add fields here
+  description: for develope
+  email: email
+  name: suk
+  phone: 010-
+  team: ck1-2

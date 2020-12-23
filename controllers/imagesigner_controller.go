@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-logr/logr"
@@ -27,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/pkg/controllers"
+	controller "github.com/tmax-cloud/registry-operator/pkg/controllers"
 )
 
 // ImageSignerReconciler reconciles a ImageSigner object
@@ -73,6 +74,7 @@ func (r *ImageSignerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 
 	rootKey, err := signCtl.CreateRootKey(signer, r.Scheme)
 	if err != nil {
+		log.Error(err, "create root key failed")
 		makeSignerStatus(signer, false, err.Error(), "", nil)
 		return ctrl.Result{}, nil
 	}

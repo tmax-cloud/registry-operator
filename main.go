@@ -98,6 +98,22 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Notary")
 		os.Exit(1)
 	}
+	if err = (&controllers.ImageSignerReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("ImageSigner"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ImageSigner")
+		os.Exit(1)
+	}
+	if err = (&controllers.ImageSignRequestReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("ImageSignRequest"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ImageSignRequest")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	// API Server
