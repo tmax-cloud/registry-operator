@@ -16,6 +16,11 @@ import (
 
 var logger logr.Logger = logf.Log.WithName("common http")
 
+const (
+	RootCACert = "ca.crt"
+	RootCAPriv = "ca.key"
+)
+
 func CAData() ([]byte, []byte) {
 	c, err := client.New(config.GetConfigOrDie(), client.Options{})
 	if err != nil {
@@ -31,12 +36,12 @@ func CAData() ([]byte, []byte) {
 	}
 
 	data := secret.Data
-	cacrt, exist := data[schemes.RootCACert]
+	cacrt, exist := data[RootCACert]
 	if !exist {
 		logger.Info("CA is not found")
 		return nil, nil
 	}
-	cakey, exist := data[schemes.RootCAPriv]
+	cakey, exist := data[RootCAPriv]
 	if !exist {
 		logger.Info("CA key is not found")
 		return nil, nil

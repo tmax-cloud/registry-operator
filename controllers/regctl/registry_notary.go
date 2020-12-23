@@ -121,12 +121,16 @@ func (r *RegistryNotary) getAuthConfig() *regv1.AuthConfig {
 }
 
 func (r *RegistryNotary) get(c client.Client, reg *regv1.Registry) error {
-	r.not = schemes.Notary(reg, r.getAuthConfig())
-	r.logger = utils.NewRegistryLogger(*r, r.not.Namespace, r.not.Name)
+	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryNotary))
+	not, err := schemes.Notary(reg, r.getAuthConfig())
+	if err != nil {
+		r.logger.Error(err, "Get regsitry notary is failed")
+		return err
+	}
+	r.not = not
 
 	req := types.NamespacedName{Name: r.not.Name, Namespace: r.not.Namespace}
-	err := c.Get(context.TODO(), req, r.not)
-	if err != nil {
+	if err := c.Get(context.TODO(), req, r.not); err != nil {
 		r.logger.Error(err, "Get regsitry notary is failed")
 		return err
 	}

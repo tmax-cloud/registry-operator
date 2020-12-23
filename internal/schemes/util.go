@@ -69,7 +69,12 @@ const (
 	RootCASecretNamespace = "registry-system"
 )
 
-func getCertificateFromFile(c client.Client) (*x509.Certificate, *rsa.PrivateKey) {
+const (
+	RootCACert = "ca.crt"
+	RootCAPriv = "ca.key"
+)
+
+func getRootCACertificate(c client.Client) (*x509.Certificate, *rsa.PrivateKey) {
 	logger := utils.GetRegistryLogger(corev1.Secret{}, "CertScheme", "secret")
 
 	rootSecret := corev1.Secret{}

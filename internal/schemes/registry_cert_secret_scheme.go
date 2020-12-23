@@ -11,11 +11,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	RootCACert = "ca.crt"
-	RootCAPriv = "ca.key"
-)
-
 func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secret) {
 	logger := utils.GetRegistryLogger(corev1.Secret{}, reg.Namespace, reg.Name+"secret")
 	if !regBodyCheckForSecrets(reg) {
