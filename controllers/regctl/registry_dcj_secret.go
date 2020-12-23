@@ -152,7 +152,7 @@ func (r *RegistryDCJSecret) compare(reg *regv1.Registry) []utils.Diff {
 		domainIP = reg.Status.LoadBalancerIP + ":" + strconv.Itoa(port)
 	} else {
 		clusterIP = reg.Status.ClusterIP + ":" + strconv.Itoa(port)
-		domainIP = reg.Name + "." + reg.Spec.RegistryService.Ingress.DomainName + ":" + strconv.Itoa(port)
+		domainIP = schemes.RegistryDomainName(reg) + ":" + strconv.Itoa(port)
 	}
 	for key, element := range dockerConfig.Auths {
 		if key != clusterIP && key != domainIP {

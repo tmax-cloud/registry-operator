@@ -11,7 +11,7 @@ func Pod(reg *regv1.Registry) *corev1.Pod {
 	var resName string
 	label := map[string]string{}
 	label["app"] = "registry"
-	label["apps"] = regv1.K8sPrefix + reg.Name
+	label["apps"] = SubresourceName(reg, SubTypeRegistryDeployment)
 
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

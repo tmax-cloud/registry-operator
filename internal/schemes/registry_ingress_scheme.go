@@ -1,7 +1,10 @@
 package schemes
 
 import (
+	"strings"
+
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/common/ingress"
 
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,16 +15,19 @@ func Ingress(reg *regv1.Registry) *v1beta1.Ingress {
 	if !regBodyCheckForIngress(reg) {
 		return nil
 	}
-	registryDomain := reg.Name + "." + reg.Spec.RegistryService.Ingress.DomainName
+	registryDomain := RegistryDomainName(reg)
+	if registryDomain == "" {
+		return nil
+	}
 
 	ingressTLS := v1beta1.IngressTLS{
 		Hosts:      []string{registryDomain},
-		SecretName: regv1.K8sPrefix + regv1.TLSPrefix + reg.Name,
+		SecretName: SubresourceName(reg, SubTypeRegistryTLSSecret),
 	}
 	httpIngressPath := v1beta1.HTTPIngressPath{
 		Path: "/",
 		Backend: v1beta1.IngressBackend{
-			ServiceName: regv1.K8sPrefix + reg.Name,
+			ServiceName: SubresourceName(reg, SubTypeRegistryService),
 			ServicePort: intstr.FromInt(443),
 		},
 	}
@@ -39,11 +45,11 @@ func Ingress(reg *regv1.Registry) *v1beta1.Ingress {
 
 	return &v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      regv1.K8sPrefix + reg.Name,
+			Name:      SubresourceName(reg, SubTypeRegistryIngress),
 			Namespace: reg.Namespace,
 			Labels: map[string]string{
 				"app":  "registry",
-				"apps": regv1.K8sPrefix + reg.Name,
+				"apps": SubresourceName(reg, SubTypeRegistryIngress),
 			},
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class":                       "nginx-shd",
@@ -77,4 +83,13 @@ func regBodyCheckForIngress(reg *regv1.Registry) bool {
 		return false
 	}
 	return true
+}
+
+func RegistryDomainName(reg *regv1.Registry) string {
+	icIP := ingress.GetIngressControllerIP()
+	if icIP == "" {
+		return ""
+	}
+
+	return strings.Join([]string{reg.Namespace, reg.Name, icIP, "nip", "io"}, ".")
 }

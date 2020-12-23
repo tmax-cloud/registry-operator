@@ -35,7 +35,7 @@ func DCJSecret(reg *regv1.Registry) *corev1.Secret {
 		port = reg.Spec.RegistryService.LoadBalancer.Port
 		domainList = append(domainList, reg.Status.LoadBalancerIP+":"+strconv.Itoa(port))
 	} else {
-		domainList = append(domainList, reg.Name+"."+reg.Spec.RegistryService.Ingress.DomainName+":"+strconv.Itoa(port))
+		domainList = append(domainList, RegistryDomainName(reg)+":"+strconv.Itoa(port))
 	}
 	domainList = append(domainList, reg.Status.ClusterIP+":"+strconv.Itoa(port))
 
@@ -51,7 +51,7 @@ func DCJSecret(reg *regv1.Registry) *corev1.Secret {
 
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      regv1.K8sPrefix + regv1.K8sRegistryPrefix + reg.Name,
+			Name:      SubresourceName(reg, SubTypeRegistryDCJSecret),
 			Namespace: reg.Namespace,
 			Labels: map[string]string{
 				"secret": "docker",

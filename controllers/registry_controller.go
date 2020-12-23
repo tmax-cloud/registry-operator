@@ -17,9 +17,7 @@ limitations under the License.
 package controllers
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -150,56 +148,21 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 
 func (r *RegistryReconciler) patch(origin, target *regv1.Registry) error {
 	subResourceLogger := r.Log.WithValues("SubResource.Namespace", origin.Namespace, "SubResource.Name", origin.Name)
-
 	originObject := client.MergeFrom(origin) // Set original obeject
-	statusPatchTarget := target.DeepCopy()
-
-	// Get origin data except status for compare
-	originWithoutStatus := origin.DeepCopy()
-	originWithoutStatus.Status = regv1.RegistryStatus{}
-	originWithoutStatusByte, err := json.Marshal(*originWithoutStatus)
-	if err != nil {
-		subResourceLogger.Error(err, "json marshal error")
-		return err
-	}
-
-	// Get target data except status for compare
-	targetWithoutStatus := target.DeepCopy()
-	targetWithoutStatus.Status = regv1.RegistryStatus{}
-	targetWithoutStatusByte, err := json.Marshal(*targetWithoutStatus)
-	if err != nil {
-		subResourceLogger.Error(err, "json marshal error")
-		return err
-	}
 
 	// Check whether patch is necessary or not
-	if res := bytes.Compare(originWithoutStatusByte, targetWithoutStatusByte); res != 0 {
+	if !reflect.DeepEqual(origin.Spec, target.Spec) {
 		subResourceLogger.Info("Patch registry")
 		if err := r.Patch(context.TODO(), target, originObject); err != nil {
-			subResourceLogger.Error(err, "Unknown error patching status")
+			subResourceLogger.Error(err, "Unknown error patching")
 			return err
 		}
 	}
 
-	// Get origin status data for compare
-	originStatus := origin.Status.DeepCopy()
-	originStatusByte, err := json.Marshal(*originStatus)
-	if err != nil {
-		subResourceLogger.Error(err, "json marshal error")
-		return err
-	}
-
-	// Get target status data for compare
-	targetStatusByte, err := json.Marshal(*statusPatchTarget)
-	if err != nil {
-		subResourceLogger.Error(err, "json marshal error")
-		return err
-	}
-
 	// Check whether patch is necessary or not about status
-	if res := bytes.Compare(originStatusByte, targetStatusByte); res != 0 {
+	if !reflect.DeepEqual(origin.Status, target.Status) {
 		subResourceLogger.Info("Patch registry status")
-		if err := r.Status().Patch(context.TODO(), statusPatchTarget, originObject); err != nil {
+		if err := r.Status().Patch(context.TODO(), target, originObject); err != nil {
 			subResourceLogger.Error(err, "Unknown error patching status")
 			return err
 		}

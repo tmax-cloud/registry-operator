@@ -140,6 +140,7 @@ func getCheckTypes(reg *regv1.Registry) []status.ConditionType {
 		regv1.ConditionTypePod,
 		regv1.ConditionTypeContainer,
 		regv1.ConditionTypeService,
+		regv1.ConditionTypeSecretTls,
 		regv1.ConditionTypeSecretOpaque,
 		regv1.ConditionTypeSecretDockerConfigJson,
 		regv1.ConditionTypePvc,
@@ -151,8 +152,8 @@ func getCheckTypes(reg *regv1.Registry) []status.ConditionType {
 		checkTypes = append(checkTypes, regv1.ConditionTypeNotary)
 	}
 
-	if reg.Spec.RegistryService.ServiceType == regv1.RegServiceTypeIngress {
-		checkTypes = append(checkTypes, regv1.ConditionTypeSecretTls, regv1.ConditionTypeIngress)
+	if reg.Spec.RegistryService.ServiceType == "Ingress" {
+		checkTypes = append(checkTypes, regv1.ConditionTypeIngress)
 	}
 
 	return checkTypes

@@ -24,7 +24,7 @@ const (
 
 func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*appsv1.Deployment, error) {
 	var resName, pvcMountPath, pvcName, configMapName string
-	resName = regv1.K8sPrefix + reg.Name
+	resName = SubresourceName(reg, SubTypeRegistryDeployment)
 	label := map[string]string{}
 	label["app"] = "registry"
 	label["apps"] = resName

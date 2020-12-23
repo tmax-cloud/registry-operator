@@ -53,7 +53,7 @@ func (r *RegistryCertSecret) Ready(c client.Client, reg *regv1.Registry, patchRe
 	var opaqueErr error = nil
 	var err error = nil
 
-	condition := &status.Condition{
+	opCondition := &status.Condition{
 		Status: corev1.ConditionFalse,
 		Type:   SecretOpaqueTypeName,
 	}
@@ -63,7 +63,7 @@ func (r *RegistryCertSecret) Ready(c client.Client, reg *regv1.Registry, patchRe
 		Type:   SecretTLSTypeName,
 	}
 
-	defer utils.SetCondition(opaqueErr, patchReg, condition)
+	defer utils.SetCondition(opaqueErr, patchReg, opCondition)
 
 	if useGet {
 		if opaqueErr = r.get(c, reg); opaqueErr != nil {
@@ -72,7 +72,7 @@ func (r *RegistryCertSecret) Ready(c client.Client, reg *regv1.Registry, patchRe
 		}
 	}
 
-	condition.Status = corev1.ConditionTrue
+	opCondition.Status = corev1.ConditionTrue
 
 	defer utils.SetCondition(err, patchReg, tlsCondition)
 	err = regv1.MakeRegistryError("Secret TLS Error")

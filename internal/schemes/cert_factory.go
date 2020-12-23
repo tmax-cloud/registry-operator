@@ -215,7 +215,7 @@ func (c *RegistryCert) GetSanDNS(registry interface{}) []string {
 
 	domains := []string{}
 	if reg.Spec.RegistryService.ServiceType == "Ingress" {
-		// domains = append(domains, getNotaryIngressDomain())
+		domains = append(domains, RegistryDomainName(reg))
 	}
 	domains = append(domains, utils.BuildServiceHostname(SubresourceName(reg, SubTypeNotarySignerService), reg.Namespace))
 

@@ -159,7 +159,7 @@ func (r *RegistryIngress) compare(reg *regv1.Registry) []utils.Diff {
 	if reg.Spec.RegistryService.ServiceType != "Ingress" {
 		return nil
 	}
-	registryDomain := reg.Name + "." + reg.Spec.RegistryService.Ingress.DomainName
+	registryDomain := schemes.RegistryDomainName(reg)
 
 	for _, ingressTLS := range r.ingress.Spec.TLS {
 		for _, host := range ingressTLS.Hosts {
