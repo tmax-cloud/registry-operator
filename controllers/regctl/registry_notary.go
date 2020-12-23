@@ -63,6 +63,11 @@ func (r *RegistryNotary) Ready(c client.Client, reg *regv1.Registry, patchReg *r
 		}
 	}
 
+	if r.not.Status.NotaryURL == "" {
+		return regv1.MakeRegistryError("NotReady")
+	}
+
+	patchReg.Status.NotaryURL = r.not.Status.NotaryURL
 	condition.Status = corev1.ConditionTrue
 
 	r.logger.Info("Ready")
