@@ -39,7 +39,7 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) bool {
 			patch := client.MergeFrom(reg)
 			target := reg.DeepCopy()
 			message := "Registry is creating. All resources in registry has not yet been created."
-			reason := "RegistryNotCreated"
+			reason := "AllConditionsNotTrue"
 
 			target.Status.Message = message
 			target.Status.Reason = reason
@@ -63,8 +63,11 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) bool {
 
 	if len(falseTypes) > 1 {
 		desiredStatus = regv1.StatusCreating
-	} else if len(falseTypes) == 1 && falseTypes[0] == regv1.ConditionTypeContainer {
-		desiredStatus = regv1.StatusNotReady
+	} else if len(falseTypes) == 1 {
+		if falseTypes[0] == regv1.ConditionTypeContainer {
+			desiredStatus = regv1.StatusNotReady
+		}
+		desiredStatus = regv1.StatusCreating
 	} else {
 		desiredStatus = regv1.StatusRunning
 	}
@@ -85,7 +88,7 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) bool {
 	switch desiredStatus {
 	case regv1.StatusCreating:
 		message = "Registry is creating. All resources in registry has not yet been created."
-		reason = "RegistryNotCreated"
+		reason = "AllConditionsNotTrue"
 	case regv1.StatusNotReady:
 		message = "Registry is not ready."
 		reason = "NotReady"

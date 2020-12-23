@@ -26,8 +26,12 @@ type RegistryIngress struct {
 }
 
 func (r *RegistryIngress) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
-	err := r.get(c, reg)
-	if err != nil {
+	if err := r.get(c, reg); err != nil {
+		r.logger.Error(err, "get failed in Handle")
+		if r.ingress == nil {
+			return err
+		}
+
 		if createError := r.create(c, reg, patchReg, scheme); createError != nil {
 			r.logger.Error(createError, "Create failed in Handle")
 			return createError
@@ -120,11 +124,11 @@ func (r *RegistryIngress) create(c client.Client, reg *regv1.Registry, patchReg 
 }
 
 func (r *RegistryIngress) get(c client.Client, reg *regv1.Registry) error {
+	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryIngress))
 	r.ingress = schemes.Ingress(reg)
 	if r.ingress == nil {
 		return regv1.MakeRegistryError("Registry has no fields Ingress required")
 	}
-	r.logger = utils.NewRegistryLogger(*r, r.ingress.Namespace, r.ingress.Name)
 
 	req := types.NamespacedName{Name: r.ingress.Name, Namespace: r.ingress.Namespace}
 	if err := c.Get(context.TODO(), req, r.ingress); err != nil {

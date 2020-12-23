@@ -150,9 +150,9 @@ func collectNotarySubController(serviceType regv1.NotaryServiceType) []notaryctl
 		&notaryctl.NotaryServerPod{},
 		&notaryctl.NotarySignerPod{},
 	)
-	// if serviceType == "Ingress" {
-	// 	collection = append(collection, &notaryctl.NotaryDB{})
-	// }
+	if serviceType == "Ingress" {
+		collection = append(collection, &notaryctl.NotaryServerIngress{})
+	}
 
 	return collection
 }
