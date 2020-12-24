@@ -10,5 +10,5 @@ spec:
     protocol: TCP
     targetPort: 28677
   selector:
-    hypercloud4: operator
+    control-plane: registry-operator
   type: LoadBalancer
