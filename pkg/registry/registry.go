@@ -46,13 +46,9 @@ func (r *RegCtl) GetHostname() string {
 }
 
 func (r *RegCtl) GetEndpoint() string {
-	if len(r.reg.Status.ServerURL) == 0 {
-		return ""
-	}
 	return r.reg.Status.ServerURL
 }
 
 func (r *RegCtl) GetNotaryEndpoint() string {
-	//return r.reg.Status.NotaryServerURL
-	return "" // TODO
+	return r.reg.Status.NotaryURL
 }
