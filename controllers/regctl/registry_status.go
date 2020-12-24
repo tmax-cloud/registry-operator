@@ -126,8 +126,8 @@ func InitRegistryStatus(c client.Client, reg *regv1.Registry) {
 		}
 	}
 
-	reg.Status.Message = "registry is creating."
-	reg.Status.Reason = "Creating"
+	reg.Status.Message = "registry is creating. All resources in registry has not yet been created."
+	reg.Status.Reason = "AllConditionsNotTrue"
 	reg.Status.Phase = string(regv1.StatusCreating)
 	reg.Status.PhaseChangedAt = metav1.Now()
 

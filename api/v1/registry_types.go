@@ -64,10 +64,11 @@ type RegistryService struct {
 	// +kubebuilder:validation:Enum=Ingress;LoadBalancer
 	ServiceType RegistryServiceType `json:"serviceType"`
 	// use ingress service type
-	Ingress Ingress `json:"ingress,omitempty"`
+	// (Deprecated)
+	// Ingress Ingress `json:"ingress,omitempty"`
 
-	//
-	LoadBalancer LoadBalancer `json:"loadBalancer,omitempty"`
+	// (Deprecated)
+	// LoadBalancer LoadBalancer `json:"loadBalancer,omitempty"`
 }
 
 type RegistryPVC struct {

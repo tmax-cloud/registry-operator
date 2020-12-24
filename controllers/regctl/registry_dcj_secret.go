@@ -147,7 +147,7 @@ func (r *RegistryDCJSecret) compare(reg *regv1.Registry) []utils.Diff {
 	clusterIP := ""
 	domainIP := ""
 	if reg.Spec.RegistryService.ServiceType == regv1.RegServiceTypeLoadBalancer {
-		port = reg.Spec.RegistryService.LoadBalancer.Port
+		// port = reg.Spec.RegistryService.LoadBalancer.Port
 		clusterIP = reg.Status.ClusterIP + ":" + strconv.Itoa(port)
 		domainIP = reg.Status.LoadBalancerIP + ":" + strconv.Itoa(port)
 	} else {

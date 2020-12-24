@@ -91,7 +91,7 @@ func (r *RegistryIngress) Ready(c client.Client, reg *regv1.Registry, patchReg *
 
 	if len(r.ingress.Spec.TLS) > 0 {
 		for _, host := range r.ingress.Spec.TLS[0].Hosts {
-			patchReg.Status.ServerURL = "https://" + host + ":443"
+			patchReg.Status.ServerURL = "https://" + host
 		}
 	}
 

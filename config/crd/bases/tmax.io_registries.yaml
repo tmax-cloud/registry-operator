@@ -272,24 +272,6 @@ spec:
             service:
               description: Supported service types are ingress and loadBalancer
               properties:
-                ingress:
-                  description: use ingress service type
-                  properties:
-                    domainName:
-                      description: '[TODO] Minimum, Maximum (example: 192.168.6.110.nip.io)'
-                      type: string
-                  required:
-                  - domainName
-                  type: object
-                loadBalancer:
-                  description: use loadBalancer service type
-                  properties:
-                    port:
-                      description: external port. Generally use 443 port
-                      type: integer
-                  required:
-                  - port
-                  type: object
                 serviceType:
                   description: use Ingress or LoadBalancer
                   enum:

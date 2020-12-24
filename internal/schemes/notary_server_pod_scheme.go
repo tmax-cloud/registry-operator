@@ -52,10 +52,10 @@ func NotaryServerPod(notary *regv1.Notary) *corev1.Pod {
 							Name:  "NOTARY_SERVER_SERVER_TLS_KEY_FILE",
 							Value: serverTLSKeyPath,
 						},
-						{
-							Name:  "NOTARY_SERVER_SERVER_CLIENT_CA_FILE",
-							Value: serverRootCAPath,
-						},
+						// {
+						// 	Name:  "NOTARY_SERVER_SERVER_CLIENT_CA_FILE",
+						// 	Value: serverRootCAPath,
+						// },
 						{
 							Name:  "NOTARY_SERVER_LOGGING_LEVEL",
 							Value: "debug",

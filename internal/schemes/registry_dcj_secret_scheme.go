@@ -32,7 +32,7 @@ func DCJSecret(reg *regv1.Registry) *corev1.Secret {
 	port := 443
 	data := map[string][]byte{}
 	if serviceType == regv1.RegServiceTypeLoadBalancer {
-		port = reg.Spec.RegistryService.LoadBalancer.Port
+		// port = reg.Spec.RegistryService.LoadBalancer.Port
 		domainList = append(domainList, reg.Status.LoadBalancerIP+":"+strconv.Itoa(port))
 	} else {
 		domainList = append(domainList, RegistryDomainName(reg)+":"+strconv.Itoa(port))
@@ -67,9 +67,7 @@ func regBodyCheckForDCJSecret(reg *regv1.Registry) bool {
 	if reg.Status.ClusterIP == "" {
 		return false
 	}
-	if regService.ServiceType == regv1.RegServiceTypeIngress && regService.Ingress.DomainName == "" {
-		return false
-	} else if regService.ServiceType == regv1.RegServiceTypeLoadBalancer && reg.Status.LoadBalancerIP == "" {
+	if regService.ServiceType == regv1.RegServiceTypeLoadBalancer && reg.Status.LoadBalancerIP == "" {
 		return false
 	}
 	return true

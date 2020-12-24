@@ -20,9 +20,7 @@ func Service(reg *regv1.Registry) *corev1.Service {
 	port := 443
 
 	serviceName := reg.Spec.RegistryService.ServiceType
-	if serviceName == regv1.RegServiceTypeLoadBalancer {
-		port = reg.Spec.RegistryService.LoadBalancer.Port
-	} else {
+	if serviceName != regv1.RegServiceTypeLoadBalancer {
 		serviceName = regv1.RegServiceTypeIngress
 	}
 

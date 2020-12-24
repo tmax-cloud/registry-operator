@@ -65,10 +65,6 @@ spec:
                   type: string
                 rootKeyId:
                   type: string
-              required:
-              - created
-              - createdAt
-              - rootKeyId
               type: object
           type: object
       type: object

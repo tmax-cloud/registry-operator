@@ -2,7 +2,6 @@ package regctl
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 
@@ -79,7 +78,7 @@ func (r *RegistryService) Ready(c client.Client, reg *regv1.Registry, patchReg *
 			return regv1.MakeRegistryError("NotReady")
 		}
 		reg.Status.LoadBalancerIP = lbIP
-		patchReg.Status.ServerURL = "https://" + lbIP + ":" + strconv.Itoa(int(r.svc.Spec.Ports[0].Port))
+		patchReg.Status.ServerURL = "https://" + lbIP
 		r.logger.Info("LoadBalancer info", "LoadBalancer IP", lbIP)
 	} else if r.svc.Spec.Type == corev1.ServiceTypeClusterIP {
 		if r.svc.Spec.ClusterIP == "" {
@@ -160,19 +159,19 @@ func (r *RegistryService) compare(reg *regv1.Registry) []utils.Diff {
 		return nil
 	}
 
-	isPortValid := false
-	for _, port := range r.svc.Spec.Ports {
-		if (regServiceSpec.ServiceType == regv1.RegServiceTypeLoadBalancer &&
-			regServiceSpec.LoadBalancer.Port == int(port.Port)) ||
-			(string(regServiceSpec.ServiceType) == "Ingress" && int(port.Port) == 443) {
-			isPortValid = true
-		}
-	}
+	// isPortValid := false
+	// for _, port := range r.svc.Spec.Ports {
+	// 	if (regServiceSpec.ServiceType == regv1.RegServiceTypeLoadBalancer &&
+	// 		regServiceSpec.LoadBalancer.Port == int(port.Port)) ||
+	// 		(string(regServiceSpec.ServiceType) == "Ingress" && int(port.Port) == 443) {
+	// 		isPortValid = true
+	// 	}
+	// }
 
-	if !isPortValid {
-		r.logger.Error(regv1.MakeRegistryError("Port is invalid"), "Port is not valid")
-		return nil
-	}
+	// if !isPortValid {
+	// 	r.logger.Error(regv1.MakeRegistryError("Port is invalid"), "Port is not valid")
+	// 	return nil
+	// }
 
 	r.logger.Info("Succeed")
 	return []utils.Diff{}
