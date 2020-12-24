@@ -25,7 +25,7 @@ func NotaryServerIngress(notary *regv1.Notary) *v1beta1.Ingress {
 		Path: "/",
 		Backend: v1beta1.IngressBackend{
 			ServiceName: SubresourceName(notary, SubTypeNotaryServerService),
-			ServicePort: intstr.FromInt(443),
+			ServicePort: intstr.FromInt(NotaryServerDefaultPort),
 		},
 	}
 

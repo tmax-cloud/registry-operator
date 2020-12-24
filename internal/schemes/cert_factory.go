@@ -78,6 +78,9 @@ func (f *CertFactory) CreateCertPair(source interface{}, certType CertType) (*ut
 	}
 
 	f.setParent(out)
+	if out.ParentCert == nil || out.ParentKey == nil {
+		return nil, fmt.Errorf("failed to get parent cert")
+	}
 	if err := f.createCertificateData(out); err != nil {
 		return nil, err
 	}
