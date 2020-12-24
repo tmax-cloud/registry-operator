@@ -64,9 +64,11 @@ func SyncRegistryImage(r *RegistryApi, c client.Client, reg *regv1.Registry, sch
 
 	repositories := r.Catalog()
 	regImageNames := []string{}
-	for _, imageName := range repositories.Repositories {
-		logger.Info("Repository", "Name", imageName)
-		regImageNames = append(regImageNames, imageName)
+	if repositories != nil {
+		for _, imageName := range repositories.Repositories {
+			logger.Info("Repository", "Name", imageName)
+			regImageNames = append(regImageNames, imageName)
+		}
 	}
 
 	newRepositories, deletedRepositories, existRepositories := []string{}, []string{}, []regv1.Repository{}
