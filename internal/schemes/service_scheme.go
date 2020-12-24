@@ -14,29 +14,26 @@ const (
 )
 
 func Service(reg *regv1.Registry) *corev1.Service {
-	regServiceName := regv1.K8sPrefix + reg.Name
 	label := map[string]string{}
 	label["app"] = "registry"
-	label["apps"] = regv1.K8sPrefix + reg.Name
+	label["apps"] = SubresourceName(reg, SubTypeRegistryService)
 	port := 443
 
 	serviceName := reg.Spec.RegistryService.ServiceType
-	if serviceName == regv1.RegServiceTypeLoadBalancer {
-		port = reg.Spec.RegistryService.LoadBalancer.Port
-	} else {
+	if serviceName != regv1.RegServiceTypeLoadBalancer {
 		serviceName = regv1.RegServiceTypeIngress
 	}
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      regServiceName,
+			Name:      SubresourceName(reg, SubTypeRegistryService),
 			Namespace: reg.Namespace,
 			Labels:    label,
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceType(serviceName),
 			Selector: map[string]string{
-				regv1.K8sPrefix + reg.Name: "lb",
+				SubresourceName(reg, SubTypeRegistryService): "lb",
 			},
 			Ports: []corev1.ServicePort{
 				{

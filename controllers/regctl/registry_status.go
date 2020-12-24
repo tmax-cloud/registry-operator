@@ -39,7 +39,7 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) bool {
 			patch := client.MergeFrom(reg)
 			target := reg.DeepCopy()
 			message := "Registry is creating. All resources in registry has not yet been created."
-			reason := "RegistryNotCreated"
+			reason := "AllConditionsNotTrue"
 
 			target.Status.Message = message
 			target.Status.Reason = reason
@@ -63,8 +63,11 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) bool {
 
 	if len(falseTypes) > 1 {
 		desiredStatus = regv1.StatusCreating
-	} else if len(falseTypes) == 1 && falseTypes[0] == regv1.ConditionTypeContainer {
-		desiredStatus = regv1.StatusNotReady
+	} else if len(falseTypes) == 1 {
+		if falseTypes[0] == regv1.ConditionTypeContainer {
+			desiredStatus = regv1.StatusNotReady
+		}
+		desiredStatus = regv1.StatusCreating
 	} else {
 		desiredStatus = regv1.StatusRunning
 	}
@@ -85,7 +88,7 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) bool {
 	switch desiredStatus {
 	case regv1.StatusCreating:
 		message = "Registry is creating. All resources in registry has not yet been created."
-		reason = "RegistryNotCreated"
+		reason = "AllConditionsNotTrue"
 	case regv1.StatusNotReady:
 		message = "Registry is not ready."
 		reason = "NotReady"
@@ -123,8 +126,8 @@ func InitRegistryStatus(c client.Client, reg *regv1.Registry) {
 		}
 	}
 
-	reg.Status.Message = "registry is creating."
-	reg.Status.Reason = "Creating"
+	reg.Status.Message = "registry is creating. All resources in registry has not yet been created."
+	reg.Status.Reason = "AllConditionsNotTrue"
 	reg.Status.Phase = string(regv1.StatusCreating)
 	reg.Status.PhaseChangedAt = metav1.Now()
 
@@ -140,6 +143,7 @@ func getCheckTypes(reg *regv1.Registry) []status.ConditionType {
 		regv1.ConditionTypePod,
 		regv1.ConditionTypeContainer,
 		regv1.ConditionTypeService,
+		regv1.ConditionTypeSecretTls,
 		regv1.ConditionTypeSecretOpaque,
 		regv1.ConditionTypeSecretDockerConfigJson,
 		regv1.ConditionTypePvc,
@@ -151,8 +155,8 @@ func getCheckTypes(reg *regv1.Registry) []status.ConditionType {
 		checkTypes = append(checkTypes, regv1.ConditionTypeNotary)
 	}
 
-	if reg.Spec.RegistryService.ServiceType == regv1.RegServiceTypeIngress {
-		checkTypes = append(checkTypes, regv1.ConditionTypeSecretTls, regv1.ConditionTypeIngress)
+	if reg.Spec.RegistryService.ServiceType == "Ingress" {
+		checkTypes = append(checkTypes, regv1.ConditionTypeIngress)
 	}
 
 	return checkTypes

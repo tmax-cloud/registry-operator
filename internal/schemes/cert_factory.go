@@ -78,6 +78,9 @@ func (f *CertFactory) CreateCertPair(source interface{}, certType CertType) (*ut
 	}
 
 	f.setParent(out)
+	if out.ParentCert == nil || out.ParentKey == nil {
+		return nil, fmt.Errorf("failed to get parent cert")
+	}
 	if err := f.createCertificateData(out); err != nil {
 		return nil, err
 	}
@@ -135,7 +138,7 @@ func (n *NotaryServerCert) GetSanDNS(notary interface{}) []string {
 
 	domains := []string{}
 	if nt.Spec.ServiceType == "Ingress" {
-		// domains = append(domains, getNotaryIngressDomain())
+		domains = append(domains, NotaryDomainName(nt))
 	}
 	domains = append(domains, utils.BuildServiceHostname(SubresourceName(nt, SubTypeNotaryServerService), nt.Namespace))
 
@@ -215,7 +218,7 @@ func (c *RegistryCert) GetSanDNS(registry interface{}) []string {
 
 	domains := []string{}
 	if reg.Spec.RegistryService.ServiceType == "Ingress" {
-		// domains = append(domains, getNotaryIngressDomain())
+		domains = append(domains, RegistryDomainName(reg))
 	}
 	domains = append(domains, utils.BuildServiceHostname(SubresourceName(reg, SubTypeNotarySignerService), reg.Namespace))
 

@@ -2,7 +2,7 @@ apiVersion: tmax.io/v1
 kind: Registry
 metadata:
   name: tmax-registry
-  namespace: reg-test 
+  namespace: reg-test
 spec:
   image: registry:2.6.2
   description: test
@@ -10,7 +10,7 @@ spec:
   loginPassword: tmax123
   notary:
     enabled: true
-    serviceType: Ingress
+    serviceType: LoadBalancer
     persistentVolumeClaim:
       create:
         accessModes: [ReadWriteOnce]
@@ -19,11 +19,11 @@ spec:
         volumeMode: Filesystem
         deleteWithPvc: true
   service:
-    serviceType: Ingress 
+    serviceType: LoadBalancer
+    loadBalancer:
+      port: 443
   persistentVolumeClaim:
     mountPath: /var/lib/registry
-    #exist:
-      #pvcName: hpcd-tmax3-registry
     create:
       accessModes: [ReadWriteOnce]
       storageSize: 10Gi

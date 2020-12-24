@@ -74,8 +74,6 @@ func regBodyCheckForSecrets(reg *regv1.Registry) bool {
 	}
 	if regService.ServiceType == regv1.RegServiceTypeLoadBalancer && reg.Status.LoadBalancerIP == "" {
 		return false
-	} else if regService.ServiceType == regv1.RegServiceTypeIngress && regService.Ingress.DomainName == "" {
-		return false
 	}
 	return true
 }
