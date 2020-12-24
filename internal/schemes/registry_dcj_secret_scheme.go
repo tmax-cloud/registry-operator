@@ -3,7 +3,6 @@ package schemes
 import (
 	"encoding/base64"
 	"encoding/json"
-	"strconv"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 
@@ -29,15 +28,14 @@ func DCJSecret(reg *regv1.Registry) *corev1.Secret {
 	}
 	serviceType := reg.Spec.RegistryService.ServiceType
 	var domainList []string
-	port := 443
 	data := map[string][]byte{}
 	if serviceType == regv1.RegServiceTypeLoadBalancer {
 		// port = reg.Spec.RegistryService.LoadBalancer.Port
-		domainList = append(domainList, reg.Status.LoadBalancerIP+":"+strconv.Itoa(port))
+		domainList = append(domainList, reg.Status.LoadBalancerIP)
 	} else {
-		domainList = append(domainList, RegistryDomainName(reg)+":"+strconv.Itoa(port))
+		domainList = append(domainList, RegistryDomainName(reg))
 	}
-	domainList = append(domainList, reg.Status.ClusterIP+":"+strconv.Itoa(port))
+	domainList = append(domainList, reg.Status.ClusterIP)
 
 	config := DockerConfig{
 		Auths: map[string]AuthValue{},

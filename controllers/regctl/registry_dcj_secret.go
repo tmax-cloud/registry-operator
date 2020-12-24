@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"strconv"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 
@@ -143,16 +142,15 @@ func (r *RegistryDCJSecret) compare(reg *regv1.Registry) []utils.Diff {
 
 	dockerConfig := schemes.DockerConfig{}
 	json.Unmarshal(val, &dockerConfig)
-	port := 443
 	clusterIP := ""
 	domainIP := ""
 	if reg.Spec.RegistryService.ServiceType == regv1.RegServiceTypeLoadBalancer {
 		// port = reg.Spec.RegistryService.LoadBalancer.Port
-		clusterIP = reg.Status.ClusterIP + ":" + strconv.Itoa(port)
-		domainIP = reg.Status.LoadBalancerIP + ":" + strconv.Itoa(port)
+		clusterIP = reg.Status.ClusterIP
+		domainIP = reg.Status.LoadBalancerIP
 	} else {
-		clusterIP = reg.Status.ClusterIP + ":" + strconv.Itoa(port)
-		domainIP = schemes.RegistryDomainName(reg) + ":" + strconv.Itoa(port)
+		clusterIP = reg.Status.ClusterIP
+		domainIP = schemes.RegistryDomainName(reg)
 	}
 	for key, element := range dockerConfig.Auths {
 		if key != clusterIP && key != domainIP {
