@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"strings"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -94,13 +95,13 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{}, nil
 	}
 
-	var ca []byte
 	regCert := &corev1.Secret{}
 	if err := r.Get(context.TODO(), types.NamespacedName{Name: signReq.Spec.CertSecretName, Namespace: signReq.Namespace}, regCert); err != nil {
 		log.Error(err, "")
 		makeResponse(signReq, false, err.Error(), "")
 		return ctrl.Result{}, nil
 	}
+	ca := regCert.Data[schemes.TLSCert]
 
 	// Start signing procedure
 	img, err := trust.NewImage(signReq.Spec.Image, "", "", "", ca)
@@ -133,7 +134,6 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	signCtl := controller.NewSigningController(r.Client, signer, targetReg.Name, targetReg.Namespace)
 	img.ServerUrl = signCtl.Regctl.GetEndpoint()
 	img.NotaryServerUrl = signCtl.Regctl.GetNotaryEndpoint()
-	img.Host = fmt.Sprintf("%s_%s", targetReg.Namespace, targetReg.Name) // GUN! not starting with host but with registry name...
 
 	// Verify if registry is valid now
 	// TODO - status.ServerURLs length & hmm... status?
@@ -141,6 +141,7 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	// Sign image
 	log.Info("sign image")
 	if err := signCtl.SignImage(signerKey, img, ca); err != nil {
+		log.Error(err, "sign image")
 		makeResponse(signReq, false, err.Error(), "")
 		return ctrl.Result{}, nil
 	}

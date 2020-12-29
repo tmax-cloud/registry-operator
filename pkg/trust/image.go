@@ -95,16 +95,19 @@ func (r *Image) GetImageNameWithHost() string {
 func (r *Image) GetImageManifest() (string, int64, error) {
 	u, err := url.Parse(r.ServerUrl)
 	if err != nil {
+		log.Error(err, "")
 		return "", 0, err
 	}
 	u.Path = path.Join(u.Path, fmt.Sprintf("v2/%s/manifests/%s", r.Name, r.Tag))
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
+		log.Error(err, "")
 		return "", 0, err
 	}
 
 	token, err := r.GetToken(TokenTypeRegistry)
 	if err != nil {
+		log.Error(err, "")
 		return "", 0, err
 	}
 
@@ -113,10 +116,12 @@ func (r *Image) GetImageManifest() (string, int64, error) {
 
 	resp, err := r.HttpClient.Do(req)
 	if err != nil {
+		log.Error(err, "")
 		return "", 0, err
 	}
 	defer resp.Body.Close()
 	if !client.SuccessStatus(resp.StatusCode) {
+		log.Error(err, "")
 		err := client.HandleErrorResponse(resp)
 		return "", 0, err
 	}
@@ -130,6 +135,7 @@ func (r *Image) GetImageManifest() (string, int64, error) {
 
 	length, err := strconv.Atoi(lengthStr)
 	if err != nil {
+		log.Error(err, "")
 		return "", 0, err
 	}
 
@@ -159,6 +165,7 @@ func (r *Image) GetToken(tokenType TokenType) (string, error) {
 }
 
 func (r *Image) fetchToken(tokenType TokenType) error {
+	log.Info("Fetching token...")
 	// Ping
 	var server string
 	switch tokenType {
@@ -196,17 +203,13 @@ func (r *Image) fetchToken(tokenType TokenType) error {
 	}
 
 	// Get Token
-	scope, scopeExist := challenges[0].Parameters["scope"]
-	if !scopeExist {
-		img := r.Name
-		if tokenType == TokenTypeNotary {
-			img = r.GetImageNameWithHost()
-		}
-		scope = fmt.Sprintf("repository:%s:pull,push", img)
+	img := r.Name
+	if tokenType == TokenTypeNotary {
+		img = r.GetImageNameWithHost()
 	}
 	param := map[string]string{
 		"service": service,
-		"scope":   scope,
+		"scope":   fmt.Sprintf("repository:%s:pull,push", img),
 	}
 	tokenReq, err := http.NewRequest(http.MethodGet, realm, nil)
 	if err != nil {

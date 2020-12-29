@@ -8,14 +8,20 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/theupdateframework/notary"
 	"github.com/theupdateframework/notary/client"
+	"github.com/theupdateframework/notary/client/changelist"
+	"github.com/theupdateframework/notary/cryptoservice"
+	store "github.com/theupdateframework/notary/storage"
+	"github.com/theupdateframework/notary/trustmanager"
 	"github.com/theupdateframework/notary/trustpinning"
 	"github.com/theupdateframework/notary/tuf/data"
+	apiv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sort"
 	"time"
@@ -30,7 +36,7 @@ type notaryRepo struct {
 	passPhrase tmaxiov1.TrustPass
 }
 
-func New(image *Image, passPhrase tmaxiov1.TrustPass, path string, ca []byte) (*notaryRepo, error) {
+func New(image *Image, passPhrase tmaxiov1.TrustPass, path string, ca []byte, rootKey apiv1.TrustKey, targetKey *apiv1.TrustKey) (*notaryRepo, error) {
 	if image == nil {
 		return nil, fmt.Errorf("image cannot be nil")
 	}
@@ -74,6 +80,22 @@ func New(image *Image, passPhrase tmaxiov1.TrustPass, path string, ca []byte) (*
 		Token: token,
 	}
 
+	// get trust key &  write it as a file
+	log.Info("Writing root key")
+	if err := n.WriteKey(rootKey.ID, []byte(rootKey.Key)); err != nil {
+		log.Error(err, "")
+		return nil, err
+	}
+
+	if targetKey != nil {
+		log.Info("Writing target key")
+		if err := n.WriteKey(targetKey.ID, []byte(targetKey.Key)); err != nil {
+			log.Error(err, "")
+			return nil, err
+		}
+	}
+
+
 	// Initialize Notary repository
 	repo, err := client.NewFileCachedRepository(n.notaryPath, data.GUN(image.GetImageNameWithHost()), image.NotaryServerUrl, rt, n.passRetriever(), trustpinning.TrustPinConfig{})
 	if err != nil {
@@ -82,6 +104,44 @@ func New(image *Image, passPhrase tmaxiov1.TrustPass, path string, ca []byte) (*
 	n.repo = repo
 
 	return n, nil
+}
+
+func NewDummy(path string) (*notaryRepo, error) {
+	n := &notaryRepo{
+		notaryPath: path,
+		passPhrase: apiv1.TrustPass{},
+	}
+
+	gun := data.GUN("dummy/dummy:dummy")
+	basicPath := filepath.Join(path, "tuf", filepath.FromSlash(gun.String()))
+	cache, err := store.NewFileStore(filepath.Join(basicPath, "metadata"), "json")
+	if err != nil {
+		return nil, err
+	}
+
+	keyStores, err := getKeyStores(path, n.passRetriever())
+	if err != nil {
+		return nil, err
+	}
+
+	cryptoService := cryptoservice.NewCryptoService(keyStores...)
+
+	cl, err := changelist.NewFileChangelist(filepath.Join(basicPath, "changelist"))
+	if err != nil {
+		return nil, err
+	}
+
+	n.repo, err = client.NewRepository(gun, "", nil, cache, trustpinning.TrustPinConfig{}, cryptoService, cl)
+
+	return n, nil
+}
+
+func getKeyStores(baseDir string, retriever notary.PassRetriever) ([]trustmanager.KeyStore, error) {
+	fileKeyStore, err := trustmanager.NewKeyFileStore(baseDir, retriever)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create private key store in directory: %s", baseDir)
+	}
+	return []trustmanager.KeyStore{fileKeyStore}, nil
 }
 
 func (n *notaryRepo) GetPassphrase(id string) (string, error) {
@@ -98,16 +158,19 @@ func (n *notaryRepo) SignImage() error {
 	log.Info(fmt.Sprintf("Signing image %s", n.image.GetImageNameWithHost()))
 	imgDigest, size, err := n.image.GetImageManifest()
 	if err != nil {
+		log.Error(err, "")
 		return err
 	}
 
 	// Parse digest
 	dgst, err := digest.Parse(imgDigest)
 	if err != nil {
+		log.Error(err, "")
 		return err
 	}
 	h, err := hex.DecodeString(dgst.Hex())
 	if err != nil {
+		log.Error(err, "")
 		return err
 	}
 
@@ -121,16 +184,22 @@ func (n *notaryRepo) SignImage() error {
 		switch err.(type) {
 		case client.ErrRepoNotInitialized, client.ErrRepositoryNotExist:
 			if err := n.InitNotaryRepoWithSigners(); err != nil {
+				log.Error(err, "")
 				return err
 			}
 		default:
+			log.Error(err, "")
 			return err
 		}
 	}
 
-	err = n.repo.AddTarget(target, data.CanonicalTargetsRole)
+	if err := n.repo.AddTarget(target, data.CanonicalTargetsRole); err != nil {
+		log.Error(err, "")
+		return err
+	}
 
 	if err := n.repo.Publish(); err != nil {
+		log.Error(err, "")
 		return err
 	}
 
@@ -142,7 +211,12 @@ func (n *notaryRepo) keyPath(keyId string) string {
 }
 
 func (n *notaryRepo) WriteKey(keyId string, key []byte) error {
-	return ioutil.WriteFile(n.keyPath(keyId), key, 0600)
+	path := n.keyPath(keyId)
+	parent := filepath.Dir(path)
+	if err := os.MkdirAll(parent, os.ModePerm); err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path, key, 0600)
 }
 
 func (n *notaryRepo) ReadRootKey() (string, []byte, error) {
@@ -187,7 +261,7 @@ func (n *notaryRepo) InitNotaryRepoWithSigners() error {
 func (n *notaryRepo) getKey(role data.RoleName) (string, error) {
 	keys := n.repo.GetCryptoService().ListKeys(role)
 	if len(keys) < 1 {
-		return "", fmt.Errorf("no root key found")
+		return "", fmt.Errorf("no key found with role %s", role.String())
 	}
 	sort.Strings(keys)
 	return keys[0], nil
