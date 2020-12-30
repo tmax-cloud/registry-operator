@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
+	exv1beta1 "k8s.io/api/extensions/v1beta1"
 	"strings"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -34,6 +35,12 @@ import (
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 	controller "github.com/tmax-cloud/registry-operator/pkg/controllers"
 	"github.com/tmax-cloud/registry-operator/pkg/trust"
+)
+
+const (
+	HarborCoreIngress   = "tmax-harbor-ingress"        // TODO - configurable
+	HarborNotaryIngress = "tmax-harbor-ingress-notary" // TODO - configurable
+	HarborNamespace     = "harbor"                     // TODO - configurable
 )
 
 // ImageSignRequestReconciler reconciles a ImageSignRequest object
@@ -89,19 +96,24 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 
 	// Get secret
 	regSecret := &corev1.Secret{}
-	if err := r.Get(context.TODO(), types.NamespacedName{Name: signReq.Spec.DcjSecretName, Namespace: signReq.Namespace}, regSecret); err != nil {
-		log.Error(err, "")
-		makeResponse(signReq, false, err.Error(), "")
-		return ctrl.Result{}, nil
+	if signReq.Spec.DcjSecretName != "" {
+		if err := r.Get(context.TODO(), types.NamespacedName{Name: signReq.Spec.DcjSecretName, Namespace: signReq.Namespace}, regSecret); err != nil {
+			log.Error(err, "")
+			makeResponse(signReq, false, err.Error(), "")
+			return ctrl.Result{}, nil
+		}
 	}
 
 	regCert := &corev1.Secret{}
-	if err := r.Get(context.TODO(), types.NamespacedName{Name: signReq.Spec.CertSecretName, Namespace: signReq.Namespace}, regCert); err != nil {
-		log.Error(err, "")
-		makeResponse(signReq, false, err.Error(), "")
-		return ctrl.Result{}, nil
+	var ca []byte
+	if signReq.Spec.CertSecretName != "" {
+		if err := r.Get(context.TODO(), types.NamespacedName{Name: signReq.Spec.CertSecretName, Namespace: signReq.Namespace}, regCert); err != nil {
+			log.Error(err, "")
+			makeResponse(signReq, false, err.Error(), "")
+			return ctrl.Result{}, nil
+		}
+		ca = regCert.Data[schemes.TLSCert]
 	}
-	ca := regCert.Data[schemes.TLSCert]
 
 	// Start signing procedure
 	img, err := trust.NewImage(signReq.Spec.Image, "", "", "", ca)
@@ -113,33 +125,75 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 
 	defer response(r.Client, signReq)
 
-	// List registries and filter target registry
-	log.Info("list registries")
-	targetReg, err := r.findRegistryByHost(img.Host)
-	if err != nil {
+	// Check if it's Harbor registry
+	isHarbor := false
+	regIng := &exv1beta1.Ingress{}
+	log.Info(HarborNamespace)
+	log.Info(HarborCoreIngress)
+	if err := r.Client.Get(context.Background(), types.NamespacedName{Name: HarborCoreIngress, Namespace: HarborNamespace}, regIng); err != nil {
 		log.Error(err, "")
-		makeResponse(signReq, false, err.Error(), "")
-		return ctrl.Result{}, nil
+	}
+	if regIng.ResourceVersion != "" && len(regIng.Spec.Rules) == 1 && img.Host == regIng.Spec.Rules[0].Host {
+		isHarbor = true
+
+		notIng := &exv1beta1.Ingress{}
+		if err := r.Client.Get(context.Background(), types.NamespacedName{Name: HarborNotaryIngress, Namespace: HarborNamespace}, notIng); err != nil {
+			log.Error(err, "")
+			makeResponse(signReq, false, err.Error(), "")
+			return ctrl.Result{}, nil
+		}
+		if len(notIng.Spec.Rules) == 0 {
+			err := fmt.Errorf("harbor notary ingress is misconfigured")
+			log.Error(err, "")
+			makeResponse(signReq, false, err.Error(), "")
+			return ctrl.Result{}, nil
+		}
+
+		coreScheme := "https"
+		if len(regIng.Spec.TLS) == 0 {
+			coreScheme = "http"
+		}
+		img.ServerUrl = fmt.Sprintf("%s://%s", coreScheme, regIng.Spec.Rules[0].Host)
+
+		notScheme := "https"
+		if len(notIng.Spec.TLS) == 0 {
+			notScheme = "http"
+		}
+		img.NotaryServerUrl = fmt.Sprintf("%s://%s", notScheme, notIng.Spec.Rules[0].Host)
 	}
 
-	basicAuth, err := utils.ParseBasicAuth(regSecret, img.Host)
-	if err != nil {
-		log.Error(err, "")
-		makeResponse(signReq, false, err.Error(), "")
-		return ctrl.Result{}, nil
+	// List registries and filter target registry - if it's not harbor registry
+	if !isHarbor {
+		log.Info("list registries")
+		targetReg, err := r.findRegistryByHost(img.Host)
+		if err != nil {
+			log.Error(err, "")
+			makeResponse(signReq, false, err.Error(), "")
+			return ctrl.Result{}, nil
+		}
+
+		// Initialize Sign controller
+		signCtl := controller.NewSigningController(r.Client, signer, targetReg.Name, targetReg.Namespace)
+		img.ServerUrl = signCtl.Regctl.GetEndpoint()
+		img.NotaryServerUrl = signCtl.Regctl.GetNotaryEndpoint()
+
+		// Verify if registry is valid now
+		// TODO - status.ServerURLs length & hmm... status?
 	}
-	img.BasicAuth = basicAuth
 
-	// Initialize Sign controller
-	signCtl := controller.NewSigningController(r.Client, signer, targetReg.Name, targetReg.Namespace)
-	img.ServerUrl = signCtl.Regctl.GetEndpoint()
-	img.NotaryServerUrl = signCtl.Regctl.GetNotaryEndpoint()
-
-	// Verify if registry is valid now
-	// TODO - status.ServerURLs length & hmm... status?
+	if regSecret.ResourceVersion != "" {
+		basicAuth, err := utils.ParseBasicAuth(regSecret, img.Host)
+		if err != nil {
+			log.Error(err, "")
+			makeResponse(signReq, false, err.Error(), "")
+			return ctrl.Result{}, nil
+		}
+		img.BasicAuth = basicAuth
+	}
 
 	// Sign image
 	log.Info("sign image")
+	signCtl := controller.NewSigningController(r.Client, signer, "", "")
 	if err := signCtl.SignImage(signerKey, img, ca); err != nil {
 		log.Error(err, "sign image")
 		makeResponse(signReq, false, err.Error(), "")

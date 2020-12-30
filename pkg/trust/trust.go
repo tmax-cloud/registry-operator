@@ -95,7 +95,6 @@ func New(image *Image, passPhrase tmaxiov1.TrustPass, path string, ca []byte, ro
 		}
 	}
 
-
 	// Initialize Notary repository
 	repo, err := client.NewFileCachedRepository(n.notaryPath, data.GUN(image.GetImageNameWithHost()), image.NotaryServerUrl, rt, n.passRetriever(), trustpinning.TrustPinConfig{})
 	if err != nil {

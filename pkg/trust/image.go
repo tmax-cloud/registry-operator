@@ -3,6 +3,7 @@ package trust
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/docker/distribution/registry/client"
@@ -28,7 +29,7 @@ type Image struct {
 	Tag  string
 
 	BasicAuth string
-	Tokens    map[TokenType]string
+	Tokens    map[TokenType]Token
 
 	HttpClient http.Client
 }
@@ -66,7 +67,7 @@ func NewImage(uri, registryServer, notaryServer, basicAuth string, ca []byte) (*
 
 	// Auth
 	r.BasicAuth = basicAuth
-	r.Tokens = map[TokenType]string{}
+	r.Tokens = map[TokenType]Token{}
 
 	// Generate HTTPS client
 	var tlsConfig *tls.Config
@@ -112,7 +113,7 @@ func (r *Image) GetImageManifest() (string, int64, error) {
 	}
 
 	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Set("Authorization", fmt.Sprintf("%s %s", token.Type, token.Value))
 
 	resp, err := r.HttpClient.Do(req)
 	if err != nil {
@@ -149,16 +150,21 @@ const (
 	TokenTypeNotary   = TokenType("notary")
 )
 
-func (r *Image) GetToken(tokenType TokenType) (string, error) {
+type Token struct {
+	Type  string
+	Value string
+}
+
+func (r *Image) GetToken(tokenType TokenType) (Token, error) {
 	t, ok := r.Tokens[tokenType]
 	if !ok {
 		err := r.fetchToken(tokenType)
 		if err != nil {
-			return "", err
+			return Token{}, err
 		}
 		t, ok = r.Tokens[tokenType]
 		if !ok {
-			return "", fmt.Errorf("no token is fetched for %s", tokenType)
+			return Token{}, fmt.Errorf("no token is fetched for %s", tokenType)
 		}
 	}
 	return t, nil
@@ -191,6 +197,15 @@ func (r *Image) fetchToken(tokenType TokenType) error {
 		return err
 	}
 	defer pingResp.Body.Close()
+
+	// If 200, use basic auth
+	if pingResp.StatusCode >= 200 && pingResp.StatusCode < 300 {
+		r.Tokens[tokenType] = Token{
+			Type:  "Basic",
+			Value: base64.StdEncoding.EncodeToString([]byte(r.BasicAuth)),
+		}
+		return nil
+	}
 
 	challenges := challenge.ResponseChallenges(pingResp)
 	if len(challenges) < 1 {
@@ -238,7 +253,10 @@ func (r *Image) fetchToken(tokenType TokenType) error {
 		return err
 	}
 
-	r.Tokens[tokenType] = token.Token
+	r.Tokens[tokenType] = Token{
+		Type:  "Bearer",
+		Value: token.Token,
+	}
 
 	return nil
 }
