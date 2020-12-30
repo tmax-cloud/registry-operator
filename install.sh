@@ -18,6 +18,9 @@ kubectl apply -f config/manager/configmap.yaml
 # Apply keycloak secret
 kubectl apply -f config/manager/keycloak_secret.yaml
 
+# Apply
+kubectl apply -f config/apiservice/apiservice.yaml
+
 # Create registry CA
 CA_CRT_FILE=./config/pki/ca.crt
 CA_KEY_FILE=./config/pki/ca.key

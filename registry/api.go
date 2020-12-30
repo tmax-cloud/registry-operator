@@ -41,6 +41,7 @@ func NewRegistryApi(reg *regv1.Registry) *RegistryApi {
 	kcCtl := keycloakctl.NewKeycloakController(reg.Namespace, reg.Name)
 	ra.kcCli = keycloakctl.NewKeycloakClient(reg.Spec.LoginId, reg.Spec.LoginPassword, kcCtl.GetRealmName(), kcCtl.GetDockerV2ClientName())
 
+	logger.Info("New Keycloak Client Success")
 	return ra
 }
 

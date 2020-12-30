@@ -7,6 +7,16 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - admissionregistration.k8s.io
+  resourceNames:
+  - registry-operator-webhook-cfg
+  resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - apiregistration.k8s.io
   resourceNames:
   - v1.registry.tmax.io

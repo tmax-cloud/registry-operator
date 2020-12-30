@@ -6,7 +6,7 @@ spec:
   group: registry.tmax.io
   groupPriorityMinimum: 100
   service:
-    name: image-signer
+    name: registry-operator-service
     namespace: registry-system
     port: 24335
   version: v1

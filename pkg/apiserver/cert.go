@@ -10,6 +10,7 @@ import (
 	"path"
 	"time"
 
+	"k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -27,7 +28,8 @@ const (
 	K8sConfigMapName = "extension-apiserver-authentication"
 	K8sConfigMapKey  = "requestheader-client-ca-file"
 
-	APIServiceName = "v1.registry.tmax.io"
+	APIServiceName                   = "v1.registry.tmax.io"
+	MutatingWebhookConfigurationName = "registry-operator-webhook-cfg"
 )
 
 // Create and Store certificates for webhook server
@@ -72,6 +74,19 @@ func createCert(ctx context.Context, client client.Client) error {
 	}
 	apiService.Spec.CABundle = caCrt
 	if err := client.Update(ctx, apiService); err != nil {
+		return err
+	}
+
+	// Update MutatingWebhookConfiguration
+	mwConfig := &v1beta1.MutatingWebhookConfiguration{}
+	if err := client.Get(ctx, types.NamespacedName{Name: MutatingWebhookConfigurationName}, mwConfig); err != nil {
+		return err
+	}
+	if len(mwConfig.Webhooks) == 0 {
+		return fmt.Errorf("there is no MutatingWebhookConfiguration's webhook")
+	}
+	mwConfig.Webhooks[0].ClientConfig.CABundle = caCrt
+	if err := client.Update(ctx, mwConfig); err != nil {
 		return err
 	}
 

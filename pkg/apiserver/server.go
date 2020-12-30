@@ -2,16 +2,22 @@ package apiserver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	v1 "github.com/tmax-cloud/registry-operator/pkg/apiserver/apis/v1"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
 
+	v1 "github.com/tmax-cloud/registry-operator/pkg/apiserver/apis/v1"
+	whv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+
 	"github.com/gorilla/mux"
+	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,7 +44,9 @@ func New() *Server {
 	server := &Server{}
 	server.Wrapper = wrapper.New("/", nil, server.rootHandler)
 	server.Wrapper.Router = mux.NewRouter()
+	log.Info("[DEBUG]mutateHandler")
 	server.Wrapper.Router.HandleFunc("/", server.rootHandler)
+	server.Wrapper.Router.HandleFunc("/mutate", server.mutateHandler)
 
 	if err := apis.AddApis(server.Wrapper); err != nil {
 		log.Error(err, "cannot add apis")
@@ -53,6 +61,10 @@ func New() *Server {
 		os.Exit(1)
 	}
 	if err := corev1.AddToScheme(opt.Scheme); err != nil {
+		log.Error(err, "cannot register scheme")
+		os.Exit(1)
+	}
+	if err := whv1beta1.AddToScheme(opt.Scheme); err != nil {
 		log.Error(err, "cannot register scheme")
 		os.Exit(1)
 	}
@@ -94,6 +106,71 @@ func (s *Server) rootHandler(w http.ResponseWriter, _ *http.Request) {
 	addPath(&paths.Paths, s.Wrapper)
 
 	_ = utils.RespondJSON(w, paths)
+}
+
+var (
+	runtimeScheme = runtime.NewScheme()
+	codecs        = serializer.NewCodecFactory(runtimeScheme)
+	deserializer  = codecs.UniversalDeserializer()
+)
+
+func (s *Server) mutateHandler(w http.ResponseWriter, r *http.Request) {
+	log.Info("[DEBUG1]mutateHandler")
+	paths := metav1.RootPaths{Paths: []string{"/mutate"}}
+	addPath(&paths.Paths, s.Wrapper)
+
+	var body []byte
+	if r.Body != nil {
+		if data, err := ioutil.ReadAll(r.Body); err == nil {
+			body = data
+		}
+	}
+	if len(body) == 0 {
+		log.Error(nil, "empty body")
+		http.Error(w, "empty body", http.StatusBadRequest)
+		return
+	}
+	log.Info("[DEBUG2]mutateHandler")
+	// verify the content type is accurate
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		log.Error(nil, "Content-Type=%s, expect application/json", contentType)
+		http.Error(w, "invalid Content-Type, expect `application/json`", http.StatusUnsupportedMediaType)
+		return
+	}
+	log.Info("[DEBUG3]mutateHandler")
+	var admissionResponse *v1beta1.AdmissionResponse
+	ar := v1beta1.AdmissionReview{}
+	log.Info("[DEBUG4]mutateHandler")
+	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
+		log.Error(nil, "Can't decode body: %v", err)
+		admissionResponse = &v1beta1.AdmissionResponse{
+			Result: &metav1.Status{
+				Message: err.Error(),
+			},
+		}
+	} else {
+		admissionResponse = v1.Mutate(&ar, s.Client)
+	}
+	log.Info("[DEBUG5]mutateHandler")
+	admissionReview := v1beta1.AdmissionReview{}
+	if admissionResponse != nil {
+		admissionReview.Response = admissionResponse
+		if ar.Request != nil {
+			admissionReview.Response.UID = ar.Request.UID
+		}
+	}
+
+	resp, err := json.Marshal(admissionReview)
+	if err != nil {
+		log.Error(nil, "Can't encode response: %v", err)
+		http.Error(w, fmt.Sprintf("could not encode response: %v", err), http.StatusInternalServerError)
+	}
+	log.Info("Ready to write reponse ...")
+	if _, err := w.Write(resp); err != nil {
+		log.Error(nil, "Can't write response: %v", err)
+		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
+	}
 }
 
 func addPath(paths *[]string, w *wrapper.RouterWrapper) {
