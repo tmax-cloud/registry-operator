@@ -82,10 +82,11 @@ func createCert(ctx context.Context, client client.Client) error {
 	if err := client.Get(ctx, types.NamespacedName{Name: MutatingWebhookConfigurationName}, mwConfig); err != nil {
 		return err
 	}
-	if len(mwConfig.Webhooks) == 0 {
-		return fmt.Errorf("there is no MutatingWebhookConfiguration's webhook")
+	if len(mwConfig.Webhooks) != 2 {
+		return fmt.Errorf("MutatingWebhookConfiguration's webhook must be two, but there is/are %d", len(mwConfig.Webhooks))
 	}
 	mwConfig.Webhooks[0].ClientConfig.CABundle = caCrt
+	mwConfig.Webhooks[1].ClientConfig.CABundle = caCrt
 	if err := client.Update(ctx, mwConfig); err != nil {
 		return err
 	}

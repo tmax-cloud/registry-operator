@@ -1,0 +1,73 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: image-signer-rw-role
+rules:
+- apiGroups:
+  - tmax.io
+  resources:
+  - imagesigners
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - tmax.io
+  resources:
+  - imagesigners/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - tmax.io
+  resources:
+  - signerkeys
+  verbs:
+  - get
+- apiGroups:
+  - tmax.io
+  resources:
+  - signerkeys/status
+  verbs:
+  - get
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: image-signer-ro-role
+rules:
+- apiGroups:
+  - tmax.io
+  resources:
+  - imagesigners
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - tmax.io
+  resources:
+  - imagesigners/status
+  verbs:
+  - get
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: image-signer-ro-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: image-signer-ro-role
+subjects:
+- kind: Group
+  name: system:authenticated
+  apiGroup: rbac.authorization.k8s.io

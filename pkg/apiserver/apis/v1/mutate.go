@@ -37,7 +37,7 @@ func Mutate(ar *v1beta1.AdmissionReview, client client.Client) *v1beta1.Admissio
 
 	patch = append(patch, patchOperation{
 		Op:    "add",
-		Path:  "/status/owner",
+		Path:  "/spec/owner",
 		Value: req.UserInfo.Username,
 	})
 

@@ -19,9 +19,10 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	exv1beta1 "k8s.io/api/extensions/v1beta1"
 	"strings"
+
+	"github.com/tmax-cloud/registry-operator/internal/schemes"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -58,6 +59,7 @@ type ImageSignRequestReconciler struct {
 // +kubebuilder:rbac:groups=apiregistration.k8s.io,resourceNames=v1.registry.tmax.io,resources=apiservices,verbs=get;update;patch
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resourceNames=registry-operator-webhook-cfg,resources=mutatingwebhookconfigurations,verbs=get;update;patch
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resourceNames=extension-apiserver-authentication,resources=configmaps,verbs=get
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 

@@ -33,6 +33,7 @@ type ImageSignerSpec struct {
 	Phone       string `json:"phone,omitempty"`
 	Team        string `json:"team,omitempty"`
 	Description string `json:"description,omitempty"`
+	Owner       string `json:"owner,omitempty"`
 }
 
 // ImageSignerStatus defines the observed state of ImageSigner
@@ -41,7 +42,6 @@ type ImageSignerStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	*SignerKeyState `json:"signerKeyState,omitempty"`
-	Owner           string `json:"owner,omitempty"`
 }
 
 type SignerKeyState struct {

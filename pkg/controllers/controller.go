@@ -9,10 +9,18 @@ import (
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	"github.com/tmax-cloud/registry-operator/pkg/registry"
 	"github.com/tmax-cloud/registry-operator/pkg/trust"
+	v1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+)
+
+const (
+	imageSignerRWRole = "image-signer-rw-role"
 )
 
 var log = ctrl.Log.WithName("signing-controller")
@@ -153,4 +161,55 @@ func (c *SigningController) addTargetKey(signerKey *apiv1.SignerKey, targetName 
 	}
 
 	return nil
+}
+
+func (c *SigningController) CreateRoleBinding() error {
+	labels := map[string]string{}
+	labels["object"] = "imagesigner"
+	labels["signer"] = c.ImageSigner.Name
+
+	crb := &v1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   c.roleBindingName(),
+			Labels: labels,
+		},
+		Subjects: []v1.Subject{
+			{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "User",
+				Name:     c.ImageSigner.Spec.Owner,
+			},
+		},
+		RoleRef: v1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     imageSignerRWRole,
+		},
+	}
+
+	if err := c.client.Create(context.TODO(), crb); err != nil {
+		log.Error(err, "failed to create clusterrolebinding")
+		return err
+	}
+
+	return nil
+}
+
+func (c *SigningController) roleBindingName() string {
+	return c.ImageSigner.Name + "-image-signer-rw-rolebinding"
+}
+
+func (c *SigningController) IsExistRoleBinding() bool {
+	req := types.NamespacedName{Name: c.roleBindingName()}
+	rb := &v1.ClusterRoleBinding{}
+	if err := c.client.Get(context.TODO(), req, rb); err != nil {
+		if errors.IsNotFound(err) {
+			return false
+		}
+
+		log.Error(err, "failed to get clusterrolebinding")
+		return false
+	}
+
+	return true
 }
