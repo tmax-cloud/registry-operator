@@ -294,7 +294,7 @@ func (c *KeycloakController) isExistCertificate() bool {
 		return false
 	}
 	components := Components{}
-	if err := json.Unmarshal(body, components); err != nil {
+	if err := json.Unmarshal(body, &components); err != nil {
 		c.logger.Info("contents", "components", string(body))
 		return false
 	}
