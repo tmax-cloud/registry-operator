@@ -98,11 +98,11 @@ func (r *RegistryDCJSecret) create(c client.Client, reg *regv1.Registry, patchRe
 }
 
 func (r *RegistryDCJSecret) get(c client.Client, reg *regv1.Registry) error {
+	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryDCJSecret))
 	r.secretDCJ = schemes.DCJSecret(reg)
 	if r.secretDCJ == nil {
 		return regv1.MakeRegistryError("Registry has no fields DCJ Secret required")
 	}
-	r.logger = utils.NewRegistryLogger(*r, r.secretDCJ.Namespace, r.secretDCJ.Name)
 
 	req := types.NamespacedName{Name: r.secretDCJ.Name, Namespace: r.secretDCJ.Namespace}
 	if err := c.Get(context.TODO(), req, r.secretDCJ); err != nil {
