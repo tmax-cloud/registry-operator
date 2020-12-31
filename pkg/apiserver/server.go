@@ -210,7 +210,7 @@ func (s *Server) imageSignRequestHandler(w http.ResponseWriter, r *http.Request)
 			},
 		}
 	} else {
-		admissionResponse = v1.ImageSignRequest(&ar, s.Client)
+		admissionResponse = v1.ImageSignRequest(&ar, w, r)
 	}
 	admissionReview := v1beta1.AdmissionReview{}
 	if admissionResponse != nil {

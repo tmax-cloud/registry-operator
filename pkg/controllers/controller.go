@@ -28,11 +28,12 @@ var log = ctrl.Log.WithName("signing-controller")
 // NewSigningController is a controller for image signing.
 // if registryName or registryNamespace is empty string, RegCtl is nil
 // if requestNamespace is empty string, get operator's namepsace
-func NewSigningController(c client.Client, signer *apiv1.ImageSigner, registryName, registryNamespace string) *SigningController {
+func NewSigningController(c client.Client, scheme *runtime.Scheme, signer *apiv1.ImageSigner, registryName, registryNamespace string) *SigningController {
 	return &SigningController{
 		client:      c,
 		ImageSigner: signer,
 		Regctl:      registry.NewRegCtl(c, registryName, registryNamespace),
+		Scheme:      scheme,
 	}
 }
 
@@ -40,6 +41,7 @@ type SigningController struct {
 	client      client.Client
 	ImageSigner *apiv1.ImageSigner
 	Regctl      *registry.RegCtl
+	Scheme      *runtime.Scheme
 }
 
 func (c *SigningController) CreateRootKey(owner *apiv1.ImageSigner, scheme *runtime.Scheme) (*apiv1.TrustKey, error) {
@@ -163,14 +165,68 @@ func (c *SigningController) addTargetKey(signerKey *apiv1.SignerKey, targetName 
 	return nil
 }
 
-func (c *SigningController) CreateRoleBinding() error {
+func (c *SigningController) CreateOwnerRole() error {
+	role := &v1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: c.ownerRoleName(),
+		},
+		Rules: []v1.PolicyRule{
+			{
+				APIGroups:     []string{"tmax.io"},
+				Resources:     []string{"imagesigners"},
+				ResourceNames: []string{c.ImageSigner.Name},
+				Verbs:         []string{"create", "delete", "get", "list", "patch", "update", "watch"},
+			},
+		},
+	}
+	if err := controllerutil.SetControllerReference(c.ImageSigner, role, c.Scheme); err != nil {
+		log.Error(err, "SetOwnerReference Failed")
+		return err
+	}
+
+	if err := c.client.Create(context.TODO(), role); err != nil {
+		log.Error(err, "failed to create clusterrole")
+		return err
+	}
+
+	return nil
+}
+
+func (c *SigningController) CreateSignerKeyRole() error {
+	role := &v1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: c.signerKeyRoleName(),
+		},
+		Rules: []v1.PolicyRule{
+			{
+				APIGroups:     []string{"tmax.io"},
+				Resources:     []string{"signerkeys"},
+				ResourceNames: []string{c.ImageSigner.Name},
+				Verbs:         []string{"get"},
+			},
+		},
+	}
+	if err := controllerutil.SetControllerReference(c.ImageSigner, role, c.Scheme); err != nil {
+		log.Error(err, "SetOwnerReference Failed")
+		return err
+	}
+
+	if err := c.client.Create(context.TODO(), role); err != nil {
+		log.Error(err, "failed to create clusterrole")
+		return err
+	}
+
+	return nil
+}
+
+func (c *SigningController) CreateOwnerRoleBinding() error {
 	labels := map[string]string{}
 	labels["object"] = "imagesigner"
 	labels["signer"] = c.ImageSigner.Name
 
 	crb := &v1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   c.roleBindingName(),
+			Name:   c.ownerRoleBindingName(),
 			Labels: labels,
 		},
 		Subjects: []v1.Subject{
@@ -183,8 +239,13 @@ func (c *SigningController) CreateRoleBinding() error {
 		RoleRef: v1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     imageSignerRWRole,
+			Name:     c.ownerRoleName(),
 		},
+	}
+
+	if err := controllerutil.SetControllerReference(c.ImageSigner, crb, c.Scheme); err != nil {
+		log.Error(err, "SetOwnerReference Failed")
+		return err
 	}
 
 	if err := c.client.Create(context.TODO(), crb); err != nil {
@@ -195,12 +256,75 @@ func (c *SigningController) CreateRoleBinding() error {
 	return nil
 }
 
-func (c *SigningController) roleBindingName() string {
-	return c.ImageSigner.Name + "-image-signer-rw-rolebinding"
+func (c *SigningController) CreateSignerKeyRoleBinding() error {
+	labels := map[string]string{}
+	labels["object"] = "imagesigner"
+	labels["signer"] = c.ImageSigner.Name
+
+	crb := &v1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   c.signerKeyRoleBindingName(),
+			Labels: labels,
+		},
+		Subjects: []v1.Subject{
+			{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "User",
+				Name:     c.ImageSigner.Spec.Owner,
+			},
+		},
+		RoleRef: v1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     c.signerKeyRoleName(),
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(c.ImageSigner, crb, c.Scheme); err != nil {
+		log.Error(err, "SetOwnerReference Failed")
+		return err
+	}
+
+	if err := c.client.Create(context.TODO(), crb); err != nil {
+		log.Error(err, "failed to create clusterrolebinding")
+		return err
+	}
+
+	return nil
 }
 
-func (c *SigningController) IsExistRoleBinding() bool {
-	req := types.NamespacedName{Name: c.roleBindingName()}
+func (c *SigningController) IsExistOwnerRole() bool {
+	req := types.NamespacedName{Name: c.ownerRoleName()}
+	role := &v1.ClusterRole{}
+	if err := c.client.Get(context.TODO(), req, role); err != nil {
+		if errors.IsNotFound(err) {
+			return false
+		}
+
+		log.Error(err, "failed to get clusterrole")
+		return false
+	}
+
+	return true
+}
+
+func (c *SigningController) IsExistSignerKeyRole() bool {
+	req := types.NamespacedName{Name: c.signerKeyRoleName()}
+	role := &v1.ClusterRole{}
+	if err := c.client.Get(context.TODO(), req, role); err != nil {
+		if errors.IsNotFound(err) {
+			return false
+		}
+
+		log.Error(err, "failed to get clusterrole")
+		return false
+	}
+
+	return true
+}
+
+func (c *SigningController) IsExistOwnerRoleBinding() bool {
+	req := types.NamespacedName{Name: c.ownerRoleBindingName()}
 	rb := &v1.ClusterRoleBinding{}
 	if err := c.client.Get(context.TODO(), req, rb); err != nil {
 		if errors.IsNotFound(err) {
@@ -212,4 +336,35 @@ func (c *SigningController) IsExistRoleBinding() bool {
 	}
 
 	return true
+}
+
+func (c *SigningController) IsExistSignerKeyRoleBinding() bool {
+	req := types.NamespacedName{Name: c.signerKeyRoleBindingName()}
+	rb := &v1.ClusterRoleBinding{}
+	if err := c.client.Get(context.TODO(), req, rb); err != nil {
+		if errors.IsNotFound(err) {
+			return false
+		}
+
+		log.Error(err, "failed to get clusterrolebinding")
+		return false
+	}
+
+	return true
+}
+
+func (c *SigningController) ownerRoleName() string {
+	return c.ImageSigner.Name + "-image-signer-owner-role"
+}
+
+func (c *SigningController) signerKeyRoleName() string {
+	return c.ImageSigner.Name + "-signer-key-role"
+}
+
+func (c *SigningController) ownerRoleBindingName() string {
+	return c.ImageSigner.Name + "-image-signer-owner-rolebinding"
+}
+
+func (c *SigningController) signerKeyRoleBindingName() string {
+	return c.ImageSigner.Name + "-signer-key-rolebinding"
 }

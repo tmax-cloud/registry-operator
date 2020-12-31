@@ -72,7 +72,7 @@ func (r *ImageSignerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 	}
 
 	// if signer key is not exist, create root key
-	signCtl := controller.NewSigningController(r.Client, signer, "", "")
+	signCtl := controller.NewSigningController(r.Client, r.Scheme, signer, "", "")
 
 	rootKey, err := signCtl.CreateRootKey(signer, r.Scheme)
 	if err != nil {
@@ -81,9 +81,32 @@ func (r *ImageSignerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 		return ctrl.Result{}, nil
 	}
 
-	// create clusterrolebinding
-	if !signCtl.IsExistRoleBinding() {
-		if err := signCtl.CreateRoleBinding(); err != nil {
+	if !signCtl.IsExistOwnerRole() {
+		if err := signCtl.CreateOwnerRole(); err != nil {
+			log.Error(err, "create clusterrole failed")
+			makeSignerStatus(signer, false, err.Error(), "", nil)
+			return ctrl.Result{}, nil
+		}
+	}
+
+	if !signCtl.IsExistSignerKeyRole() {
+		if err := signCtl.CreateSignerKeyRole(); err != nil {
+			log.Error(err, "create clusterrole failed")
+			makeSignerStatus(signer, false, err.Error(), "", nil)
+			return ctrl.Result{}, nil
+		}
+	}
+
+	if !signCtl.IsExistOwnerRoleBinding() {
+		if err := signCtl.CreateOwnerRoleBinding(); err != nil {
+			log.Error(err, "create clusterrolebinding failed")
+			makeSignerStatus(signer, false, err.Error(), "", nil)
+			return ctrl.Result{}, nil
+		}
+	}
+
+	if !signCtl.IsExistSignerKeyRoleBinding() {
+		if err := signCtl.CreateSignerKeyRoleBinding(); err != nil {
 			log.Error(err, "create clusterrolebinding failed")
 			makeSignerStatus(signer, false, err.Error(), "", nil)
 			return ctrl.Result{}, nil
