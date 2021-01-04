@@ -117,9 +117,9 @@ func (r *RegistryService) create(c client.Client, reg *regv1.Registry, patchReg 
 }
 
 func (r *RegistryService) get(c client.Client, reg *regv1.Registry) error {
+	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryService))
 	if r.svc == nil {
 		r.svc = schemes.Service(reg)
-		r.logger = utils.NewRegistryLogger(*r, r.svc.Namespace, r.svc.Name)
 	}
 
 	req := types.NamespacedName{Name: r.svc.Name, Namespace: r.svc.Namespace}

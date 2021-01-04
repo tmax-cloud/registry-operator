@@ -119,10 +119,16 @@ func getRootCACertificate(c client.Client) (*x509.Certificate, *rsa.PrivateKey) 
 		return nil, nil
 	}
 
-	key, privKeyErr := x509.ParsePKCS8PrivateKey(privBlock.Bytes)
+	var key interface{}
+	var privKeyErr error
+
+	key, privKeyErr = x509.ParsePKCS8PrivateKey(privBlock.Bytes)
 	if privKeyErr != nil {
-		logger.Error(privKeyErr, "Parse private key Error")
-		return nil, nil
+		key, privKeyErr = x509.ParsePKCS1PrivateKey(privBlock.Bytes)
+		if privKeyErr != nil {
+			logger.Error(privKeyErr, "Parse private key Error")
+			return nil, nil
+		}
 	}
 
 	return cert, key.(*rsa.PrivateKey)

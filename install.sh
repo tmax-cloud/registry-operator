@@ -8,6 +8,7 @@ kubectl apply -f config/manager/namespace.yaml
 # Apply role
 kubectl apply -f config/rbac/role.yaml
 kubectl apply -f config/rbac/role_binding.yaml
+kubectl apply -f config/rbac/image-signer-role.yaml
 
 # Apply CRDs
 kubectl apply -f config/crd/bases
@@ -17,6 +18,12 @@ kubectl apply -f config/manager/configmap.yaml
 
 # Apply keycloak secret
 kubectl apply -f config/manager/keycloak_secret.yaml
+
+# Apply apiservice
+kubectl apply -f config/apiservice/apiservice.yaml
+
+# Apply webhook
+kubectl apply -f config/webhook/mutating-webhook.yaml
 
 # Create registry CA
 CA_CRT_FILE=./config/pki/ca.crt

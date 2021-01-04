@@ -19,9 +19,11 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/tmax-cloud/registry-operator/internal/schemes"
-	exv1beta1 "k8s.io/api/extensions/v1beta1"
 	"strings"
+
+	exv1beta1 "k8s.io/api/extensions/v1beta1"
+
+	"github.com/tmax-cloud/registry-operator/internal/schemes"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -56,7 +58,10 @@ type ImageSignRequestReconciler struct {
 // +kubebuilder:rbac:groups=tmax.io,resources=signerkeys,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=tmax.io,resources=signerkeys/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=apiregistration.k8s.io,resourceNames=v1.registry.tmax.io,resources=apiservices,verbs=get;update;patch
+// +kubebuilder:rbac:groups=admissionregistration.k8s.io,resourceNames=registry-operator-webhook-cfg,resources=mutatingwebhookconfigurations,verbs=get;update;patch
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resourceNames=extension-apiserver-authentication,resources=configmaps,verbs=get
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 
@@ -173,7 +178,7 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		}
 
 		// Initialize Sign controller
-		signCtl := controller.NewSigningController(r.Client, signer, targetReg.Name, targetReg.Namespace)
+		signCtl := controller.NewSigningController(r.Client, r.Scheme, signer, targetReg.Name, targetReg.Namespace)
 		img.ServerUrl = signCtl.Regctl.GetEndpoint()
 		img.NotaryServerUrl = signCtl.Regctl.GetNotaryEndpoint()
 
@@ -193,7 +198,7 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 
 	// Sign image
 	log.Info("sign image")
-	signCtl := controller.NewSigningController(r.Client, signer, "", "")
+	signCtl := controller.NewSigningController(r.Client, r.Scheme, signer, "", "")
 	if err := signCtl.SignImage(signerKey, img, ca); err != nil {
 		log.Error(err, "sign image")
 		makeResponse(signReq, false, err.Error(), "")

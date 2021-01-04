@@ -5,10 +5,14 @@ metadata:
   namespace: registry-system
 spec:
   ports:
-  - name: "port1"
+  - name: "registry"
     port: 28677
     protocol: TCP
     targetPort: 28677
+  - name: "apiserver"
+    port: 24335
+    protocol: TCP
+    targetPort: 24335
   selector:
     control-plane: registry-operator
   type: LoadBalancer

@@ -44,6 +44,8 @@ spec:
               type: string
             name:
               type: string
+            owner:
+              type: string
             phone:
               type: string
             team:

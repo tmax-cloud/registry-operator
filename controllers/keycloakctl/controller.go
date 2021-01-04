@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -189,7 +190,14 @@ func (c *KeycloakController) AddCertificate() error {
 	reqURL := c.componentURL()
 	cacrt, cakey := cmhttp.CAData()
 	cacrt = utils.RemovePemBlock(cacrt, "CERTIFICATE")
-	cakey = utils.RemovePemBlock(cakey, "PRIVATEE KEY")
+
+	privBlock, privRest := pem.Decode(cakey)
+	if len(privRest) != 0 {
+		fmt.Printf("Private key is not PEM format %s %s", "Rest", privRest)
+		return fmt.Errorf("Private key is not PEM format %s %s", "Rest", privRest)
+	}
+	cakey = utils.RemovePemBlock(cakey, privBlock.Type)
+
 	component := Component{
 		Name:         rootCAName,
 		ProviderID:   "rsa",
@@ -294,7 +302,7 @@ func (c *KeycloakController) isExistCertificate() bool {
 		return false
 	}
 	components := Components{}
-	if err := json.Unmarshal(body, components); err != nil {
+	if err := json.Unmarshal(body, &components); err != nil {
 		c.logger.Info("contents", "components", string(body))
 		return false
 	}

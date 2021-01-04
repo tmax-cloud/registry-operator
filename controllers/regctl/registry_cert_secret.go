@@ -142,12 +142,11 @@ func (r *RegistryCertSecret) create(c client.Client, reg *regv1.Registry, patchR
 }
 
 func (r *RegistryCertSecret) get(c client.Client, reg *regv1.Registry) error {
+	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryOpaqueSecret))
 	r.secretOpaque, r.secretTLS = schemes.Secrets(reg, c)
 	if r.secretOpaque == nil && r.secretTLS == nil {
 		return regv1.MakeRegistryError("Registry has no fields Secrets required")
 	}
-
-	r.logger = utils.NewRegistryLogger(*r, r.secretOpaque.Namespace, r.secretOpaque.Name)
 
 	req := types.NamespacedName{Name: r.secretOpaque.Name, Namespace: r.secretOpaque.Namespace}
 	if err := c.Get(context.TODO(), req, r.secretOpaque); err != nil {

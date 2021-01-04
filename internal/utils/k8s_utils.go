@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	corev1 "k8s.io/api/core/v1"
 	"os"
 	"reflect"
 	"strings"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -96,7 +97,7 @@ func Namespace() (string, error) {
 func OperatorServiceName() string {
 	svcName := os.Getenv("OPERATOR_SERVICE_NAME")
 	if svcName == "" {
-		svcName = "image-signer"
+		svcName = "registry-operator-service"
 	}
 	return svcName
 }
