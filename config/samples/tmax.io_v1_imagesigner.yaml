@@ -1,11 +1,11 @@
 apiVersion: tmax.io/v1
 kind: ImageSigner
 metadata:
-  name: yun
+  name: signer-a
 spec:
   # Add fields here
   description: for develope
-  email: email
-  name: suk
-  phone: 010-
+  email: signer@tmax.co.kr
+  name: signer-name
+  phone: 010-1234-5678
   team: ck1-2

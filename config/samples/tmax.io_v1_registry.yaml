@@ -20,8 +20,6 @@ spec:
         deleteWithPvc: true
   service:
     serviceType: LoadBalancer
-    loadBalancer:
-      port: 443
   persistentVolumeClaim:
     mountPath: /var/lib/registry
     create:
