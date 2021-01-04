@@ -38,8 +38,6 @@ spec:
             value: Asia/Seoul
           - name: KEYCLOAK_SERVICE
             value: https://172.22.11.9:8443
-          - name: KEYCLOAK_CERT_EXIST
-            value: true
           - name: KEYCLOAK_USERNAME
             valueFrom:
                 secretKeyRef:
@@ -60,6 +58,8 @@ spec:
         volumeMounts:
         - name: manager-mnt
           mountPath: /bin/dev
+        - name: root-ca
+          mountPath: /certs/
       volumes:
       - name: manager-mnt
         hostPath:

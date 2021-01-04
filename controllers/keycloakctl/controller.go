@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path"
 
 	gocloak "github.com/Nerzal/gocloak/v7"
@@ -25,9 +24,13 @@ import (
 )
 
 var (
-	KeycloakServer = os.Getenv("KEYCLOAK_SERVICE")
-	keycloakUser   = os.Getenv("KEYCLOAK_USERNAME")
-	keycloakPwd    = os.Getenv("KEYCLOAK_PASSWORD")
+	// KeycloakServer = os.Getenv("KEYCLOAK_SERVICE")
+	// keycloakUser   = os.Getenv("KEYCLOAK_USERNAME")
+	// keycloakPwd    = os.Getenv("KEYCLOAK_PASSWORD")
+
+	KeycloakServer = "https://testauth.tmaxcloud.com"
+	keycloakUser   = "admin"
+	keycloakPwd    = "admin"
 )
 
 const (
@@ -126,8 +129,7 @@ func (c *KeycloakController) CreateRealm(reg, patchReg *regv1.Registry) error {
 		}
 	}
 
-	e := os.Getenv("KEYCLOAK_CERT_EXIST")
-	if e == "" || e == "false" {
+	if cert, _ := certs.GetSystemKeycloakCert(nil); cert != nil {
 		if !c.isExistCertificate() {
 			if err := c.AddCertificate(); err != nil {
 				c.logger.Error(err, "Couldn't create a certificate component")
