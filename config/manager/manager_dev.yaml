@@ -58,8 +58,6 @@ spec:
         volumeMounts:
         - name: manager-mnt
           mountPath: /bin/dev
-        - name: root-ca
-          mountPath: /certs/
       volumes:
       - name: manager-mnt
         hostPath:

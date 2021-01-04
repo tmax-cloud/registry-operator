@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"path"
 
 	gocloak "github.com/Nerzal/gocloak/v7"
@@ -24,13 +25,9 @@ import (
 )
 
 var (
-	// KeycloakServer = os.Getenv("KEYCLOAK_SERVICE")
-	// keycloakUser   = os.Getenv("KEYCLOAK_USERNAME")
-	// keycloakPwd    = os.Getenv("KEYCLOAK_PASSWORD")
-
-	KeycloakServer = "https://testauth.tmaxcloud.com"
-	keycloakUser   = "admin"
-	keycloakPwd    = "admin"
+	KeycloakServer = os.Getenv("KEYCLOAK_SERVICE")
+	keycloakUser   = os.Getenv("KEYCLOAK_USERNAME")
+	keycloakPwd    = os.Getenv("KEYCLOAK_PASSWORD")
 )
 
 const (

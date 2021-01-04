@@ -8,15 +8,22 @@ The registry-operator project is a service to launch private registries and to m
     cd registry-operator
     ```
     
-2. Create CA certificate
-	```bash
-	sudo chmod 755 ./config/scripts/newCertFile.sh
-	./config/scripts/newCertFile.sh
-	cp ca.crt ca.key ./config/pki/
-	``` 
+2. Create or Use CA certificate
+	* If you don't have a root CA certificate, excute following commands.
+		```bash
+		sudo chmod 755 ./config/scripts/newCertFile.sh
+		./config/scripts/newCertFile.sh
+		cp ca.crt ca.key ./config/pki/
+		``` 
+
+	* If you have a root CA certificate, put the CA Certifacete in the path(./config/pki/). 
+	The name must be `ca.crt` and `ca.key`
+
+	* If you have to register your keycloak certificate, put the keycloak certificate in the `path(./config/pki/keycloak.crt)`.
 
 3. Execute install.sh script
 	* Create namespace, CRDs, role, etc... Then deploy the registry-operator.
+	(If you have keycloak's certificate, modify config/manager/keycloak_cert_secret.yaml file's contents)
 		```bash
 		sudo chmod 755 ./config/scripts/newCertSecret.sh install.sh
 		./install.sh 
