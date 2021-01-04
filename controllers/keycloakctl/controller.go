@@ -129,7 +129,7 @@ func (c *KeycloakController) CreateRealm(reg, patchReg *regv1.Registry) error {
 		}
 	}
 
-	if cert, _ := certs.GetSystemKeycloakCert(nil); cert != nil {
+	if cert, _ := certs.GetSystemKeycloakCert(nil); cert == nil {
 		if !c.isExistCertificate() {
 			if err := c.AddCertificate(); err != nil {
 				c.logger.Error(err, "Couldn't create a certificate component")
