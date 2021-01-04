@@ -138,13 +138,14 @@ func (r *RegistryDeployment) getToken(c client.Client, reg *regv1.Registry) (str
 
 func (r *RegistryDeployment) get(c client.Client, reg *regv1.Registry) error {
 	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryDeployment))
-	token, err := r.getToken(c, reg)
-	if err != nil {
-		if err != nil {
-			r.logger.Error(err, "Get token is failed")
-			return err
-		}
-	}
+	token := ""
+	// token, err := r.getToken(c, reg)
+	// if err != nil {
+	// 	if err != nil {
+	// 		r.logger.Error(err, "Get token is failed")
+	// 		return err
+	// 	}
+	// }
 
 	deploy, err := schemes.Deployment(reg, r.getAuthConfig(), token)
 	if err != nil {

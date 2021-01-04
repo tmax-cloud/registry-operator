@@ -51,12 +51,6 @@ spec:
         spec:
           description: RegistrySpec defines the desired state of Registry
           properties:
-            auth:
-              description: Auth is htpasswd or token. default is htpasswd
-              enum:
-              - Htpasswd
-              - Token
-              type: string
             customConfigYml:
               description: The name of the configmap where the registry config.yml
                 content

@@ -17,6 +17,7 @@ import (
 	"github.com/operator-framework/operator-lib/status"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/common/certs"
 	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -125,11 +126,14 @@ func (c *KeycloakController) CreateRealm(reg, patchReg *regv1.Registry) error {
 		}
 	}
 
-	if !c.isExistCertificate() {
-		if err := c.AddCertificate(); err != nil {
-			c.logger.Error(err, "Couldn't create a certificate component")
-			condition.Message = err.Error()
-			return err
+	e := os.Getenv("KEYCLOAK_CERT_EXIST")
+	if e == "" || e == "false" {
+		if !c.isExistCertificate() {
+			if err := c.AddCertificate(); err != nil {
+				c.logger.Error(err, "Couldn't create a certificate component")
+				condition.Message = err.Error()
+				return err
+			}
 		}
 	}
 
@@ -188,7 +192,11 @@ func (c *KeycloakController) CreateUser(token, user, password string) error {
 
 func (c *KeycloakController) AddCertificate() error {
 	reqURL := c.componentURL()
-	cacrt, cakey := cmhttp.CAData()
+	caSecret, err := certs.GetSystemRootCASecret(nil)
+	if err != nil {
+		return err
+	}
+	cacrt, cakey := certs.CAData(caSecret)
 	cacrt = utils.RemovePemBlock(cacrt, "CERTIFICATE")
 
 	privBlock, privRest := pem.Decode(cakey)

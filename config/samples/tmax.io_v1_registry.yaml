@@ -4,7 +4,7 @@ metadata:
   name: tmax-registry
   namespace: reg-test
 spec:
-  image: registry:2.6.2
+  image: registry:2.7.1
   description: test
   loginId: tmax
   loginPassword: tmax123
