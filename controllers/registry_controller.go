@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -63,6 +64,9 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		r.Log.Info("Error on get registry")
 		if errors.IsNotFound(err) {
 			r.kc = keycloakctl.NewKeycloakController(req.Namespace, req.Name)
+			if r.kc == nil {
+				return reconcile.Result{}, err
+			}
 			if err := r.kc.DeleteRealm(req.Namespace, req.Name); err != nil {
 				r.Log.Info("Couldn't delete keycloak realm")
 			}
@@ -109,6 +113,9 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 
 	r.kc = keycloakctl.NewKeycloakController(reg.Namespace, reg.Name)
 	if reg.Status.Conditions.IsFalseFor(regv1.ConditionTypeKeycloakRealm) {
+		if r.kc == nil {
+			return fmt.Errorf("unable to get keycloak controller")
+		}
 		if err := r.kc.CreateRealm(reg, patchReg); err != nil {
 			return err
 		}

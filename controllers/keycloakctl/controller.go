@@ -44,6 +44,7 @@ type KeycloakController struct {
 }
 
 func NewKeycloakController(namespace, name string) *KeycloakController {
+	logger := logf.Log.WithName("keycloak controller").WithValues("namespace", namespace, "registry name", name)
 	client := gocloak.NewClient(KeycloakServer)
 	restyClient := client.RestyClient()
 	restyClient.SetDebug(true)
@@ -51,7 +52,6 @@ func NewKeycloakController(namespace, name string) *KeycloakController {
 	restyClient.SetTLSClientConfig(&tls.Config{
 		InsecureSkipVerify: true,
 	})
-	logger := logf.Log.WithName("keycloak controller").WithValues("namespace", namespace, "registry name", name)
 
 	// login admin
 	token, err := client.LoginAdmin(context.Background(), keycloakUser, keycloakPwd, "master")
@@ -126,13 +126,11 @@ func (c *KeycloakController) CreateRealm(reg, patchReg *regv1.Registry) error {
 		}
 	}
 
-	if cert, _ := certs.GetSystemKeycloakCert(nil); cert == nil {
-		if !c.isExistCertificate() {
-			if err := c.AddCertificate(); err != nil {
-				c.logger.Error(err, "Couldn't create a certificate component")
-				condition.Message = err.Error()
-				return err
-			}
+	if !c.isExistCertificate() {
+		if err := c.AddCertificate(); err != nil {
+			c.logger.Error(err, "Couldn't create a certificate component")
+			condition.Message = err.Error()
+			return err
 		}
 	}
 
@@ -295,7 +293,8 @@ func (c *KeycloakController) isExistCertificate() bool {
 		return false
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	// req.Header.Set("Authorization", "Bearer "+c.token)
+	req.SetBasicAuth(c.httpClient.Login.Username, c.httpClient.Login.Password)
 
 	res, err := c.httpClient.Do(req)
 	if err != nil {

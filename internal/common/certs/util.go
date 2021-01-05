@@ -10,15 +10,5 @@ const (
 )
 
 func CAData(secret *corev1.Secret) ([]byte, []byte) {
-	data := secret.Data
-	cacrt, exist := data[RootCACert]
-	if !exist {
-		return nil, nil
-	}
-	cakey, exist := data[RootCAPriv]
-	if !exist {
-		return nil, nil
-	}
-
-	return cacrt, cakey
+	return secret.Data[RootCACert], secret.Data[RootCAPriv]
 }
