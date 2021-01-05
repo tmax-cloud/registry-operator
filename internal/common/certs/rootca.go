@@ -2,6 +2,7 @@ package certs
 
 import (
 	"context"
+	"os"
 	"strings"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -45,9 +46,32 @@ func getRootCASecret(c client.Client, namespace string) (*corev1.Secret, error) 
 	return secret, nil
 }
 
-func createRootCASecret(c client.Client, namespace string) (*corev1.Secret, error) {
+func GetSystemRootCASecret(c client.Client) (*corev1.Secret, error) {
+	if c == nil {
+		cli, err := client.New(config.GetConfigOrDie(), client.Options{})
+		if err != nil {
+			return nil, err
+		}
+
+		c = cli
+	}
+
+	opNamespace := os.Getenv("OPERATOR_NAMESPACE")
+	if opNamespace == "" {
+		opNamespace = regv1.OperatorNamespace
+	}
+
 	sysRegCA := &corev1.Secret{}
-	if err := c.Get(context.TODO(), types.NamespacedName{Name: regv1.RegistryRootCASecretName, Namespace: regv1.OperatorNamespace}, sysRegCA); err != nil {
+	if err := c.Get(context.TODO(), types.NamespacedName{Name: regv1.RegistryRootCASecretName, Namespace: opNamespace}, sysRegCA); err != nil {
+		return nil, err
+	}
+
+	return sysRegCA, nil
+}
+
+func createRootCASecret(c client.Client, namespace string) (*corev1.Secret, error) {
+	sysRegCA, err := GetSystemRootCASecret(c)
+	if err != nil {
 		return nil, err
 	}
 
@@ -72,4 +96,27 @@ func createRootCASecret(c client.Client, namespace string) (*corev1.Secret, erro
 	}
 
 	return secret, nil
+}
+
+func GetSystemKeycloakCert(c client.Client) (*corev1.Secret, error) {
+	if c == nil {
+		cli, err := client.New(config.GetConfigOrDie(), client.Options{})
+		if err != nil {
+			return nil, err
+		}
+
+		c = cli
+	}
+
+	opNamespace := os.Getenv("OPERATOR_NAMESPACE")
+	if opNamespace == "" {
+		opNamespace = regv1.OperatorNamespace
+	}
+
+	sysKeycloakCA := &corev1.Secret{}
+	if err := c.Get(context.TODO(), types.NamespacedName{Name: regv1.KeycloakCASecretName, Namespace: opNamespace}, sysKeycloakCA); err != nil {
+		return nil, err
+	}
+
+	return sysKeycloakCA, nil
 }

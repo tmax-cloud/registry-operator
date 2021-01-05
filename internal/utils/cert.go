@@ -112,6 +112,7 @@ func generateSerialNumber() (*big.Int, error) {
 func RemovePemBlock(data []byte, blockType string) []byte {
 	dataStr := string(data)
 	// utilLogger.Info("trim", "before", dataStr)
+	dataStr = strings.ReplaceAll(dataStr, "\r", "")
 	dataStr = strings.TrimLeft(dataStr, "-----BEGIN "+blockType+"-----\n")
 	dataStr = strings.TrimRight(dataStr, "-----END "+blockType+"-----\n")
 	dataStr = strings.ReplaceAll(dataStr, "\n", " ")

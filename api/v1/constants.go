@@ -6,11 +6,13 @@ const (
 	TLSPrefix         = "tls-"
 	K8sRegistryPrefix = "registry-"
 	K8sNotaryPrefix   = "notary-"
+	K8sKeycloakPrefix = "keycloak-"
 
 	CustomObjectGroup = "tmax.io"
 
 	// OpenSSL Cert File Name
 	RegistryRootCASecretName = "registry-ca"
+	KeycloakCASecretName     = "keycloak-cert"
 	GenCertScriptFile        = "genCert.sh"
 	CertKeyFile              = "localhub.key"
 	CertCrtFile              = "localhub.crt"

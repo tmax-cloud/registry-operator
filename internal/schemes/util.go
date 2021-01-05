@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"os"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -82,11 +83,6 @@ func SubresourceName(subresource interface{}, subresourceType SubresourceType) s
 }
 
 const (
-	RootCASecretName      = "registry-ca"
-	RootCASecretNamespace = "registry-system"
-)
-
-const (
 	RootCACert = "ca.crt"
 	RootCAPriv = "ca.key"
 )
@@ -94,8 +90,13 @@ const (
 func getRootCACertificate(c client.Client) (*x509.Certificate, *rsa.PrivateKey) {
 	logger := utils.GetRegistryLogger(corev1.Secret{}, "CertScheme", "secret")
 
+	opNamespace := os.Getenv("OPERATOR_NAMESPACE")
+	if opNamespace == "" {
+		opNamespace = regv1.OperatorNamespace
+	}
+
 	rootSecret := corev1.Secret{}
-	req := types.NamespacedName{Name: RootCASecretName, Namespace: RootCASecretNamespace}
+	req := types.NamespacedName{Name: regv1.RegistryRootCASecretName, Namespace: opNamespace}
 	if err := c.Get(context.TODO(), req, &rootSecret); err != nil {
 		logger.Error(err, "Get Root Secret Error")
 		return nil, nil

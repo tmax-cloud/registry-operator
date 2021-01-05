@@ -17,6 +17,7 @@ import (
 	"github.com/operator-framework/operator-lib/status"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/common/certs"
 	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -43,6 +44,7 @@ type KeycloakController struct {
 }
 
 func NewKeycloakController(namespace, name string) *KeycloakController {
+	logger := logf.Log.WithName("keycloak controller").WithValues("namespace", namespace, "registry name", name)
 	client := gocloak.NewClient(KeycloakServer)
 	restyClient := client.RestyClient()
 	restyClient.SetDebug(true)
@@ -50,7 +52,6 @@ func NewKeycloakController(namespace, name string) *KeycloakController {
 	restyClient.SetTLSClientConfig(&tls.Config{
 		InsecureSkipVerify: true,
 	})
-	logger := logf.Log.WithName("keycloak controller").WithValues("namespace", namespace, "registry name", name)
 
 	// login admin
 	token, err := client.LoginAdmin(context.Background(), keycloakUser, keycloakPwd, "master")
@@ -188,7 +189,11 @@ func (c *KeycloakController) CreateUser(token, user, password string) error {
 
 func (c *KeycloakController) AddCertificate() error {
 	reqURL := c.componentURL()
-	cacrt, cakey := cmhttp.CAData()
+	caSecret, err := certs.GetSystemRootCASecret(nil)
+	if err != nil {
+		return err
+	}
+	cacrt, cakey := certs.CAData(caSecret)
 	cacrt = utils.RemovePemBlock(cacrt, "CERTIFICATE")
 
 	privBlock, privRest := pem.Decode(cakey)
@@ -288,7 +293,8 @@ func (c *KeycloakController) isExistCertificate() bool {
 		return false
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	// req.Header.Set("Authorization", "Bearer "+c.token)
+	req.SetBasicAuth(c.httpClient.Login.Username, c.httpClient.Login.Password)
 
 	res, err := c.httpClient.Do(req)
 	if err != nil {

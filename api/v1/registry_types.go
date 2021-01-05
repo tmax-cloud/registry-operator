@@ -21,9 +21,6 @@ type RegistrySpec struct {
 	Description   string `json:"description,omitempty"`
 	LoginId       string `json:"loginId"`
 	LoginPassword string `json:"loginPassword"`
-	// Auth is htpasswd or token. default is htpasswd
-	// +kubebuilder:validation:Enum=Htpasswd;Token
-	Auth string `json:"auth,omitempty"`
 	// Set notary service
 	Notary RegistryNotary `json:"notary,omitempty"`
 	// The name of the configmap where the registry config.yml content

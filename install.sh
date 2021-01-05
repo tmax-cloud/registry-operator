@@ -35,7 +35,14 @@ if [ ! -f "$CA_CRT_FILE" ] || [ ! -f "$CA_KEY_FILE" ]; then
     CA_KEY_FILE=./config/pki/default_ca.key
 fi
 
-. ./config/scripts/newCertSecret.sh $CA_CRT_FILE $CA_KEY_FILE
+# Create registry-ca secret
+. ./config/scripts/newCertSecret.sh registry-ca $CA_CRT_FILE $CA_KEY_FILE
+
+# Create keycloak-cert secret
+KEYCLOAK_CRT_FILE=./config/pki/keycloak.crt
+if [[ -f "$KEYCLOAK_CRT_FILE" ]]; then 
+    . ./config/scripts/newCertSecret.sh keycloak-cert $KEYCLOAK_CRT_FILE
+fi
 
 # Deploy operator
 kubectl apply -f config/manager/manager.yaml
