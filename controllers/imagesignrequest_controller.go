@@ -23,6 +23,7 @@ import (
 
 	exv1beta1 "k8s.io/api/extensions/v1beta1"
 
+	"github.com/tmax-cloud/registry-operator/controllers/repoctl"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -34,6 +35,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 	controller "github.com/tmax-cloud/registry-operator/pkg/controllers"
 	"github.com/tmax-cloud/registry-operator/pkg/trust"
@@ -167,10 +169,11 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		img.NotaryServerUrl = fmt.Sprintf("%s://%s", notScheme, notIng.Spec.Rules[0].Host)
 	}
 
+	var targetReg *regv1.Registry
 	// List registries and filter target registry - if it's not harbor registry
 	if !isHarbor {
 		log.Info("list registries")
-		targetReg, err := r.findRegistryByHost(img.Host)
+		targetReg, err = r.findRegistryByHost(img.Host)
 		if err != nil {
 			log.Error(err, "")
 			makeResponse(signReq, false, err.Error(), "")
@@ -203,6 +206,30 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		log.Error(err, "sign image")
 		makeResponse(signReq, false, err.Error(), "")
 		return ctrl.Result{}, nil
+	}
+
+	if !isHarbor {
+		// Update repository with signer
+		log.Info(fmt.Sprintf("update repository with signer %s", signer.Name))
+		repoCtl := repoctl.New()
+		repo, err := repoCtl.Get(r.Client, targetReg, img.Name)
+		if err != nil {
+			log.Error(err, fmt.Sprintf("failed to update repository with signer %s", signer.Name))
+			makeResponse(signReq, false, err.Error(), "")
+			return ctrl.Result{}, nil
+		}
+
+		for i, v := range repo.Spec.Versions {
+			if v.Version == img.Tag {
+				repo.Spec.Versions[i].Signer = signer.Name
+				break
+			}
+		}
+
+		if err := repoCtl.Update(r.Client, repo); err != nil {
+			log.Error(err, fmt.Sprintf("failed to update repository with signer %s", signer.Name))
+			makeResponse(signReq, false, err.Error(), "")
+		}
 	}
 
 	makeResponse(signReq, true, "", "")
