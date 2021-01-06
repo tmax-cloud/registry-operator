@@ -3,15 +3,16 @@ package v1
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 type RepositorySpec struct {
-	Name     string         `json:"name"`
-	Versions []ImageVersion `json:"versions"`
-	Registry string         `json:"registry"`
+	Name     string         `json:"name,omitempty"`
+	Versions []ImageVersion `json:"versions,omitempty"`
+	Registry string         `json:"registry,omitempty"`
 }
 
 type ImageVersion struct {
-	CreatedAt metav1.Time `json:"createdAt"`
+	CreatedAt metav1.Time `json:"createdAt,omitempty"`
 	Version   string      `json:"version"`
-	Delete    bool        `json:"delete"`
+	Delete    bool        `json:"delete,omitempty"`
+	Signer    string      `json:"signer,omitempty"`
 }
 
 // +kubebuilder:object:root=true

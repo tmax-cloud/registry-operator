@@ -49,18 +49,14 @@ spec:
                     type: string
                   delete:
                     type: boolean
+                  signer:
+                    type: string
                   version:
                     type: string
                 required:
-                - createdAt
-                - delete
                 - version
                 type: object
               type: array
-          required:
-          - name
-          - registry
-          - versions
           type: object
       required:
       - spec

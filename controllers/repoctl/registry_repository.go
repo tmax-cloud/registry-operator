@@ -8,12 +8,17 @@ import (
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type RegistryRepository struct {
+}
+
+func New() *RegistryRepository {
+	return &RegistryRepository{}
 }
 
 var logger = logf.Log.WithName("registry_repository")
@@ -34,16 +39,39 @@ func (r *RegistryRepository) Create(c client.Client, reg *regv1.Registry, imageN
 	return nil
 }
 
+func (r *RegistryRepository) Get(c client.Client, reg *regv1.Registry, imageName string) (*regv1.Repository, error) {
+	repo := &regv1.Repository{}
+
+	logger.Info("Get", "Registry", reg.Name, "Repository", schemes.RepositoryName(imageName, reg.Name), "Namespace", reg.Namespace)
+	if err := c.Get(context.TODO(), types.NamespacedName{Name: schemes.RepositoryName(imageName, reg.Name), Namespace: reg.Namespace}, repo); err != nil {
+		logger.Error(err, "failed to get repository")
+		return nil, err
+	}
+
+	return repo, nil
+}
+
 func (r *RegistryRepository) Patch(c client.Client, repo *regv1.Repository, patchRepo *regv1.Repository) error {
 	originObject := client.MergeFrom(repo)
 
 	// Patch
 	if err := c.Patch(context.TODO(), patchRepo, originObject); err != nil {
-		logger.Error(err, "Unknown error patching status")
+		logger.Error(err, "Unknown error patching repository spec")
 		return err
 	}
 
 	logger.Info("Patched", "Repository", patchRepo.Name+"/"+patchRepo.Namespace)
+	return nil
+}
+
+func (r *RegistryRepository) Update(c client.Client, repo *regv1.Repository) error {
+	// Update
+	if err := c.Update(context.TODO(), repo); err != nil {
+		logger.Error(err, "Unknown error updating repository spec")
+		return err
+	}
+
+	logger.Info("Updated", "Repository", repo.Name+"/"+repo.Namespace)
 	return nil
 }
 
