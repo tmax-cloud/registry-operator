@@ -18,12 +18,15 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"io"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/tmax-cloud/registry-operator/pkg/apiserver"
 
+	"github.com/tmax-cloud/registry-operator/internal/common/operatorlog"
 	regApi "github.com/tmax-cloud/registry-operator/registry"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -59,7 +62,20 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	logFile, err := operatorlog.LogFile()
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	defer logFile.Close()
+
+	// logging to stdout stream and a log file
+	w := io.MultiWriter(logFile, os.Stdout)
+	ctrl.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(w)))
+	setupLog.Info("logging to a file", "filepath", logFile.Name())
+
+	// backup Logfile daily
+	operatorlog.StartDailyBackup(logFile)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
