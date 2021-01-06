@@ -58,10 +58,15 @@ spec:
         volumeMounts:
         - name: manager-mnt
           mountPath: /bin/dev
+        - name: operator-log-mnt
+          mountPath: /logs    
       volumes:
       - name: manager-mnt
         hostPath:
           path: "/root/go/src/github.com/tmax-cloud/registry-operator/bin"
+      - name: operator-log-mnt
+        hostPath:
+          path: "/root/go/src/github.com/tmax-cloud/registry-operator/logs"
       nodeSelector:
         kubernetes.io/hostname: node1
       terminationGracePeriodSeconds: 10

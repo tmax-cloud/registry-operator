@@ -48,11 +48,18 @@ spec:
                 secretKeyRef:
                   name: keycloak-secret
                   key: password
-        resources:
-          limits:
-            cpu: 100m
-            memory: 30Mi
-          requests:
-            cpu: 100m
-            memory: 20Mi
+#        resources:
+#          limits:
+#            cpu: 100m
+#            memory: 30Mi
+#          requests:
+#            cpu: 100m
+#            memory: 20Mi
+        volumeMounts:
+        - name: operator-log-mnt
+          mountPath: /logs
+      volumes:
+      - name: operator-log-mnt
+        hostPath:
+          path: "/root/go/src/github.com/tmax-cloud/registry-operator/logs"
       terminationGracePeriodSeconds: 10
