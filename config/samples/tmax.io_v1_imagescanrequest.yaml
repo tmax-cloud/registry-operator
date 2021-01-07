@@ -1,0 +1,9 @@
+apiVersion: tmax.io/v1
+kind: ImageScanRequest
+metadata:
+  name: image-scan-example
+spec:
+  imageUrl: "tomcat"
+  forceNonSSL: true
+  insecure: true
+  webhook: true

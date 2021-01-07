@@ -3,4 +3,5 @@ resources:
 - tmax.io_v1_registry.yaml
 - tmax.io_v1_repository.yaml
 - tmax.io_v1_notary.yaml
+- tmax.io_v1_imagescanrequest.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

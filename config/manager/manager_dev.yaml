@@ -48,6 +48,10 @@ spec:
                 secretKeyRef:
                   name: keycloak-secret
                   key: password
+          - name: CLAIR_URL
+            value: "http://clairsvc.default.svc.cluster.local:6060"
+          - name: WEBHOOK_URL
+            value: "http://elasticsearch-svc.default.svc.cluster.local:9200"
 #        resources:
 #          limits:
 #            cpu: 100m
