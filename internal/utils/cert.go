@@ -11,8 +11,6 @@ import (
 	"net"
 	"strings"
 	"time"
-
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type CertPair struct {
@@ -67,8 +65,6 @@ func (c *CertPair) SetSubjectAltName(ips []net.IP, domains []string) {
 	c.Template.IPAddresses = append(c.Template.IPAddresses, ips...)
 	c.Template.DNSNames = append(c.Template.DNSNames, domains...)
 }
-
-var utilLogger = logf.Log.WithName("cert")
 
 func (c *CertPair) CreateCertificateData() error {
 	certData, err := x509.CreateCertificate(rand.Reader, c.Template, c.ParentCert, &c.Key.PublicKey, c.ParentKey)

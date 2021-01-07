@@ -84,7 +84,10 @@ func (r *RegistryApi) Catalog() *Repositories {
 	rawRepos := &Repositories{}
 	repos := &Repositories{}
 
-	json.Unmarshal(body, rawRepos)
+	if err := json.Unmarshal(body, rawRepos); err != nil {
+		logger.Error(err, "failed to unmarshal registry's repository")
+		return nil
+	}
 
 	for _, repo := range rawRepos.Repositories {
 		tags := r.Tags(repo).Tags

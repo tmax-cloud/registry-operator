@@ -141,7 +141,9 @@ func (r *RegistryDCJSecret) compare(reg *regv1.Registry) []utils.Diff {
 	}
 
 	dockerConfig := schemes.DockerConfig{}
-	json.Unmarshal(val, &dockerConfig)
+	if err := json.Unmarshal(val, &dockerConfig); err != nil {
+		return nil
+	}
 	clusterIP := ""
 	domainIP := ""
 	if reg.Spec.RegistryService.ServiceType == regv1.RegServiceTypeLoadBalancer {

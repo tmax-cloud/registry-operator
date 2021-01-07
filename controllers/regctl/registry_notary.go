@@ -40,7 +40,9 @@ func (r *RegistryNotary) Handle(c client.Client, reg *regv1.Registry, patchReg *
 	diff := r.compare(reg)
 	if len(diff) > 0 {
 		r.logger.Info("patch exists.")
-		r.patch(c, reg, patchReg, diff)
+		if err := r.patch(c, reg, patchReg, diff); err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -19,10 +19,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const (
-	imageSignerRWRole = "image-signer-rw-role"
-)
-
 var log = ctrl.Log.WithName("signing-controller")
 
 // NewSigningController is a controller for image signing.

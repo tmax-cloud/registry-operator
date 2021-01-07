@@ -51,9 +51,13 @@ func (r *RegistryDeployment) Handle(c client.Client, reg *regv1.Registry, patchR
 	diff := r.compare(reg)
 	if diff == nil {
 		r.logger.Error(nil, "Invalid deployment!!!")
-		r.delete(c, patchReg)
+		if err := r.delete(c, patchReg); err != nil {
+			return err
+		}
 	} else if len(diff) > 0 {
-		r.patch(c, reg, patchReg, diff)
+		if err := r.patch(c, reg, patchReg, diff); err != nil {
+			return err
+		}
 	}
 
 	return nil
