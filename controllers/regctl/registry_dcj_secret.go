@@ -64,14 +64,13 @@ func (r *RegistryDCJSecret) Ready(c client.Client, reg *regv1.Registry, patchReg
 		}
 	}
 
-	err = regv1.MakeRegistryError("Secret DCJ Error")
 	if _, ok := r.secretDCJ.Data[schemes.DockerConfigJson]; !ok {
+		err = regv1.MakeRegistryError("Secret DCJ Error")
 		r.logger.Error(err, "No certificate in data")
-		return nil
+		return err
 	}
 
 	condition.Status = corev1.ConditionTrue
-	err = nil
 	r.logger.Info("Succeed")
 	return nil
 }

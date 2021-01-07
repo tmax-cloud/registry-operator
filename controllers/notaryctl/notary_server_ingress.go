@@ -56,27 +56,33 @@ func (nt *NotaryServerIngress) Ready(c client.Client, notary *regv1.Notary, patc
 		}
 	}
 
-	err = regv1.MakeRegistryError("Ingress Error")
 	if _, ok := nt.ingress.Annotations["kubernetes.io/ingress.class"]; !ok {
+		err = regv1.MakeRegistryError("Ingress Error")
 		return err
 	}
 	if _, ok := nt.ingress.Annotations["nginx.ingress.kubernetes.io/proxy-connect-timeout"]; !ok {
+		err = regv1.MakeRegistryError("Ingress Error")
 		return err
 	}
 	if _, ok := nt.ingress.Annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"]; !ok {
+		err = regv1.MakeRegistryError("Ingress Error")
 		return err
 	}
 	if _, ok := nt.ingress.Annotations["nginx.ingress.kubernetes.io/ssl-redirect"]; !ok {
+		err = regv1.MakeRegistryError("Ingress Error")
 		return err
 	}
 	if val, ok := nt.ingress.Annotations["nginx.ingress.kubernetes.io/backend-protocol"]; ok {
 		if val != "HTTPS" {
+			err = regv1.MakeRegistryError("Ingress Error")
 			return err
 		}
 	} else {
+		err = regv1.MakeRegistryError("Ingress Error")
 		return err
 	}
 	if _, ok := nt.ingress.Annotations["nginx.ingress.kubernetes.io/proxy-body-size"]; !ok {
+		err = regv1.MakeRegistryError("Ingress Error")
 		return err
 	}
 
@@ -86,7 +92,6 @@ func (nt *NotaryServerIngress) Ready(c client.Client, notary *regv1.Notary, patc
 		}
 	}
 
-	err = nil
 	condition.Status = corev1.ConditionTrue
 	nt.logger.Info("Ready")
 	return nil

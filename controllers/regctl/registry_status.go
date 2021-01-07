@@ -69,8 +69,9 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) bool {
 	} else if len(falseTypes) == 1 {
 		if falseTypes[0] == regv1.ConditionTypeContainer {
 			desiredStatus = regv1.StatusNotReady
+		} else {
+			desiredStatus = regv1.StatusCreating
 		}
-		desiredStatus = regv1.StatusCreating
 	} else {
 		desiredStatus = regv1.StatusRunning
 	}

@@ -2,6 +2,7 @@ package operatorlog
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -37,7 +38,7 @@ func StartDailyBackup(logFile *os.File) {
 	cronJob := cron.New()
 
 	// Logging every day
-	cronJob.AddFunc("1 0 0 * * ?", func() {
+	if err := cronJob.AddFunc("1 0 0 * * ?", func() {
 		input, err := ioutil.ReadFile(logFilePath)
 		if err != nil {
 			fmt.Println(err)
@@ -64,11 +65,14 @@ func StartDailyBackup(logFile *os.File) {
 			return
 		}
 
-		if _, err := logFile.Seek(0, os.SEEK_SET); err != nil {
+		if _, err := logFile.Seek(0, io.SeekStart); err != nil {
 			fmt.Println(err)
 			return
 		}
-	})
+	}); err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	logger.Info("cron job start for backup", "file path", logFilePath, "usage", fmt.Sprintf("mount %s directory", path.Dir(logFilePath)))
 	cronJob.Start()

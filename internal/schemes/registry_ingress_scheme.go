@@ -74,10 +74,7 @@ func Ingress(reg *regv1.Registry) *v1beta1.Ingress {
 
 func regBodyCheckForIngress(reg *regv1.Registry) bool {
 	regService := reg.Spec.RegistryService
-	if regService.ServiceType != "Ingress" {
-		return false
-	}
-	return true
+	return regService.ServiceType == "Ingress"
 }
 
 func RegistryDomainName(reg *regv1.Registry) string {

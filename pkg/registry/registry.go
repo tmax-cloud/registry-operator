@@ -42,7 +42,7 @@ func NewRegCtl(c client.Client, regName, namespace string) *RegCtl {
 }
 
 func (r *RegCtl) GetHostname() string {
-	return strings.TrimLeft(r.GetEndpoint(), "https://")
+	return strings.TrimPrefix(r.GetEndpoint(), "https://")
 }
 
 func (r *RegCtl) GetEndpoint() string {

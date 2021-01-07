@@ -32,28 +32,28 @@ func NotaryDBPod(notary *regv1.Notary) *corev1.Pod {
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
-				corev1.Container{
+				{
 					Name:  "notary-server",
 					Image: DBImage,
 					Args:  []string{"mysqld", "--innodb_file_per_table"},
 					Env: []corev1.EnvVar{
-						corev1.EnvVar{
+						{
 							Name:  "TERM",
 							Value: "dumb",
 						},
 						// TODO: set password
-						corev1.EnvVar{
+						{
 							Name:  "MYSQL_ALLOW_EMPTY_PASSWORD",
 							Value: "true",
 						},
 					},
 					Ports: []corev1.ContainerPort{
-						corev1.ContainerPort{
+						{
 							ContainerPort: 4443,
 						},
 					},
 					VolumeMounts: []corev1.VolumeMount{
-						corev1.VolumeMount{
+						{
 							Name:      "data",
 							MountPath: "/var/lib/mysql",
 						},
@@ -61,7 +61,7 @@ func NotaryDBPod(notary *regv1.Notary) *corev1.Pod {
 				},
 			},
 			Volumes: []corev1.Volume{
-				corev1.Volume{
+				{
 					Name: "data",
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{

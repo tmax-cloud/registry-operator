@@ -75,21 +75,22 @@ func (r *RegistryService) Ready(c client.Client, reg *regv1.Registry, patchReg *
 			}
 		} else if len(loadBalancer.Ingress) == 0 {
 			// Several Ingress
-			return regv1.MakeRegistryError("NotReady")
+			err = regv1.MakeRegistryError("NotReady")
+			return err
 		}
 		reg.Status.LoadBalancerIP = lbIP
 		patchReg.Status.ServerURL = "https://" + lbIP
 		r.logger.Info("LoadBalancer info", "LoadBalancer IP", lbIP)
 	} else if r.svc.Spec.Type == corev1.ServiceTypeClusterIP {
 		if r.svc.Spec.ClusterIP == "" {
-			return regv1.MakeRegistryError("NotReady")
+			err = regv1.MakeRegistryError("NotReady")
+			return err
 		}
 		r.logger.Info("Service Type is ClusterIP(Ingress)")
 		// [TODO]
 	}
 	reg.Status.ClusterIP = r.svc.Spec.ClusterIP
 	condition.Status = corev1.ConditionTrue
-	err = nil
 	r.logger.Info("Succeed")
 	return nil
 }

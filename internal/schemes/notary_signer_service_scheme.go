@@ -32,12 +32,12 @@ func NotarySignerService(notary *regv1.Notary) *corev1.Service {
 				resName: "lb",
 			},
 			Ports: []corev1.ServicePort{
-				corev1.ServicePort{
+				{
 					Name:     "http",
 					Protocol: "TCP",
 					Port:     int32(httpPort),
 				},
-				corev1.ServicePort{
+				{
 					Name:     "grpc",
 					Protocol: "TCP",
 					Port:     int32(grpcPort),

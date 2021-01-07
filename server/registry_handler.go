@@ -79,7 +79,10 @@ func createImage(event regv1.RegistryEvent) {
 	if repositoryCRNotFound {
 		// If not exist, create repository cr
 		logger.Info("create", "repository", repositoryName, "ver", newImageTag)
-		repoCtl.Create(k8sClient, reg, repositoryName, []string{newImageTag}, scheme)
+		if err := repoCtl.Create(k8sClient, reg, repositoryName, []string{newImageTag}, scheme); err != nil {
+			logger.Error(err, "failed to create repository")
+			return
+		}
 
 	} else {
 		// Check if new version is exist

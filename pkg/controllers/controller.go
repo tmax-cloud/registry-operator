@@ -49,7 +49,11 @@ func (c *SigningController) CreateRootKey(owner *apiv1.ImageSigner, scheme *runt
 		return nil, err
 	}
 
-	defer not.ClearDir()
+	defer func() {
+		if err := not.ClearDir(); err != nil {
+			log.Error(err, "")
+		}
+	}()
 
 	if err := not.CreateRootKey(); err != nil {
 		return nil, err
@@ -113,7 +117,11 @@ func (c *SigningController) SignImage(signerKey *apiv1.SignerKey, img *trust.Ima
 		return err
 	}
 
-	defer not.ClearDir()
+	defer func() {
+		if err := not.ClearDir(); err != nil {
+			log.Error(err, "")
+		}
+	}()
 
 	// Sign image
 	if err := not.SignImage(); err != nil {

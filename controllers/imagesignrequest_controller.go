@@ -130,7 +130,11 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{}, nil
 	}
 
-	defer response(r.Client, signReq)
+	defer func() {
+		if err := response(r.Client, signReq); err != nil {
+			log.Error(err, "")
+		}
+	}()
 
 	// Check if it's Harbor registry
 	isHarbor := false

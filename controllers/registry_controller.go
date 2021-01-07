@@ -109,7 +109,11 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 	var requeueErr error = nil
 	patchReg := reg.DeepCopy() // Target to Patch object
 
-	defer r.patch(reg, patchReg)
+	defer func() {
+		if err := r.patch(reg, patchReg); err != nil {
+			subResourceLogger.Error(err, "failed to patch")
+		}
+	}()
 
 	r.kc = keycloakctl.NewKeycloakController(reg.Namespace, reg.Name)
 	if reg.Status.Conditions.IsFalseFor(regv1.ConditionTypeKeycloakRealm) {

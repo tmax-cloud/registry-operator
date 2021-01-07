@@ -177,9 +177,6 @@ func (n *NotarySignerCert) GetSanDNS(notary interface{}) []string {
 	nt := notary.(*regv1.Notary)
 
 	domains := []string{}
-	if nt.Spec.ServiceType == "Ingress" {
-		// domains = append(domains, getNotaryIngressDomain())
-	}
 	domains = append(domains, utils.BuildServiceHostname(SubresourceName(nt, SubTypeNotarySignerService), nt.Namespace))
 
 	return domains

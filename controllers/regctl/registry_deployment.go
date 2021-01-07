@@ -129,16 +129,16 @@ func (r *RegistryDeployment) getAuthConfig() *regv1.AuthConfig {
 	return auth
 }
 
-func (r *RegistryDeployment) getToken(c client.Client, reg *regv1.Registry) (string, error) {
-	// get token
-	scopes := []string{"registry:catalog:*"}
-	token, err := r.KcCli.GetToken(scopes)
-	if err != nil {
-		return "", err
-	}
+// func (r *RegistryDeployment) getToken(c client.Client, reg *regv1.Registry) (string, error) {
+// 	// get token
+// 	scopes := []string{"registry:catalog:*"}
+// 	token, err := r.KcCli.GetToken(scopes)
+// 	if err != nil {
+// 		return "", err
+// 	}
 
-	return token, nil
-}
+// 	return token, nil
+// }
 
 func (r *RegistryDeployment) get(c client.Client, reg *regv1.Registry) error {
 	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryDeployment))
@@ -219,7 +219,7 @@ func (r *RegistryDeployment) patch(c client.Client, reg *regv1.Registry, patchRe
 				volumeMap[vol.Name] = vol
 			}
 
-			vol, _ := volumeMap["registry"]
+			vol := volumeMap["registry"]
 			if reg.Spec.PersistentVolumeClaim.Create != nil {
 				vol.PersistentVolumeClaim.ClaimName = regv1.K8sPrefix + reg.Name
 			} else {

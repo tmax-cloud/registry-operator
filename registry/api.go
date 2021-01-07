@@ -91,7 +91,7 @@ func (r *RegistryApi) Catalog() *Repositories {
 
 	for _, repo := range rawRepos.Repositories {
 		tags := r.Tags(repo).Tags
-		if tags != nil && len(tags) > 0 {
+		if len(tags) > 0 {
 			repos.Repositories = append(repos.Repositories, repo)
 		}
 	}
@@ -128,7 +128,10 @@ func (r *RegistryApi) Tags(imageName string) *Repository {
 		return nil
 	}
 	logger.Info("contents", "tags", string(body))
-	json.Unmarshal(body, repo)
+	if err := json.Unmarshal(body, repo); err != nil {
+		logger.Error(err, "")
+		return nil
+	}
 
 	return repo
 }
@@ -168,7 +171,7 @@ func (r *RegistryApi) DockerContentDigest(imageName, tag string) (string, error)
 			logger.Error(err, "")
 			return "", err
 		}
-		logger.Error(nil, "err", "err", fmt.Sprintf("%s", string(body)))
+		logger.Error(nil, "err", "err", string(body))
 		return "", fmt.Errorf("error!! %s", string(body))
 	}
 
@@ -203,7 +206,7 @@ func (r *RegistryApi) DeleteManifest(imageName, digest string) error {
 			logger.Error(err, "")
 			return nil
 		}
-		logger.Error(nil, "err", "err", fmt.Sprintf("%s", string(body)))
+		logger.Error(nil, "err", "err", string(body))
 		return fmt.Errorf("error!! %s", string(body))
 	}
 

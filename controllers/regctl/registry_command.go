@@ -14,8 +14,6 @@ import (
 var log = logf.Log.WithName("controller_registry")
 
 func getPod(c client.Client, reg *regv1.Registry) (*corev1.Pod, error) {
-	pod := &corev1.Pod{}
-
 	podList := &corev1.PodList{}
 	label := map[string]string{}
 	label["app"] = "registry"
@@ -36,7 +34,7 @@ func getPod(c client.Client, reg *regv1.Registry) (*corev1.Pod, error) {
 		return nil, regv1.MakeRegistryError(regv1.PodNotFound)
 	}
 
-	pod = &podList.Items[0]
+	pod := &podList.Items[0]
 
 	return pod, nil
 }

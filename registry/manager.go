@@ -45,7 +45,10 @@ func AllRegistrySync(c client.Client, scheme *runtime.Scheme) error {
 			return fmt.Errorf("couldn't get registry api caller")
 		}
 		logz.Info("Synchronize registry repositories")
-		SyncRegistryImage(ra, c, &reg, scheme)
+		if err := SyncRegistryImage(ra, c, &reg, scheme); err != nil {
+			logz.Error(err, "failed to sync registry")
+			return err
+		}
 	}
 
 	return nil
@@ -55,7 +58,10 @@ func SyncRegistryImage(r *RegistryApi, c client.Client, reg *regv1.Registry, sch
 	reposCR := &regv1.RepositoryList{}
 	crImages := []regv1.Repository{}
 	crImageNames := []string{}
-	c.List(context.TODO(), reposCR)
+	if err := c.List(context.TODO(), reposCR); err != nil {
+		logger.Error(err, "failed to list repository")
+		return err
+	}
 	for _, image := range reposCR.Items {
 		logger.Info("CR Repository", "Name", image.Spec.Name)
 		crImages = append(crImages, image)
@@ -91,12 +97,18 @@ func SyncRegistryImage(r *RegistryApi, c client.Client, reg *regv1.Registry, sch
 	logger.Info("For New Image, Insert Image and Versions Data from Repository")
 	for _, newImageName := range newRepositories {
 		newRepo := r.Tags(newImageName)
-		repoCtl.Create(c, reg, newRepo.Name, newRepo.Tags, scheme)
+		if err := repoCtl.Create(c, reg, newRepo.Name, newRepo.Tags, scheme); err != nil {
+			logger.Error(err, "failed to create repository")
+			return err
+		}
 	}
 
 	logger.Info("For Deleted Image, Delete Image Data from Repository")
 	for _, deletedImageName := range deletedRepositories {
-		repoCtl.Delete(c, reg, deletedImageName, scheme)
+		if err := repoCtl.Delete(c, reg, deletedImageName, scheme); err != nil {
+			logger.Error(err, "failed to delete image")
+			return err
+		}
 	}
 
 	logger.Info("For Exist Image, Compare tags List, Insert Version Data from Repository")
@@ -127,7 +139,10 @@ func SyncRegistryImage(r *RegistryApi, c client.Client, reg *regv1.Registry, sch
 
 		patchRepo.Spec.Versions = imageVersions
 
-		repoCtl.Patch(c, &existRepositories[i], patchRepo)
+		if err := repoCtl.Patch(c, &existRepositories[i], patchRepo); err != nil {
+			logger.Error(err, "failed to patch")
+			return err
+		}
 
 	}
 

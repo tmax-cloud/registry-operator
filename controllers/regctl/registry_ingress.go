@@ -65,27 +65,33 @@ func (r *RegistryIngress) Ready(c client.Client, reg *regv1.Registry, patchReg *
 		}
 	}
 
-	err = regv1.MakeRegistryError("Ingress Error")
 	if _, ok := r.ingress.Annotations["kubernetes.io/ingress.class"]; !ok {
+		err = regv1.MakeRegistryError("Ingress Error")
 		return err
 	}
 	if _, ok := r.ingress.Annotations["nginx.ingress.kubernetes.io/proxy-connect-timeout"]; !ok {
+		err = regv1.MakeRegistryError("Ingress Error")
 		return err
 	}
 	if _, ok := r.ingress.Annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"]; !ok {
+		err = regv1.MakeRegistryError("Ingress Error")
 		return err
 	}
 	if _, ok := r.ingress.Annotations["nginx.ingress.kubernetes.io/ssl-redirect"]; !ok {
+		err = regv1.MakeRegistryError("Ingress Error")
 		return err
 	}
 	if val, ok := r.ingress.Annotations["nginx.ingress.kubernetes.io/backend-protocol"]; ok {
 		if val != "HTTPS" {
+			err = regv1.MakeRegistryError("Ingress Error")
 			return err
 		}
 	} else {
+		err = regv1.MakeRegistryError("Ingress Error")
 		return err
 	}
 	if _, ok := r.ingress.Annotations["nginx.ingress.kubernetes.io/proxy-body-size"]; !ok {
+		err = regv1.MakeRegistryError("Ingress Error")
 		return err
 	}
 
@@ -95,7 +101,6 @@ func (r *RegistryIngress) Ready(c client.Client, reg *regv1.Registry, patchReg *
 		}
 	}
 
-	err = nil
 	condition.Status = corev1.ConditionTrue
 	r.logger.Info("Succeed")
 	return nil
