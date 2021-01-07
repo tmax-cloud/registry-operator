@@ -138,3 +138,82 @@ bundle: manifests
 .PHONY: bundle-build
 bundle-build:
 	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+# Custom targets for registry operator
+.PHONY: test-gen test-crd test-verify test-lint test-unit
+
+# Test if zz_generated.deepcopy.go file is generated
+test-gen: save-sha-gen generate compare-sha-gen
+
+# Test if crd yaml files are generated
+test-crd: save-sha-crd manifests compare-sha-crd
+
+# Verify if go.sum is valid
+test-verify: save-sha-mod verify compare-sha-mod
+
+# Test code lint
+test-lint:
+	golangci-lint run ./... -v -E gofmt --timeout 1h0m0s
+
+# Unit test
+test-unit:
+	go test -v ./pkg/...
+
+# variable for test generate
+API_V1_DIR = api/v1/
+GENERATE_FILE = zz_generated.deepcopy.go
+
+save-sha-gen:
+	$(eval GENSHA=$(shell sha512sum $(API_V1_DIR)$(GENERATE_FILE)))
+
+compare-sha-gen:
+	$(eval GENSHA_AFTER=$(shell sha512sum $(API_V1_DIR)$(GENERATE_FILE)))
+	@if [ "${GENSHA_AFTER}" = "${GENSHA}" ]; then echo "$(GENERATE_FILE) is not changed"; else echo "$(GENERATE_FILE) file is changed"; exit 1; fi
+
+# variable for test crd 
+CRD_DIR = config/crd/bases/
+CRD_1 = tmax.io_imagesignrequests.yaml
+CRD_2 = tmax.io_imagesigners.yaml
+CRD_3 = tmax.io_notaries.yaml
+CRD_4 = tmax.io_registries.yaml
+CRD_5 = tmax.io_repositories.yaml
+CRD_6 = tmax.io_signerkeys.yaml
+
+save-sha-crd:
+	$(eval CRDSHA_1=$(shell sha512sum $(CRD_DIR)$(CRD_1)))
+	$(eval CRDSHA_2=$(shell sha512sum $(CRD_DIR)$(CRD_2)))
+	$(eval CRDSHA_3=$(shell sha512sum $(CRD_DIR)$(CRD_3)))
+	$(eval CRDSHA_4=$(shell sha512sum $(CRD_DIR)$(CRD_4)))
+	$(eval CRDSHA_5=$(shell sha512sum $(CRD_DIR)$(CRD_5)))
+	$(eval CRDSHA_6=$(shell sha512sum $(CRD_DIR)$(CRD_6)))
+
+compare-sha-crd:
+	$(eval CRDSHA_1_AFTER=$(shell sha512sum $(CRD_DIR)$(CRD_1)))
+	$(eval CRDSHA_2_AFTER=$(shell sha512sum $(CRD_DIR)$(CRD_2)))
+	$(eval CRDSHA_3_AFTER=$(shell sha512sum $(CRD_DIR)$(CRD_3)))
+	$(eval CRDSHA_4_AFTER=$(shell sha512sum $(CRD_DIR)$(CRD_4)))
+	$(eval CRDSHA_5_AFTER=$(shell sha512sum $(CRD_DIR)$(CRD_5)))
+	$(eval CRDSHA_6_AFTER=$(shell sha512sum $(CRD_DIR)$(CRD_6)))
+	@if [ "${CRDSHA_1_AFTER}" = "${CRDSHA_1}" ]; then echo "$(CRD_1) is not changed"; else echo "$(CRD_1) file is changed"; exit 1; fi
+	@if [ "${CRDSHA_2_AFTER}" = "${CRDSHA_2}" ]; then echo "$(CRD_2) is not changed"; else echo "$(CRD_2) file is changed"; exit 1; fi
+	@if [ "${CRDSHA_3_AFTER}" = "${CRDSHA_3}" ]; then echo "$(CRD_3) is not changed"; else echo "$(CRD_3) file is changed"; exit 1; fi
+	@if [ "${CRDSHA_4_AFTER}" = "${CRDSHA_4}" ]; then echo "$(CRD_4) is not changed"; else echo "$(CRD_4) file is changed"; exit 1; fi
+	@if [ "${CRDSHA_5_AFTER}" = "${CRDSHA_5}" ]; then echo "$(CRD_5) is not changed"; else echo "$(CRD_5) file is changed"; exit 1; fi
+	@if [ "${CRDSHA_6_AFTER}" = "${CRDSHA_6}" ]; then echo "$(CRD_6) is not changed"; else echo "$(CRD_6) file is changed"; exit 1; fi
+	
+# variable for mod
+GO_MOD_FILE = go.mod
+GO_SUM_FILE = go.sum
+
+save-sha-mod:
+	$(eval MODSHA=$(shell sha512sum $(GO_MOD_FILE)))
+	$(eval SUMSHA=$(shell sha512sum $(GO_SUM_FILE)))
+
+verify:
+	go mod verify
+
+compare-sha-mod:
+	$(eval MODSHA_AFTER=$(shell sha512sum $(GO_MOD_FILE)))
+	$(eval SUMSHA_AFTER=$(shell sha512sum $(GO_SUM_FILE)))
+	@if [ "${MODSHA_AFTER}" = "${MODSHA}" ]; then echo "$(GO_MOD_FILE) is not changed"; else echo "$(GO_MOD_FILE) file is changed"; exit 1; fi
+	@if [ "${SUMSHA_AFTER}" = "${SUMSHA}" ]; then echo "$(GO_SUM_FILE) is not changed"; else echo "$(GO_SUM_FILE) file is changed"; exit 1; fi
