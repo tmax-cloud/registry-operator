@@ -11,6 +11,7 @@ func Repository(reg *regv1.Registry, imageName string, tags []string) *regv1.Rep
 	label := map[string]string{}
 	label["app"] = "registry"
 	label["apps"] = regv1.K8sPrefix + reg.Name
+	label["registry"] = reg.Name
 
 	versions := []regv1.ImageVersion{}
 	for _, ver := range tags {
