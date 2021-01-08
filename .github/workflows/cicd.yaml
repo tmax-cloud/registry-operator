@@ -45,7 +45,6 @@ jobs:
           args: -v -E gofmt --timeout 1h0m0s
   update_release_draft:
     if: github.base_ref == 'master' && github.event_name == 'pull_request' && github.event.pull_request.merged == true
-    needs: [test_gen, test_verify, test_unit, test_lint, test_crd]
     runs-on: ubuntu-18.04
     steps:
       - uses: release-drafter/release-drafter@v5
