@@ -87,7 +87,11 @@ func (r *NotaryReconciler) handleAllSubresources(notary *regv1.Notary) error { /
 	collectSubController := collectNotarySubController(notary.Spec.ServiceType)
 	patchNotary := notary.DeepCopy() // Target to Patch object
 
-	defer r.patch(notary, patchNotary)
+	defer func() {
+		if err := r.patch(notary, patchNotary); err != nil {
+			subResourceLogger.Error(err, "failed to patch")
+		}
+	}()
 
 	// Check if subresources are created.
 	for _, sctl := range collectSubController {

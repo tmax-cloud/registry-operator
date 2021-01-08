@@ -13,11 +13,9 @@ func Repository(reg *regv1.Registry, imageName string, tags []string) *regv1.Rep
 	label["apps"] = regv1.K8sPrefix + reg.Name
 
 	versions := []regv1.ImageVersion{}
-	if tags != nil {
-		for _, ver := range tags {
-			newVersion := regv1.ImageVersion{CreatedAt: metav1.Now(), Version: ver, Delete: false}
-			versions = append(versions, newVersion)
-		}
+	for _, ver := range tags {
+		newVersion := regv1.ImageVersion{CreatedAt: metav1.Now(), Version: ver, Delete: false}
+		versions = append(versions, newVersion)
 	}
 
 	return &regv1.Repository{

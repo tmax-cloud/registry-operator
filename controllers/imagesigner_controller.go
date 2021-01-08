@@ -58,8 +58,11 @@ func (r *ImageSignerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 		return ctrl.Result{}, nil
 	}
 
-	defer updateSignerStatus(r.Client, signer)
-
+	defer func() {
+		if err := updateSignerStatus(r.Client, signer); err != nil {
+			log.Error(err, "")
+		}
+	}()
 	// check if signer key is exist
 	signerKey := &tmaxiov1.SignerKey{}
 	err := r.Get(context.TODO(), types.NamespacedName{Name: signer.Name}, signerKey)

@@ -64,14 +64,13 @@ func (r *RegistryDCJSecret) Ready(c client.Client, reg *regv1.Registry, patchReg
 		}
 	}
 
-	err = regv1.MakeRegistryError("Secret DCJ Error")
 	if _, ok := r.secretDCJ.Data[schemes.DockerConfigJson]; !ok {
+		err = regv1.MakeRegistryError("Secret DCJ Error")
 		r.logger.Error(err, "No certificate in data")
-		return nil
+		return err
 	}
 
 	condition.Status = corev1.ConditionTrue
-	err = nil
 	r.logger.Info("Succeed")
 	return nil
 }
@@ -141,7 +140,9 @@ func (r *RegistryDCJSecret) compare(reg *regv1.Registry) []utils.Diff {
 	}
 
 	dockerConfig := schemes.DockerConfig{}
-	json.Unmarshal(val, &dockerConfig)
+	if err := json.Unmarshal(val, &dockerConfig); err != nil {
+		return nil
+	}
 	clusterIP := ""
 	domainIP := ""
 	if reg.Spec.RegistryService.ServiceType == regv1.RegServiceTypeLoadBalancer {

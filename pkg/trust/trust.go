@@ -5,6 +5,14 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"os"
+	"path/filepath"
+	"sort"
+	"time"
+
 	"github.com/opencontainers/go-digest"
 	"github.com/theupdateframework/notary"
 	"github.com/theupdateframework/notary/client"
@@ -17,14 +25,7 @@ import (
 	apiv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
-	"io/ioutil"
-	"net"
-	"net/http"
-	"os"
-	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sort"
-	"time"
 )
 
 var log = ctrl.Log.WithName("trust")
@@ -131,6 +132,9 @@ func NewDummy(path string) (*notaryRepo, error) {
 	}
 
 	n.repo, err = client.NewRepository(gun, "", nil, cache, trustpinning.TrustPinConfig{}, cryptoService, cl)
+	if err != nil {
+		return nil, err
+	}
 
 	return n, nil
 }
@@ -148,7 +152,7 @@ func (n *notaryRepo) GetPassphrase(id string) (string, error) {
 }
 
 func (n *notaryRepo) CreateRootKey() error {
-	log.Info(fmt.Sprintf("Creating root key"))
+	log.Info("Creating root key")
 	_, err := n.repo.GetCryptoService().Create(data.CanonicalRootRole, "", data.ECDSAKey)
 	return err
 }

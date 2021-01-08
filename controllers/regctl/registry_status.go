@@ -48,7 +48,10 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) bool {
 
 			reqLogger.Info("Current Status(" + reg.Status.Phase + ") -> Desired Status(" + string(desiredStatus) + ")")
 			// Patch the status to desired status.
-			c.Status().Patch(context.TODO(), target, patch)
+			if err := c.Status().Patch(context.TODO(), target, patch); err != nil {
+				reqLogger.Error(err, "failed to patch status")
+				return false
+			}
 			return true
 
 		} else if reg.Status.Conditions.IsFalseFor(t) {
@@ -66,8 +69,9 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) bool {
 	} else if len(falseTypes) == 1 {
 		if falseTypes[0] == regv1.ConditionTypeContainer {
 			desiredStatus = regv1.StatusNotReady
+		} else {
+			desiredStatus = regv1.StatusCreating
 		}
-		desiredStatus = regv1.StatusCreating
 	} else {
 		desiredStatus = regv1.StatusRunning
 	}
@@ -104,7 +108,10 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) bool {
 
 	// Patch the status to desired status.
 	reqLogger.Info("Status patch.")
-	c.Status().Patch(context.TODO(), target, patch)
+	if err := c.Status().Patch(context.TODO(), target, patch); err != nil {
+		reqLogger.Error(err, "failed to patch status")
+		return false
+	}
 
 	return true
 }

@@ -175,7 +175,7 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 						},
 					},
 					Volumes: []corev1.Volume{
-						corev1.Volume{
+						{
 							Name: "config",
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -183,7 +183,7 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 								},
 							},
 						},
-						corev1.Volume{
+						{
 							Name: "tls",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
@@ -191,7 +191,7 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 								},
 							},
 						},
-						corev1.Volume{
+						{
 							Name: "rootca",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
@@ -199,7 +199,7 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 								},
 							},
 						},
-						corev1.Volume{
+						{
 							Name: "registry",
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{

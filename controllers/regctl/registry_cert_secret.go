@@ -51,7 +51,7 @@ func (r *RegistryCertSecret) Handle(c client.Client, reg *regv1.Registry, patchR
 
 func (r *RegistryCertSecret) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var opaqueErr error = nil
-	var err error = nil
+	var tlsErr error = nil
 
 	opCondition := &status.Condition{
 		Status: corev1.ConditionFalse,
@@ -74,20 +74,21 @@ func (r *RegistryCertSecret) Ready(c client.Client, reg *regv1.Registry, patchRe
 
 	opCondition.Status = corev1.ConditionTrue
 
-	defer utils.SetCondition(err, patchReg, tlsCondition)
-	err = regv1.MakeRegistryError("Secret TLS Error")
+	defer utils.SetCondition(tlsErr, patchReg, tlsCondition)
+
 	if _, ok := r.secretTLS.Data[schemes.TLSCert]; !ok {
-		r.logger.Error(err, "No certificate in data")
+		tlsErr = regv1.MakeRegistryError("Secret TLS Error")
+		r.logger.Error(tlsErr, "No certificate in data")
 		return nil
 	}
 
 	if _, ok := r.secretTLS.Data[schemes.TLSKey]; !ok {
-		r.logger.Error(err, "No private key in data")
+		tlsErr = regv1.MakeRegistryError("Secret TLS Error")
+		r.logger.Error(tlsErr, "No private key in data")
 		return nil
 	}
 
 	tlsCondition.Status = corev1.ConditionTrue
-	err = nil
 	r.logger.Info("Succeed")
 	return nil
 }
