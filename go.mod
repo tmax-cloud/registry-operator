@@ -8,6 +8,7 @@ require (
 	github.com/cloudflare/cfssl v1.5.0 // indirect
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/go-metrics v0.0.1 // indirect
+	github.com/genuinetools/reg v0.16.1
 	github.com/go-logr/logr v0.2.0
 	github.com/gofrs/uuid v3.3.0+incompatible // indirect
 	github.com/gorilla/mux v1.7.4

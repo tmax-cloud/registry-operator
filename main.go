@@ -26,14 +26,15 @@ import (
 
 	"github.com/tmax-cloud/registry-operator/pkg/apiserver"
 
-	"github.com/tmax-cloud/registry-operator/internal/common/operatorlog"
-	regApi "github.com/tmax-cloud/registry-operator/registry"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/tmax-cloud/registry-operator/internal/common/operatorlog"
+	regApi "github.com/tmax-cloud/registry-operator/registry"
 
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/controllers"
@@ -127,6 +128,14 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ImageSignRequest")
+		os.Exit(1)
+	}
+	if err = (&controllers.ImageScanRequestReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("ImageScanRequest"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ImageScanRequest")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
