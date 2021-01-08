@@ -169,6 +169,9 @@ func SendElasticSearchServer(url string, namespace string, name string, body *tm
 	}
 	requestUrl := url + "/image-scanning-" + namespace + "/_doc/" + name
 	res, err := http.Post(requestUrl, "application/json", bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
 	defer res.Body.Close()
 	return res, err
 }
