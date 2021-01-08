@@ -91,13 +91,13 @@ func (r *ImageScanRequestReconciler) updateScanningStatus(instance *tmaxiov1.Ima
 	}
 
 	// send logging server
-	webhookUrl := os.Getenv("WEBHOOK_URL")
-	if err == nil && len(webhookUrl) != 0 && instance.Spec.Webhook {
+	esUrl := os.Getenv("ELASTIC_SEARCH_URL")
+	if err == nil && len(esUrl) != 0 && instance.Spec.ElasticSearch {
 		data, err := json.Marshal(cond)
 		if err != nil {
 			reqLogger.Error(err, "fail marshal request")
 		}
-		requestUrl := webhookUrl + "/image-scanning-" + instance.Namespace + "/_doc/" + instance.Name
+		requestUrl := esUrl + "/image-scanning-" + instance.Namespace + "/_doc/" + instance.Name
 		res, err := http.Post(requestUrl, "application/json", bytes.NewReader(data))
 		if err != nil {
 			reqLogger.Error(err, "cannot send webhook server")

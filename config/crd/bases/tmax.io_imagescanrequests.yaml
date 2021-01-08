@@ -40,6 +40,8 @@ spec:
               type: string
             debug:
               type: boolean
+            elasticSearch:
+              type: boolean
             fixableThreshold:
               type: integer
             forceNonSSL:
@@ -58,8 +60,6 @@ spec:
               type: integer
             username:
               type: string
-            webhook:
-              type: boolean
           required:
           - imageUrl
           type: object

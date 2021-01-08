@@ -6,4 +6,4 @@ spec:
   imageUrl: "tomcat"
   forceNonSSL: true
   insecure: true
-  webhook: true
+  elasticSearch: true
