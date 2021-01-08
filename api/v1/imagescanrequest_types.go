@@ -26,8 +26,9 @@ import (
 type ScanRequestStatusType string
 
 const (
-	ScanRequestSuccess ScanRequestStatusType = "Success"
-	ScanRequestError   ScanRequestStatusType = "Error"
+	ScanRequestSuccess    ScanRequestStatusType = "Success"
+	ScanRequestProcessing ScanRequestStatusType = "Processing"
+	ScanRequestError      ScanRequestStatusType = "Error"
 )
 
 type Vulnerability struct {

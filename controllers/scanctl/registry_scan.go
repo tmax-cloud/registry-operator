@@ -1,9 +1,11 @@
 package scanctl
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -157,4 +159,16 @@ func createRegistryClient(instance *tmaxiov1.ImageScanRequest, domain string) (*
 		NonSSL:   instance.Spec.ForceNonSSL,
 		Timeout:  instance.Spec.TimeOut,
 	})
+}
+
+func SendElasticSearchServer(url string, namespace string, name string, body *tmaxiov1.ImageScanRequestStatus) (resp *http.Response, err error) {
+	// send logging server
+	data, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	requestUrl := url + "/image-scanning-" + namespace + "/_doc/" + name
+	res, err := http.Post(requestUrl, "application/json", bytes.NewReader(data))
+	defer res.Body.Close()
+	return res, err
 }

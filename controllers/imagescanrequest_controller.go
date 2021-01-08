@@ -17,11 +17,8 @@ limitations under the License.
 package controllers
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"io/ioutil"
-	"net/http"
 	"os"
 
 	reg "github.com/genuinetools/reg/clair"
@@ -63,7 +60,9 @@ func (r *ImageScanRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, err
 	}
-	if len(instance.Status.Status) != 0 {
+	if len(instance.Status.Status) == 0 {
+		return r.updateScanningStatus(instance, nil, nil)
+	} else if instance.Status.Status != tmaxiov1.ScanRequestProcessing {
 		reqLogger.Info("already handled scannning")
 		return ctrl.Result{}, nil
 	}
@@ -81,31 +80,30 @@ func (r *ImageScanRequestReconciler) updateScanningStatus(instance *tmaxiov1.Ima
 
 	var cond tmaxiov1.ImageScanRequestStatus
 	if err == nil {
-		cond.Message = "succeed to get vulnerability"
-		cond.Status = "Success"
-		cond.Summary, cond.Fatal, cond.Vulnerabilities = scanctl.ParseAnalysis(instance.Spec.FixableThreshold, report)
+		//start processing
+		if len(instance.Status.Status) == 0 {
+			cond.Message = "Scanning in process"
+			cond.Status = tmaxiov1.ScanRequestProcessing
+
+		} else if instance.Status.Status == tmaxiov1.ScanRequestProcessing {
+			cond.Message = "succeed to get vulnerability"
+			cond.Status = tmaxiov1.ScanRequestSuccess
+			cond.Summary, cond.Fatal, cond.Vulnerabilities = scanctl.ParseAnalysis(instance.Spec.FixableThreshold, report)
+			// send logging server
+
+			esUrl := os.Getenv("ELASTIC_SEARCH_URL")
+			if err == nil && len(esUrl) != 0 && instance.Spec.ElasticSearch {
+				res, err := scanctl.SendElasticSearchServer(esUrl, instance.Namespace, instance.Name, &cond)
+				if err == nil {
+					bodyBytes, _ := ioutil.ReadAll(res.Body)
+					reqLogger.Info("webhook: " + string(bodyBytes))
+				}
+			}
+		}
 	} else {
 		cond.Message = err.Error()
 		cond.Reason = "error occurs while analyze vulnerability"
 		cond.Status = "Error"
-	}
-
-	// send logging server
-	esUrl := os.Getenv("ELASTIC_SEARCH_URL")
-	if err == nil && len(esUrl) != 0 && instance.Spec.ElasticSearch {
-		data, err := json.Marshal(cond)
-		if err != nil {
-			reqLogger.Error(err, "fail marshal request")
-		}
-		requestUrl := esUrl + "/image-scanning-" + instance.Namespace + "/_doc/" + instance.Name
-		res, err := http.Post(requestUrl, "application/json", bytes.NewReader(data))
-		if err != nil {
-			reqLogger.Error(err, "cannot send webhook server")
-		} else {
-			bodyBytes, _ := ioutil.ReadAll(res.Body)
-			reqLogger.Info("webhook: " + string(bodyBytes))
-			defer res.Body.Close()
-		}
 	}
 
 	// set status
