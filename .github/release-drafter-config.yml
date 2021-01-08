@@ -24,9 +24,10 @@ version-resolver:
       - 'type: breaking'
   minor:
     labels:
-      - 'type: feature'
+      - 'type: minor'
   patch:
     labels:
+      - 'type: feature'
       - 'type: bug'
       - 'type: maintenance'
       - 'type: docs'
