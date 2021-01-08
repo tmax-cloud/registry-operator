@@ -70,11 +70,6 @@ spec:
                     storageSize:
                       description: 'enter the desired storage size (ex: 10Gi)'
                       type: string
-                    volumeMode:
-                      enum:
-                      - Filesystem
-                      - Block
-                      type: string
                   required:
                   - accessModes
                   - storageClassName

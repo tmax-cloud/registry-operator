@@ -26,7 +26,7 @@ type RegistrySpec struct {
 	// The name of the configmap where the registry config.yml content
 	CustomConfigYml string `json:"customConfigYml,omitempty"`
 
-	DomainName         string             `json:"domainName,omitempty"`
+	// DomainName         string             `json:"domainName,omitempty"`
 	RegistryDeployment RegistryDeployment `json:"registryDeployment,omitempty"`
 
 	// Supported service types are ingress and loadBalancer
@@ -43,10 +43,10 @@ type RegistryNotary struct {
 }
 
 type RegistryDeployment struct {
-	Labels       map[string]string    `json:"labels"`
-	NodeSelector map[string]string    `json:"nodeSelector"`
-	Selector     metav1.LabelSelector `json:"selector"`
-	Tolerations  []corev1.Toleration  `json:"tolerations"`
+	Labels       map[string]string    `json:"labels,omitempty"`
+	NodeSelector map[string]string    `json:"nodeSelector,omitempty"`
+	Selector     metav1.LabelSelector `json:"selector,omitempty"`
+	Tolerations  []corev1.Toleration  `json:"tolerations,omitempty"`
 }
 
 type RegistryServiceType string

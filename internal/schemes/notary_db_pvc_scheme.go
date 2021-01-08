@@ -15,7 +15,7 @@ func NotaryDBPVC(notary *regv1.Notary) *corev1.PersistentVolumeClaim {
 	labels["apps"] = resName
 
 	var accessModes []corev1.PersistentVolumeAccessMode
-	var v corev1.PersistentVolumeMode
+	var v corev1.PersistentVolumeMode = corev1.PersistentVolumeFilesystem
 
 	if notary.Spec.PersistentVolumeClaim.Exist != nil {
 		resName = notary.Spec.PersistentVolumeClaim.Exist.PvcName
@@ -32,7 +32,7 @@ func NotaryDBPVC(notary *regv1.Notary) *corev1.PersistentVolumeClaim {
 		accessModes = append(accessModes, corev1.PersistentVolumeAccessMode(mode))
 	}
 
-	v = corev1.PersistentVolumeMode(notary.Spec.PersistentVolumeClaim.Create.VolumeMode)
+	// v = corev1.PersistentVolumeMode(notary.Spec.PersistentVolumeClaim.Create.VolumeMode)
 
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{

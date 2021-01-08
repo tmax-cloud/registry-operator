@@ -15,7 +15,7 @@ func PersistentVolumeClaim(reg *regv1.Registry) *corev1.PersistentVolumeClaim {
 	label["apps"] = regv1.K8sPrefix + reg.Name
 
 	var accessModes []corev1.PersistentVolumeAccessMode
-	var v corev1.PersistentVolumeMode
+	var vm corev1.PersistentVolumeMode = corev1.PersistentVolumeFilesystem
 
 	if reg.Spec.PersistentVolumeClaim.Exist != nil {
 		resName = reg.Spec.PersistentVolumeClaim.Exist.PvcName
@@ -34,7 +34,7 @@ func PersistentVolumeClaim(reg *regv1.Registry) *corev1.PersistentVolumeClaim {
 		accessModes = append(accessModes, corev1.PersistentVolumeAccessMode(mode))
 	}
 
-	v = corev1.PersistentVolumeMode(reg.Spec.PersistentVolumeClaim.Create.VolumeMode)
+	// v = corev1.PersistentVolumeMode(reg.Spec.PersistentVolumeClaim.Create.VolumeMode)
 
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -53,7 +53,7 @@ func PersistentVolumeClaim(reg *regv1.Registry) *corev1.PersistentVolumeClaim {
 				},
 			},
 			StorageClassName: &reg.Spec.PersistentVolumeClaim.Create.StorageClassName,
-			VolumeMode:       &v,
+			VolumeMode:       &vm,
 		},
 	}
 }
