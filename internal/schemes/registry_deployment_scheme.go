@@ -1,6 +1,7 @@
 package schemes
 
 import (
+	"os"
 	"path"
 	"strconv"
 
@@ -69,6 +70,11 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 		return nil, err
 	}
 
+	registryImage := reg.Spec.Image
+	if registryImage == "" {
+		registryImage = os.Getenv("REGISTRY_IMAGE")
+	}
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      resName,
@@ -89,7 +95,7 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 					NodeSelector: reg.Spec.RegistryDeployment.NodeSelector,
 					Containers: []corev1.Container{
 						{
-							Image: reg.Spec.Image,
+							Image: registryImage,
 							Name:  "registry",
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
@@ -239,6 +245,10 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 	}
 
 	deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[0].VolumeMounts, vm)
+
+	if os.Getenv("REGISTRY_IMAGE_PULL_SECRET") != "" {
+		deployment.Spec.Template.Spec.ImagePullSecrets = append(deployment.Spec.Template.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: os.Getenv("REGISTRY_IMAGE_PULL_SECRET")})
+	}
 
 	return deployment, nil
 }

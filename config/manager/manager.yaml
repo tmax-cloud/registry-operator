@@ -36,6 +36,12 @@ spec:
                 fieldPath: metadata.namespace
           - name: TZ
             value: Asia/Seoul
+          # IMAGE_REGISTRY is private image registry url including image such as registry:2.7.1 and tmaxcloudck/notary_server:0.6.2-rc1 etc. 
+          # Input like 172.22.11.2:5000 at <image_registry>.
+          # - name: IMAGE_REGISTRY
+          #   value: "<image_registry>"
+          # - name: IMAGE_REGISTRY_PULL_SECRET
+          #   value: "<registry-pull-secret>"
           - name: KEYCLOAK_SERVICE
             value: https://keycloak-test-service.reg-test.svc.cluster.local:8443
           - name: KEYCLOAK_USERNAME

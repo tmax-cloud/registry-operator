@@ -260,7 +260,6 @@ spec:
               - serviceType
               type: object
           required:
-          - image
           - loginId
           - loginPassword
           - persistentVolumeClaim
