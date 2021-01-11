@@ -72,6 +72,7 @@ type NotaryStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=notaries,scope=Namespaced,shortName=not
+// +kubebuilder:printcolumn:name="AGE",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // Notary is the Schema for the notaries API
 type Notary struct {

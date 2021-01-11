@@ -55,6 +55,7 @@ type SignerKeyState struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,shortName=is
+// +kubebuilder:printcolumn:name="SIGNER_KEY_CREATED",type=string,JSONPath=`.status.signerKeyState.created`
 
 // ImageSigner is the Schema for the imagesigners API
 type ImageSigner struct {
