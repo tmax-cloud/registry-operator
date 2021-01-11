@@ -8,6 +8,19 @@ metadata:
   creationTimestamp: null
   name: imagesignrequests.tmax.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.image
+    name: IMAGE
+    type: string
+  - JSONPath: .spec.signer
+    name: SIGNER
+    type: string
+  - JSONPath: .status.imageSignResponse.result
+    name: STATUS
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: AGE
+    type: date
   group: tmax.io
   names:
     kind: ImageSignRequest

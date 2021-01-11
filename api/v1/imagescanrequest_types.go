@@ -74,6 +74,7 @@ type ImageScanRequestStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="STATUS",type=string,JSONPath=`.status.status`
+// +kubebuilder:printcolumn:name="AGE",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // ImageScanRequest is the Schema for the imagescanrequests API
 type ImageScanRequest struct {

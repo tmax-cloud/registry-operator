@@ -20,6 +20,9 @@ type ImageVersion struct {
 // Repository is the Schema for the repositories API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=repositories,scope=Namespaced,shortName=repo
+// +kubebuilder:printcolumn:name="REPOSITORY",type=string,JSONPath=`.spec.name`
+// +kubebuilder:printcolumn:name="REGISTRY",type=string,JSONPath=`.spec.registry`
+// +kubebuilder:printcolumn:name="AGE",type=date,JSONPath=`.metadata.creationTimestamp`
 type Repository struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

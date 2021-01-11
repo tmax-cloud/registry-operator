@@ -46,6 +46,7 @@ type ImageSignRequestStatus struct {
 type ResponseResult string
 
 const (
+	ResponseResultSigning = ResponseResult("Signing")
 	ResponseResultSuccess = ResponseResult("Success")
 	ResponseResultFail    = ResponseResult("Fail")
 )
@@ -60,6 +61,10 @@ type ImageSignResponse struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=isr
+// +kubebuilder:printcolumn:name="IMAGE",type=string,JSONPath=`.spec.image`
+// +kubebuilder:printcolumn:name="SIGNER",type=string,JSONPath=`.spec.signer`
+// +kubebuilder:printcolumn:name="STATUS",type=string,JSONPath=`.status.imageSignResponse.result`
+// +kubebuilder:printcolumn:name="AGE",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // ImageSignRequest is the Schema for the imagesignrequests API
 type ImageSignRequest struct {
