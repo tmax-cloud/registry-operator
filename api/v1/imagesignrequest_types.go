@@ -46,6 +46,7 @@ type ImageSignRequestStatus struct {
 type ResponseResult string
 
 const (
+	ResponseResultSigning = ResponseResult("Signing")
 	ResponseResultSuccess = ResponseResult("Success")
 	ResponseResultFail    = ResponseResult("Fail")
 )
