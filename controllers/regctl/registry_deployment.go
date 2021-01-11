@@ -2,6 +2,7 @@ package regctl
 
 import (
 	"context"
+	"os"
 	"path"
 	"strings"
 
@@ -196,6 +197,11 @@ func (r *RegistryDeployment) patch(c client.Client, reg *regv1.Registry, patchRe
 	for _, d := range diff {
 		switch d.Key {
 		case ImageDiffKey:
+			if reg.Spec.Image == "" {
+				deployContainer.Image = os.Getenv("REGISTRY_IMAGE")
+				continue
+			}
+
 			deployContainer.Image = reg.Spec.Image
 
 		case MountPathDiffKey:
@@ -275,7 +281,7 @@ func (r *RegistryDeployment) compare(reg *regv1.Registry) []utils.Diff {
 		volumeMap[vol.Name] = vol
 	}
 
-	if reg.Spec.Image != deployContainer.Image {
+	if (reg.Spec.Image != "" && reg.Spec.Image != deployContainer.Image) || (reg.Spec.Image == "" && deployContainer.Image != os.Getenv("REGISTRY_IMAGE")) {
 		diff = append(diff, utils.Diff{Type: utils.Replace, Key: ImageDiffKey})
 	}
 

@@ -17,7 +17,7 @@ type RegistrySpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
-	Image         string `json:"image"`
+	Image         string `json:"image,omitempty"`
 	Description   string `json:"description,omitempty"`
 	LoginId       string `json:"loginId"`
 	LoginPassword string `json:"loginPassword"`

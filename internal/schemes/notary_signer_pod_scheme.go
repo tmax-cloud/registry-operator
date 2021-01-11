@@ -1,6 +1,7 @@
 package schemes
 
 import (
+	"os"
 	"path"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -10,7 +11,6 @@ import (
 )
 
 const (
-	signerImage      = "tmaxcloudck/notary_signer:0.6.2-rc1"
 	signerTLSCrtPath = "/certs/signer/tls.crt"
 	signerTLSKeyPath = "/certs/signer/tls.key"
 	signerRootCAPath = "/certs/rootca/ca.crt"
@@ -24,6 +24,8 @@ func NotarySignerPod(notary *regv1.Notary) *corev1.Pod {
 	labels[resName] = "lb"
 
 	mode := int32(511)
+
+	signerImage := os.Getenv("NOTARY_SIGNER_IMAGE")
 
 	pod := &corev1.Pod{
 		ObjectMeta: v1.ObjectMeta{
@@ -122,6 +124,10 @@ func NotarySignerPod(notary *regv1.Notary) *corev1.Pod {
 				},
 			},
 		},
+	}
+
+	if os.Getenv("NOTARY_SIGNER_IMAGE_PULL_SECRET") != "" {
+		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: os.Getenv("NOTARY_SIGNER_IMAGE_PULL_SECRET")})
 	}
 
 	return pod

@@ -1,6 +1,7 @@
 package schemes
 
 import (
+	"os"
 	"path"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -10,7 +11,6 @@ import (
 )
 
 const (
-	serverImage      = "tmaxcloudck/notary_server:0.6.2-rc1"
 	serverTLSCrtPath = "/certs/server/tls.crt"
 	serverTLSKeyPath = "/certs/server/tls.key"
 	serverRootCAPath = "/certs/rootca/ca.crt"
@@ -24,6 +24,8 @@ func NotaryServerPod(notary *regv1.Notary) *corev1.Pod {
 	labels[resName] = "lb"
 
 	mode := int32(511)
+
+	serverImage := os.Getenv("NOTARY_SERVER_IMAGE")
 
 	pod := &corev1.Pod{
 		ObjectMeta: v1.ObjectMeta{
@@ -163,6 +165,10 @@ func NotaryServerPod(notary *regv1.Notary) *corev1.Pod {
 				},
 			},
 		},
+	}
+
+	if os.Getenv("NOTARY_SERVER_IMAGE_PULL_SECRET") != "" {
+		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: os.Getenv("NOTARY_SERVER_IMAGE_PULL_SECRET")})
 	}
 
 	return pod
