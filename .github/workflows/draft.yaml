@@ -1,4 +1,4 @@
-name: cicd
+name: draft release
 on:
   pull_request:
     types:
