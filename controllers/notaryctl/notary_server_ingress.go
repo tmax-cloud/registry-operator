@@ -88,7 +88,7 @@ func (nt *NotaryServerIngress) Ready(c client.Client, notary *regv1.Notary, patc
 
 	if len(nt.ingress.Spec.TLS) > 0 {
 		for _, host := range nt.ingress.Spec.TLS[0].Hosts {
-			patchNotary.Status.NotaryURL = "https://" + host + ":443"
+			patchNotary.Status.NotaryURL = "https://" + host
 		}
 	}
 
