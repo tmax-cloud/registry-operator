@@ -52,3 +52,9 @@ func makeResponse(signReq *tmaxiov1.ImageSignRequest, result bool, reason, messa
 	signReq.Status.Reason = reason
 	signReq.Status.Message = message
 }
+
+func makeInitResponse(signReq *tmaxiov1.ImageSignRequest) {
+	signReq.Status.ImageSignResponse = &tmaxiov1.ImageSignResponse{}
+
+	signReq.Status.Result = tmaxiov1.ResponseResultSigning
+}
