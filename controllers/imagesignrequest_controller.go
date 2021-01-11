@@ -79,7 +79,18 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{}, nil
 	}
 
-	if signReq.Status.ImageSignResponse != nil {
+	defer func() {
+		if err := response(r.Client, signReq); err != nil {
+			log.Error(err, "")
+		}
+	}()
+
+	if signReq.Status.ImageSignResponse == nil {
+		makeInitResponse(signReq)
+		return ctrl.Result{}, nil
+	}
+
+	if signReq.Status.ImageSignResponse != nil && signReq.Status.ImageSignResponse.Result != regv1.ResponseResultSigning {
 		return ctrl.Result{}, nil
 	}
 
@@ -129,12 +140,6 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		makeResponse(signReq, false, err.Error(), "")
 		return ctrl.Result{}, nil
 	}
-
-	defer func() {
-		if err := response(r.Client, signReq); err != nil {
-			log.Error(err, "")
-		}
-	}()
 
 	// Check if it's Harbor registry
 	isHarbor := false
