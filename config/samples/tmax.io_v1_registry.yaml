@@ -16,7 +16,6 @@ spec:
         accessModes: [ReadWriteOnce]
         storageSize: 10Gi
         storageClassName: csi-cephfs-sc
-        volumeMode: Filesystem
         deleteWithPvc: true
   service:
     serviceType: LoadBalancer
@@ -26,5 +25,4 @@ spec:
       accessModes: [ReadWriteOnce]
       storageSize: 10Gi
       storageClassName: csi-cephfs-sc
-      volumeMode: Filesystem
       deleteWithPvc: true

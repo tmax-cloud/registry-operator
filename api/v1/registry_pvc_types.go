@@ -15,9 +15,6 @@ type CreatePvc struct {
 
 	StorageClassName string `json:"storageClassName"`
 
-	// +kubebuilder:validation:Enum=Filesystem;Block
-	VolumeMode string `json:"volumeMode,omitempty"`
-
 	// Delete the pvc as well when this registry is deleted
 	DeleteWithPvc bool `json:"deleteWithPvc,omitempty"`
 }

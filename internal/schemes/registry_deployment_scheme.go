@@ -25,23 +25,40 @@ const (
 func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*appsv1.Deployment, error) {
 	var resName, pvcMountPath, pvcName, configMapName string
 	resName = SubresourceName(reg, SubTypeRegistryDeployment)
-	label := map[string]string{}
+	label, labelSelector := map[string]string{}, map[string]string{}
 	label["app"] = "registry"
 	label["apps"] = resName
 	label[resName] = "lb"
 
+	for k, v := range label {
+		labelSelector[k] = v
+	}
+
+	// Set label
+	for k, v := range reg.Spec.RegistryDeployment.Labels {
+		label[k] = v
+	}
+
+	// Set labelSelector
+	for k, v := range reg.Spec.RegistryDeployment.Selector.MatchLabels {
+		labelSelector[k] = v
+	}
+
+	// Set mountpath
 	if len(reg.Spec.PersistentVolumeClaim.MountPath) == 0 {
 		pvcMountPath = registryPVCMountPath
 	} else {
 		pvcMountPath = reg.Spec.PersistentVolumeClaim.MountPath
 	}
 
+	// Set pvc
 	if reg.Spec.PersistentVolumeClaim.Exist != nil {
 		pvcName = reg.Spec.PersistentVolumeClaim.Exist.PvcName
 	} else {
 		pvcName = regv1.K8sPrefix + reg.Name
 	}
 
+	// Set config yaml
 	if len(reg.Spec.CustomConfigYml) != 0 {
 		configMapName = reg.Spec.CustomConfigYml
 	} else {
@@ -60,13 +77,16 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: label,
+				MatchLabels:      labelSelector,
+				MatchExpressions: reg.Spec.RegistryDeployment.Selector.MatchExpressions,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: label,
 				},
 				Spec: corev1.PodSpec{
+					Tolerations:  reg.Spec.RegistryDeployment.Tolerations,
+					NodeSelector: reg.Spec.RegistryDeployment.NodeSelector,
 					Containers: []corev1.Container{
 						{
 							Image: reg.Spec.Image,
@@ -213,21 +233,12 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 		},
 	}
 
-	if reg.Spec.PersistentVolumeClaim.Create != nil && reg.Spec.PersistentVolumeClaim.Create.VolumeMode == "Block" {
-		vd := corev1.VolumeDevice{
-			Name:       "registry",
-			DevicePath: pvcMountPath,
-		}
-
-		deployment.Spec.Template.Spec.Containers[0].VolumeDevices = append(deployment.Spec.Template.Spec.Containers[0].VolumeDevices, vd)
-	} else {
-		vm := corev1.VolumeMount{
-			Name:      "registry",
-			MountPath: pvcMountPath,
-		}
-
-		deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[0].VolumeMounts, vm)
+	vm := corev1.VolumeMount{
+		Name:      "registry",
+		MountPath: pvcMountPath,
 	}
+
+	deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[0].VolumeMounts, vm)
 
 	return deployment, nil
 }

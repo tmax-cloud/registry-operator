@@ -57,8 +57,6 @@ spec:
               type: string
             description:
               type: string
-            domainName:
-              type: string
             image:
               type: string
             loginId:
@@ -89,11 +87,6 @@ spec:
                           type: string
                         storageSize:
                           description: 'enter the desired storage size (ex: 10Gi)'
-                          type: string
-                        volumeMode:
-                          enum:
-                          - Filesystem
-                          - Block
                           type: string
                       required:
                       - accessModes
@@ -139,11 +132,6 @@ spec:
                     storageSize:
                       description: 'enter the desired storage size (ex: 10Gi)'
                       type: string
-                    volumeMode:
-                      enum:
-                      - Filesystem
-                      - Block
-                      type: string
                   required:
                   - accessModes
                   - storageClassName
@@ -162,6 +150,7 @@ spec:
                   type: string
               type: object
             registryDeployment:
+              description: DomainName         string             `json:"domainName,omitempty"`
               properties:
                 labels:
                   additionalProperties:
@@ -257,11 +246,6 @@ spec:
                         type: string
                     type: object
                   type: array
-              required:
-              - labels
-              - nodeSelector
-              - selector
-              - tolerations
               type: object
             service:
               description: Supported service types are ingress and loadBalancer

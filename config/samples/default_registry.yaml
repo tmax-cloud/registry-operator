@@ -16,7 +16,6 @@ spec:
         accessModes: [ReadWriteOnce]
         storageSize: 10Gi
         storageClassName: csi-cephfs-sc
-        volumeMode: Filesystem
         deleteWithPvc: true
     #customConfigYml: my-registry-config
     #replicaSet:
@@ -39,5 +38,4 @@ spec:
       accessModes: [ReadWriteOnce]
       storageSize: 10Gi
       storageClassName: csi-cephfs-sc
-      volumeMode: Filesystem
       deleteWithPvc: true
