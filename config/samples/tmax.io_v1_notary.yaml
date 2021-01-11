@@ -16,5 +16,4 @@ spec:
       accessModes: [ReadWriteMany]
       storageSize: 10Gi
       storageClassName: csi-cephfs-sc
-      volumeMode: Filesystem
       deleteWithPvc: true

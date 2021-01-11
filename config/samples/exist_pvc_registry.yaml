@@ -17,7 +17,6 @@ spec:
 #      deleteWithPvc: true
 #      storageClassName: csi-cephfs-sc
 #      storageSize: 10Gi
-#      volumeMode: Filesystem
     mountPath: /var/lib/registry
   service:
     #serviceType: LoadBalancer

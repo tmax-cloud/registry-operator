@@ -34,8 +34,6 @@ func PersistentVolumeClaim(reg *regv1.Registry) *corev1.PersistentVolumeClaim {
 		accessModes = append(accessModes, corev1.PersistentVolumeAccessMode(mode))
 	}
 
-	// v = corev1.PersistentVolumeMode(reg.Spec.PersistentVolumeClaim.Create.VolumeMode)
-
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      resName,

@@ -233,14 +233,6 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 		},
 	}
 
-	// if reg.Spec.PersistentVolumeClaim.Create != nil && reg.Spec.PersistentVolumeClaim.Create.VolumeMode == "Block" {
-	// 	vd := corev1.VolumeDevice{
-	// 		Name:       "registry",
-	// 		DevicePath: pvcMountPath,
-	// 	}
-
-	// 	deployment.Spec.Template.Spec.Containers[0].VolumeDevices = append(deployment.Spec.Template.Spec.Containers[0].VolumeDevices, vd)
-	// } else {
 	vm := corev1.VolumeMount{
 		Name:      "registry",
 		MountPath: pvcMountPath,
