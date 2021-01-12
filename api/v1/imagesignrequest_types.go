@@ -25,15 +25,22 @@ import (
 
 // ImageSignRequestSpec defines the desired state of ImageSignRequest
 type ImageSignRequestSpec struct {
-	// Image example: docker.io/library/alpine:3
-	Image          string `json:"image"`
-	Signer         string `json:"signer"`
+	// Image name to sign (example: docker.io/library/alpine:3)
+	Image string `json:"image"`
+	// ImageSigner's metadata name to sign image
+	Signer string `json:"signer"`
+	// Secrets to login registry
 	RegistrySecret `json:"registryLogin,omitempty"`
 }
 
 type RegistrySecret struct {
-	DcjSecretName  string `json:"dcjSecretName"`
-	CertSecretName string `json:"certSecretName"`
+	// Registry's imagePullSecret for login
+	// If you don't have dockerconfigjson type's secret in this namespace,
+	// you should refer to https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+	// to make it first.
+	DcjSecretName string `json:"dcjSecretName"`
+	// If Certificate is required, enter certifiacete's secret name
+	CertSecretName string `json:"certSecretName,omitempty"`
 }
 
 // ImageSignRequestStatus defines the observed state of ImageSignRequest

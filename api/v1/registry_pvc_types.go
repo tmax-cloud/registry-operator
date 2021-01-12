@@ -3,19 +3,22 @@ package v1
 const AccessModeDefault = "ReadWriteMany"
 
 type ExistPvc struct {
-	// Use the pvc you have created
+	// PVC's name you have created
 	PvcName string `json:"pvcName"`
 }
 
 type CreatePvc struct {
+	// AccessModes is . Recommend value is "ReadWriteMany"
+	// You can choose ReadWriteOnce, ReadOnlyMany and ReadWriteMany
 	AccessModes []AccessMode `json:"accessModes"`
 
-	// enter the desired storage size (ex: 10Gi)
+	// Enter the desired storage size like "10Gi"
 	StorageSize string `json:"storageSize"`
 
+	// Enter StorageClassName like "csi-cephfs-sc"
 	StorageClassName string `json:"storageClassName"`
 
-	// Delete the pvc as well when this registry is deleted
+	// Delete the pvc as well when this registry is deleted (default: true)
 	DeleteWithPvc bool `json:"deleteWithPvc,omitempty"`
 }
 

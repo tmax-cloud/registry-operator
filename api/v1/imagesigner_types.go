@@ -28,12 +28,18 @@ type ImageSignerSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Name        string `json:"name,omitempty"`
-	Email       string `json:"email,omitempty"`
-	Phone       string `json:"phone,omitempty"`
-	Team        string `json:"team,omitempty"`
+	// ImageSigner's name
+	Name string `json:"name,omitempty"`
+	// ImageSigner's email
+	Email string `json:"email,omitempty"`
+	// ImageSigner's phone number
+	Phone string `json:"phone,omitempty"`
+	// ImageSigner's team
+	Team string `json:"team,omitempty"`
+	// Additional information of ImageSigner
 	Description string `json:"description,omitempty"`
-	Owner       string `json:"owner,omitempty"`
+	// Don't deal with thie field. If Owner field is set or manipulated, could not be recovered.
+	Owner string `json:"owner,omitempty"`
 }
 
 // ImageSignerStatus defines the observed state of ImageSigner
@@ -45,10 +51,15 @@ type ImageSignerStatus struct {
 }
 
 type SignerKeyState struct {
-	Created   bool         `json:"created,omitempty"`
-	Reason    string       `json:"reason,omitempty"`
-	Message   string       `json:"message,omitempty"`
-	RootKeyID string       `json:"rootKeyId,omitempty"`
+	// Whether SignerKey is created
+	Created bool `json:"created,omitempty"`
+	// Reason failed to create SignerKey
+	Reason string `json:"reason,omitempty"`
+	// Message failed to create SignerKey
+	Message string `json:"message,omitempty"`
+	// SignerKey's root key ID
+	RootKeyID string `json:"rootKeyId,omitempty"`
+	// Created time
 	CreatedAt *metav1.Time `json:"createdAt,omitempty"`
 }
 
