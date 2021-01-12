@@ -29,14 +29,10 @@ spec:
       description: ImageScanRequest is the Schema for the imagescanrequests API
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
           type: string
         kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
@@ -44,30 +40,38 @@ spec:
           description: ImageScanRequestSpec defines the desired state of ImageScanRequest
           properties:
             authUrl:
+              description: Alternate URL for registry authentication
               type: string
             debug:
+              description: Debug flag
               type: boolean
             elasticSearch:
+              description: Send vulerability to ES
               type: boolean
             fixableThreshold:
+              description: Number of fixable issues permitted
               type: integer
             forceNonSSL:
+              description: Force allow use of non-ssl
               type: boolean
             imageUrl:
+              description: Image path
               type: string
             insecure:
+              description: Do not verify tls certificates
               type: boolean
             password:
+              description: Password for the registry
               type: string
             skipPing:
+              description: Skip pinging the registry while establishing connection
               type: boolean
             timeOut:
-              description: A Duration represents the elapsed time between two instants
-                as an int64 nanosecond count. The representation limits the largest
-                representable duration to approximately 290 years.
+              description: Timeout for HTTP requests
               format: int64
               type: integer
             username:
+              description: Username for the registry
               type: string
           required:
           - imageUrl
@@ -76,39 +80,52 @@ spec:
           description: ImageScanRequestStatus defines the observed state of ImageScanRequest
           properties:
             fatal:
+              description: Scan fatal message
               items:
                 type: string
               type: array
             message:
+              description: Scan message for status
               type: string
             reason:
+              description: Scan error reason
               type: string
             status:
+              description: Scan status
               type: string
             summary:
               additionalProperties:
                 type: integer
+              description: Scan summary
               type: object
             vulnerabilities:
               additionalProperties:
                 items:
                   properties:
                     Description:
+                      description: Description for severity
                       type: string
                     FixedBy:
+                      description: Fixed version
                       type: string
                     Link:
+                      description: Description link
                       type: string
                     Metadata:
+                      description: Metadata
                       type: object
                     Name:
+                      description: Severity name
                       type: string
                     NamespaceName:
+                      description: Severity namespace
                       type: string
                     Severity:
+                      description: Severity degree
                       type: string
                   type: object
                 type: array
+              description: Scan vulnerabilities
               type: object
           type: object
       type: object

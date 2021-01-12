@@ -32,13 +32,20 @@ const (
 )
 
 type Vulnerability struct {
-	Name          string               `json:"Name,omitempty"`
-	NamespaceName string               `json:"NamespaceName,omitempty"`
-	Description   string               `json:"Description,omitempty"`
-	Link          string               `json:"Link,omitempty"`
-	Severity      string               `json:"Severity,omitempty"`
-	Metadata      runtime.RawExtension `json:"Metadata,omitempty"`
-	FixedBy       string               `json:"FixedBy,omitempty"`
+	// Severity name
+	Name string `json:"Name,omitempty"`
+	// Severity namespace
+	NamespaceName string `json:"NamespaceName,omitempty"`
+	// Description for severity
+	Description string `json:"Description,omitempty"`
+	// Description link
+	Link string `json:"Link,omitempty"`
+	// Severity degree
+	Severity string `json:"Severity,omitempty"`
+	// Metadata
+	Metadata runtime.RawExtension `json:"Metadata,omitempty"`
+	// Fixed version
+	FixedBy string `json:"FixedBy,omitempty"`
 }
 
 type Vulnerabilities []Vulnerability
@@ -48,26 +55,43 @@ type Vulnerabilities []Vulnerability
 
 // ImageScanRequestSpec defines the desired state of ImageScanRequest
 type ImageScanRequestSpec struct {
-	ImageUrl         string        `json:"imageUrl"`
-	AuthUrl          string        `json:"authUrl,omitempty"`
-	Insecure         bool          `json:"insecure,omitempty"`
-	ForceNonSSL      bool          `json:"forceNonSSL,omitempty"`
-	Username         string        `json:"username,omitempty"`
-	Password         string        `json:"password,omitempty"`
-	Debug            bool          `json:"debug,omitempty"`
-	SkipPing         bool          `json:"skipPing,omitempty"`
-	TimeOut          time.Duration `json:"timeOut,omitempty"`
-	FixableThreshold int           `json:"fixableThreshold,omitempty"`
-	ElasticSearch    bool          `json:"elasticSearch,omitempty"`
+	// Image path
+	ImageUrl string `json:"imageUrl"`
+	// Alternate URL for registry authentication
+	AuthUrl string `json:"authUrl,omitempty"`
+	// Do not verify tls certificates
+	Insecure bool `json:"insecure,omitempty"`
+	// Force allow use of non-ssl
+	ForceNonSSL bool `json:"forceNonSSL,omitempty"`
+	// Username for the registry
+	Username string `json:"username,omitempty"`
+	// Password for the registry
+	Password string `json:"password,omitempty"`
+	// Debug flag
+	Debug bool `json:"debug,omitempty"`
+	// Skip pinging the registry while establishing connection
+	SkipPing bool `json:"skipPing,omitempty"`
+	// Timeout for HTTP requests
+	TimeOut time.Duration `json:"timeOut,omitempty"`
+	// Number of fixable issues permitted
+	FixableThreshold int `json:"fixableThreshold,omitempty"`
+	// Send vulerability to ES
+	ElasticSearch bool `json:"elasticSearch,omitempty"`
 }
 
 // ImageScanRequestStatus defines the observed state of ImageScanRequest
 type ImageScanRequestStatus struct {
-	Message         string                     `json:"message,omitempty"`
-	Reason          string                     `json:"reason,omitempty"`
-	Status          ScanRequestStatusType      `json:"status,omitempty"`
-	Summary         map[string]int             `json:"summary,omitempty"`
-	Fatal           []string                   `json:"fatal,omitempty"`
+	//Scan message for status
+	Message string `json:"message,omitempty"`
+	//Scan error reason
+	Reason string `json:"reason,omitempty"`
+	//Scan status
+	Status ScanRequestStatusType `json:"status,omitempty"`
+	//Scan summary
+	Summary map[string]int `json:"summary,omitempty"`
+	//Scan fatal message
+	Fatal []string `json:"fatal,omitempty"`
+	//Scan vulnerabilities
 	Vulnerabilities map[string]Vulnerabilities `json:"vulnerabilities,omitempty"`
 }
 
