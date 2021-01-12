@@ -52,19 +52,26 @@ spec:
           description: ImageSignRequestSpec defines the desired state of ImageSignRequest
           properties:
             image:
-              description: 'Image example: docker.io/library/alpine:3'
+              description: 'Image name to sign (example: docker.io/library/alpine:3)'
               type: string
             registryLogin:
+              description: Secrets to login registry
               properties:
                 certSecretName:
+                  description: If Certificate is required, enter certifiacete's secret
+                    name
                   type: string
                 dcjSecretName:
+                  description: Registry's imagePullSecret for login If you don't have
+                    dockerconfigjson type's secret in this namespace, you should refer
+                    to https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+                    to make it first.
                   type: string
               required:
-              - certSecretName
               - dcjSecretName
               type: object
             signer:
+              description: ImageSigner's metadata name to sign image
               type: string
           required:
           - image

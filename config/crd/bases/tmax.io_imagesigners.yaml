@@ -43,16 +43,23 @@ spec:
           description: ImageSignerSpec defines the desired state of ImageSigner
           properties:
             description:
+              description: Additional information of ImageSigner
               type: string
             email:
+              description: ImageSigner's email
               type: string
             name:
+              description: ImageSigner's name
               type: string
             owner:
+              description: Don't deal with thie field. If Owner field is set or manipulated,
+                could not be recovered.
               type: string
             phone:
+              description: ImageSigner's phone number
               type: string
             team:
+              description: ImageSigner's team
               type: string
           type: object
         status:
@@ -61,15 +68,20 @@ spec:
             signerKeyState:
               properties:
                 created:
+                  description: Whether SignerKey is created
                   type: boolean
                 createdAt:
+                  description: Created time
                   format: date-time
                   type: string
                 message:
+                  description: Message failed to create SignerKey
                   type: string
                 reason:
+                  description: Reason failed to create SignerKey
                   type: string
                 rootKeyId:
+                  description: SignerKey's root key ID
                   type: string
               type: object
           type: object

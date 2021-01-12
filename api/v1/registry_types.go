@@ -69,7 +69,7 @@ type RegistryService struct {
 }
 
 type RegistryPVC struct {
-	// (default: /var/lib/registry)
+	// Registry's pvc mount path (default: /var/lib/registry)
 	MountPath string `json:"mountPath,omitempty"`
 
 	// +kubebuilder:validation:OneOf

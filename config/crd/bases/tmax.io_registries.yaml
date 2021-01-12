@@ -73,6 +73,8 @@ spec:
                     create:
                       properties:
                         accessModes:
+                          description: AccessModes is . Recommend value is "ReadWriteMany"
+                            You can choose ReadWriteOnce, ReadOnlyMany and ReadWriteMany
                           items:
                             enum:
                             - ReadWriteOnce
@@ -80,13 +82,14 @@ spec:
                             type: string
                           type: array
                         deleteWithPvc:
-                          description: Delete the pvc as well when this registry is
-                            deleted
+                          description: 'Delete the pvc as well when this registry
+                            is deleted (default: false)'
                           type: boolean
                         storageClassName:
+                          description: Enter StorageClassName like "csi-cephfs-sc"
                           type: string
                         storageSize:
-                          description: 'enter the desired storage size (ex: 10Gi)'
+                          description: Enter the desired storage size like "10Gi"
                           type: string
                       required:
                       - accessModes
@@ -96,7 +99,7 @@ spec:
                     exist:
                       properties:
                         pvcName:
-                          description: Use the pvc you have created
+                          description: PVC's name you have created
                           type: string
                       required:
                       - pvcName
@@ -118,6 +121,8 @@ spec:
                 create:
                   properties:
                     accessModes:
+                      description: AccessModes is . Recommend value is "ReadWriteMany"
+                        You can choose ReadWriteOnce, ReadOnlyMany and ReadWriteMany
                       items:
                         enum:
                         - ReadWriteOnce
@@ -125,12 +130,14 @@ spec:
                         type: string
                       type: array
                     deleteWithPvc:
-                      description: Delete the pvc as well when this registry is deleted
+                      description: 'Delete the pvc as well when this registry is deleted
+                        (default: false)'
                       type: boolean
                     storageClassName:
+                      description: Enter StorageClassName like "csi-cephfs-sc"
                       type: string
                     storageSize:
-                      description: 'enter the desired storage size (ex: 10Gi)'
+                      description: Enter the desired storage size like "10Gi"
                       type: string
                   required:
                   - accessModes
@@ -140,13 +147,13 @@ spec:
                 exist:
                   properties:
                     pvcName:
-                      description: Use the pvc you have created
+                      description: PVC's name you have created
                       type: string
                   required:
                   - pvcName
                   type: object
                 mountPath:
-                  description: '(default: /var/lib/registry)'
+                  description: 'Registry''s pvc mount path (default: /var/lib/registry)'
                   type: string
               type: object
             registryDeployment:
