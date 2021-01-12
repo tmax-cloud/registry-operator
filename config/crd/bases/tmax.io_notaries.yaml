@@ -70,7 +70,7 @@ spec:
                       type: array
                     deleteWithPvc:
                       description: 'Delete the pvc as well when this registry is deleted
-                        (default: true)'
+                        (default: false)'
                       type: boolean
                     storageClassName:
                       description: Enter StorageClassName like "csi-cephfs-sc"

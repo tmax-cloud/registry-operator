@@ -18,7 +18,7 @@ type CreatePvc struct {
 	// Enter StorageClassName like "csi-cephfs-sc"
 	StorageClassName string `json:"storageClassName"`
 
-	// Delete the pvc as well when this registry is deleted (default: true)
+	// Delete the pvc as well when this registry is deleted (default: false)
 	DeleteWithPvc bool `json:"deleteWithPvc,omitempty"`
 }
 
