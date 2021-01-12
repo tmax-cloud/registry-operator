@@ -116,13 +116,11 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 	}()
 
 	r.kc = keycloakctl.NewKeycloakController(reg.Namespace, reg.Name)
-	if reg.Status.Conditions.IsFalseFor(regv1.ConditionTypeKeycloakRealm) {
-		if r.kc == nil {
-			return fmt.Errorf("unable to get keycloak controller")
-		}
-		if err := r.kc.CreateRealm(reg, patchReg); err != nil {
-			return err
-		}
+	if r.kc == nil {
+		return fmt.Errorf("unable to get keycloak controller")
+	}
+	if err := r.kc.CreateRealm(reg, patchReg); err != nil {
+		return err
 	}
 
 	collectSubController := collectSubController(reg, r.kc)

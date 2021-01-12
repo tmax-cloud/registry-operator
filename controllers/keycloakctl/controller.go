@@ -77,15 +77,15 @@ func (c *KeycloakController) GetDockerV2ClientName() string {
 	return c.name + "-docker-client"
 }
 
-func (c *KeycloakController) GetAdminToken() string {
+func (c *KeycloakController) GetAdminToken() (string, error) {
 	// login admin
 	token, err := c.client.LoginAdmin(context.Background(), keycloakUser, keycloakPwd, "master")
 	if err != nil {
 		c.logger.Error(err, "Couldn't get access token from keycloak")
-		return ""
+		return "", err
 	}
-
-	return token.AccessToken
+	c.token = token.AccessToken
+	return token.AccessToken, nil
 }
 
 // CreateRealm is ...
@@ -98,9 +98,16 @@ func (c *KeycloakController) CreateRealm(reg, patchReg *regv1.Registry) error {
 
 	defer utils.SetCondition(err, patchReg, condition)
 
+	if _, err := c.GetAdminToken(); err != nil {
+		c.logger.Error(err, "Couldn't get access token from keycloak")
+		return err
+	}
+
 	if !c.isExistRealm(c.name) {
+		c.logger.Info(fmt.Sprintf("%s realm is not found in keystore", c.name))
 		// make new realm
 		realmEnabled := true
+
 		_, err = c.client.CreateRealm(context.Background(), c.token, gocloak.RealmRepresentation{
 			ID:      &c.name,
 			Realm:   &c.name,
@@ -127,6 +134,7 @@ func (c *KeycloakController) CreateRealm(reg, patchReg *regv1.Registry) error {
 	}
 
 	if !c.isExistCertificate() {
+		c.logger.Info(fmt.Sprintf("%s is not found in keystore", rootCAName))
 		if err := c.AddCertificate(); err != nil {
 			c.logger.Error(err, "Couldn't create a certificate component")
 			condition.Message = err.Error()
@@ -135,10 +143,15 @@ func (c *KeycloakController) CreateRealm(reg, patchReg *regv1.Registry) error {
 	}
 
 	if !c.isExistUser(reg.Spec.LoginId) {
+		c.logger.Info(fmt.Sprintf("%s user is not found in keystore", reg.Spec.LoginId))
 		c.logger.Info("CreateUser", "username", reg.Spec.LoginId)
 		if err := c.CreateUser(c.token, reg.Spec.LoginId, reg.Spec.LoginPassword); err != nil {
 			return err
 		}
+	}
+
+	if !c.isExistRealm(c.name) || !c.isExistCertificate() || !c.isExistUser(reg.Spec.LoginId) {
+		return fmt.Errorf("failed to create realm/certificate/user")
 	}
 
 	condition.Status = corev1.ConditionTrue
@@ -150,7 +163,10 @@ func (c *KeycloakController) DeleteRealm(namespace string, name string) error {
 	if !c.isExistRealm(c.name) {
 		return nil
 	}
-
+	if _, err := c.GetAdminToken(); err != nil {
+		c.logger.Error(err, "Couldn't get access token from keycloak")
+		return err
+	}
 	// Delete realm
 	if err := c.client.DeleteRealm(context.Background(), c.token, c.name); err != nil {
 		c.logger.Error(err, "Couldn't delete the realm named "+c.name)
@@ -293,8 +309,8 @@ func (c *KeycloakController) isExistCertificate() bool {
 		return false
 	}
 
-	// req.Header.Set("Authorization", "Bearer "+c.token)
-	req.SetBasicAuth(c.httpClient.Login.Username, c.httpClient.Login.Password)
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	// req.SetBasicAuth(c.httpClient.Login.Username, c.httpClient.Login.Password)
 
 	res, err := c.httpClient.Do(req)
 	if err != nil {
