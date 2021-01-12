@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	exv1beta1 "k8s.io/api/extensions/v1beta1"
@@ -42,9 +43,9 @@ import (
 )
 
 const (
-	HarborCoreIngress   = "tmax-harbor-ingress"        // TODO - configurable
-	HarborNotaryIngress = "tmax-harbor-ingress-notary" // TODO - configurable
-	HarborNamespace     = "harbor"                     // TODO - configurable
+	DefaultHarborCoreIngress   = "tmax-harbor-ingress"
+	DefaultHarborNotaryIngress = "tmax-harbor-ingress-notary"
+	DefaultHarborNamespace     = "harbor"
 )
 
 // ImageSignRequestReconciler reconciles a ImageSignRequest object
@@ -144,16 +145,29 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	// Check if it's Harbor registry
 	isHarbor := false
 	regIng := &exv1beta1.Ingress{}
-	log.Info(HarborNamespace)
-	log.Info(HarborCoreIngress)
-	if err := r.Client.Get(context.Background(), types.NamespacedName{Name: HarborCoreIngress, Namespace: HarborNamespace}, regIng); err != nil {
+	harborNamespace := os.Getenv("HARBOR_NAMESPACE")
+	if harborNamespace == "" {
+		harborNamespace = DefaultHarborNamespace
+	}
+
+	harborCoreIngress := os.Getenv("HARBOR_CORE_INGRESS")
+	if harborCoreIngress == "" {
+		harborCoreIngress = DefaultHarborCoreIngress
+	}
+
+	harborNotaryIngress := os.Getenv("HARBOR_NOTARY_INGRESS")
+	if harborNotaryIngress == "" {
+		harborNotaryIngress = DefaultHarborNotaryIngress
+	}
+
+	if err := r.Client.Get(context.Background(), types.NamespacedName{Name: harborCoreIngress, Namespace: harborNamespace}, regIng); err != nil {
 		log.Error(err, "")
 	}
 	if regIng.ResourceVersion != "" && len(regIng.Spec.Rules) == 1 && img.Host == regIng.Spec.Rules[0].Host {
 		isHarbor = true
 
 		notIng := &exv1beta1.Ingress{}
-		if err := r.Client.Get(context.Background(), types.NamespacedName{Name: HarborNotaryIngress, Namespace: HarborNamespace}, notIng); err != nil {
+		if err := r.Client.Get(context.Background(), types.NamespacedName{Name: harborNotaryIngress, Namespace: harborNamespace}, notIng); err != nil {
 			log.Error(err, "")
 			makeResponse(signReq, false, err.Error(), "")
 			return ctrl.Result{}, nil
