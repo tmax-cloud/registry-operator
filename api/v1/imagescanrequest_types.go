@@ -55,9 +55,9 @@ type Vulnerabilities []Vulnerability
 
 // ImageScanRequestSpec defines the desired state of ImageScanRequest
 type ImageScanRequestSpec struct {
-	// Image path
+	// Image path (example: docker.io/library/alpine:3)
 	ImageUrl string `json:"imageUrl"`
-	// Alternate URL for registry authentication
+	// Alternate URL for registry authentication (example: auth.docker.io)
 	AuthUrl string `json:"authUrl,omitempty"`
 	// Do not verify tls certificates
 	Insecure bool `json:"insecure,omitempty"`

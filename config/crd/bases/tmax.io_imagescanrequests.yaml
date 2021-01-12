@@ -40,7 +40,7 @@ spec:
           description: ImageScanRequestSpec defines the desired state of ImageScanRequest
           properties:
             authUrl:
-              description: Alternate URL for registry authentication
+              description: 'Alternate URL for registry authentication (example: auth.docker.io)'
               type: string
             debug:
               description: Debug flag
@@ -55,7 +55,7 @@ spec:
               description: Force allow use of non-ssl
               type: boolean
             imageUrl:
-              description: Image path
+              description: 'Image path (example: docker.io/library/alpine:3)'
               type: string
             insecure:
               description: Do not verify tls certificates
