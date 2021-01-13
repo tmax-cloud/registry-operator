@@ -210,7 +210,7 @@ compare-sha-crd:
 	@if [ "${CRDSHA_6_AFTER}" = "${CRDSHA_6}" ]; then echo "$(CRD_6) is not changed"; else echo "$(CRD_6) file is changed"; exit 1; fi
 	@if [ "${CRDSHA_7_AFTER}" = "${CRDSHA_7}" ]; then echo "$(CRD_7) is not changed"; else echo "$(CRD_7) file is changed"; exit 1; fi
 	@if [ "${CRDSHA_8_AFTER}" = "${CRDSHA_8}" ]; then echo "$(CRD_8) is not changed"; else echo "$(CRD_8) file is changed"; exit 1; fi
-	@if [ "${CRDSHA_ALL_AFTER}" = "${CRDSHA_ALL}" ]; then echo "all crds are not changed"; else echo "some crd types are added, but crd yaml file is not generated"; exit 1; fi
+	@if [ "${CRDSHA_ALL_AFTER}" = "${CRDSHA_ALL}" ]; then echo "all crds are not changed"; else echo "some crd types are added, but crd yaml file is not generated or included in specific test case"; exit 1; fi
 	
 # variable for mod
 GO_MOD_FILE = go.mod
