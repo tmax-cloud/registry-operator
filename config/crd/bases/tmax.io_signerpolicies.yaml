@@ -17,6 +17,7 @@ spec:
   scope: Namespaced
   validation:
     openAPIV3Schema:
+      description: SignerPolicy contains the list of valid signer in a namespace
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
