@@ -36,6 +36,10 @@ spec:
             value: "registry-operator"
           - name: TZ
             value: Asia/Seoul
+          # CLUSTER_NAME is Name for distinguishing clusters
+          # If registry resource is created with CLUSTER_NAME set, you must delete all of the resources and change this value
+          # - name: CLUSTER_NAME
+          #  value: {CLUSTER_NAME}
           # IMAGE_REGISTRY is private image registry url including image such as registry:2.7.1 and tmaxcloudck/notary_server:0.6.2-rc1 etc. 
           # Input like 172.22.11.2:5000 at <image_registry>.
           # - name: IMAGE_REGISTRY
