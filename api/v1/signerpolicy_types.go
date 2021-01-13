@@ -7,13 +7,19 @@ import (
 type SignerPolicySpec struct {
 	Signers []string `json:"signers"`
 }
+
+// +kubebuilder:object:root=true
+
+// SignerPolicy contains the list of valid signer in a namespace
 type SignerPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec SignerPolicySpec `json:"spec"`
+	Spec              SignerPolicySpec `json:"spec"`
 }
 
+// +kubebuilder:object:root=true
+
+// SignerPolicyList contains the list of SignerPolicy resources
 type SignerPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
