@@ -53,6 +53,15 @@ func NewKeycloakController(namespace, name string) *KeycloakController {
 		InsecureSkipVerify: true,
 	})
 
+	// set realm name
+	var realm string
+	clusterName := os.Getenv("CLUSTER_NAME")
+	if clusterName == "" {
+		realm = fmt.Sprintf("%s-%s", namespace, name)
+	} else {
+		realm = fmt.Sprintf("%s-%s-%s", clusterName, namespace, name)
+	}
+
 	// login admin
 	token, err := client.LoginAdmin(context.Background(), keycloakUser, keycloakPwd, "master")
 	if err != nil {
@@ -61,7 +70,7 @@ func NewKeycloakController(namespace, name string) *KeycloakController {
 	}
 
 	return &KeycloakController{
-		name:       fmt.Sprintf("%s-%s", namespace, name),
+		name:       realm,
 		client:     client,
 		logger:     logger,
 		token:      token.AccessToken,
