@@ -46,7 +46,7 @@ func StartDailyBackup(logFile *os.File) {
 		}
 
 		// backup yesterday log
-		if err := ioutil.WriteFile(fmt.Sprintf("%s.%s.log", "operator", time.Now().AddDate(0, 0, -1).Format("2006-01-02")), input, 0644); err != nil {
+		if err := ioutil.WriteFile(fmt.Sprintf("%s/%s.%s.log", path.Dir(logFilePath), "operator", time.Now().AddDate(0, 0, -1).Format("2006-01-02")), input, 0644); err != nil {
 			fmt.Println("failed to create log file", logFilePath)
 			fmt.Println(err)
 			return
