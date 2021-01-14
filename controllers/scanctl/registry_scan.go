@@ -19,6 +19,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+var (
+	// Priorities are the vulnerability priority labels.
+	Priorities = []string{"Unknown", "Negligible", "Low", "Medium", "High", "Critical", "Defcon1"}
+)
+
 func ParseAnalysis(threshold int, report *reg.VulnerabilityReport) (map[string]int, []string, map[string]tmaxiov1.Vulnerabilities) {
 	vulnerabilities := make(map[string]tmaxiov1.Vulnerabilities)
 	summary := make(map[string]int)
@@ -43,6 +48,10 @@ func ParseAnalysis(threshold int, report *reg.VulnerabilityReport) (map[string]i
 			vuls = append(vuls, vul)
 		}
 		vulnerabilities[sev] = vuls
+	}
+
+	for _, val := range Priorities {
+		summary[val] = 0
 	}
 
 	if len(report.VulnsBySeverity) < 1 {
