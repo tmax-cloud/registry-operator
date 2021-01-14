@@ -11,6 +11,7 @@ type SignerPolicySpec struct {
 // +kubebuilder:object:root=true
 
 // SignerPolicy contains the list of valid signer in a namespace
+// +kubebuilder:resource:path=signerpolicies,scope=Namespaced,shortName=sp
 type SignerPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
