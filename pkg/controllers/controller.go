@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	apiv1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -71,8 +72,8 @@ func (c *SigningController) CreateRootKey(owner *apiv1.ImageSigner, scheme *runt
 
 	key := &apiv1.TrustKey{
 		ID:         rootKeyId,
-		Key:        string(rootKey),
-		PassPhrase: rootPhrase,
+		Key:        base64.StdEncoding.EncodeToString(rootKey),
+		PassPhrase: base64.StdEncoding.EncodeToString([]byte(rootPhrase)),
 	}
 
 	if err := c.createRootKey(owner, scheme, key); err != nil {
@@ -143,8 +144,8 @@ func (c *SigningController) SignImage(signerKey *apiv1.SignerKey, img *trust.Ima
 		}
 		newTarget := apiv1.TrustKey{
 			ID:         newTargetKeyId,
-			Key:        string(newTargetKey),
-			PassPhrase: newPass,
+			Key:        base64.StdEncoding.EncodeToString(newTargetKey),
+			PassPhrase: base64.StdEncoding.EncodeToString([]byte(newPass)),
 		}
 		if err := c.addTargetKey(signerKey, img.GetImageNameWithHost(), newTarget); err != nil {
 			log.Error(err, "")

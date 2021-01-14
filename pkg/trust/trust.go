@@ -3,6 +3,7 @@ package trust
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
@@ -83,14 +84,24 @@ func New(image *Image, passPhrase tmaxiov1.TrustPass, path string, ca []byte, ro
 
 	// get trust key &  write it as a file
 	log.Info("Writing root key")
-	if err := n.WriteKey(rootKey.ID, []byte(rootKey.Key)); err != nil {
+	decRootKey, err := base64.StdEncoding.DecodeString(rootKey.Key)
+	if err != nil {
+		log.Error(err, "unable to decode base64 string")
+		return nil, err
+	}
+	if err := n.WriteKey(rootKey.ID, decRootKey); err != nil {
 		log.Error(err, "")
 		return nil, err
 	}
 
 	if targetKey != nil {
 		log.Info("Writing target key")
-		if err := n.WriteKey(targetKey.ID, []byte(targetKey.Key)); err != nil {
+		decTargetKey, err := base64.StdEncoding.DecodeString(targetKey.Key)
+		if err != nil {
+			log.Error(err, "unable to decode base64 string")
+			return nil, err
+		}
+		if err := n.WriteKey(targetKey.ID, decTargetKey); err != nil {
 			log.Error(err, "")
 			return nil, err
 		}

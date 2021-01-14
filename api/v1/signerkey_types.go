@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,11 +80,21 @@ func init() {
 func (s SignerKey) GetPassPhrase() TrustPass {
 	pass := TrustPass{}
 	if s.Spec.Root.ID != "" && s.Spec.Root.PassPhrase != "" {
-		pass.AddKeyPass(s.Spec.Root.ID, s.Spec.Root.PassPhrase)
+		decPass, err := base64.StdEncoding.DecodeString(s.Spec.Root.PassPhrase)
+		if err != nil {
+			fmt.Printf("unable to decode base64 string: %s", err.Error())
+			return pass
+		}
+		pass.AddKeyPass(s.Spec.Root.ID, string(decPass))
 	}
 	for _, v := range s.Spec.Targets {
 		if v.ID != "" && v.PassPhrase != "" {
-			pass.AddKeyPass(v.ID, v.PassPhrase)
+			decPass, err := base64.StdEncoding.DecodeString(v.PassPhrase)
+			if err != nil {
+				fmt.Printf("unable to decode base64 string: %s", err.Error())
+				return pass
+			}
+			pass.AddKeyPass(v.ID, string(decPass))
 		}
 	}
 	return pass
