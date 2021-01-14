@@ -25,7 +25,6 @@ import (
 	exv1beta1 "k8s.io/api/extensions/v1beta1"
 
 	"github.com/tmax-cloud/registry-operator/controllers/repoctl"
-	"github.com/tmax-cloud/registry-operator/internal/common/certs"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -133,14 +132,6 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 			return ctrl.Result{}, nil
 		}
 		ca = regCert.Data[schemes.TLSCert]
-	} else {
-		cert, err := certs.GetRootCert(signReq.Namespace)
-		if err != nil {
-			log.Error(err, "")
-			makeResponse(signReq, false, err.Error(), "")
-			return ctrl.Result{}, nil
-		}
-		ca = cert.Data[certs.RootCACert]
 	}
 
 	// Start signing procedure
