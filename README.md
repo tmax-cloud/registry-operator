@@ -5,41 +5,56 @@ The registry-operator project is a service to launch private registries and to m
 1. On your local machine, clone this repository.
     ```bash
     git clone https://github.com/tmax-cloud/registry-operator.git
-    cd registry-operator
+	export WORKDIR=$(pwd)/registry-operator
+    cd ${WORKDIR}
     ```
     
-2. Create or Use CA certificate
-	* If you don't have a root CA certificate, excute following commands.
+2. Create or use CA certificate
+	* If you don't have a root CA certificate, excute following commandsto create new root ca certificate.
 		```bash
+		cd ${WORKDIR}
 		sudo chmod 755 ./config/scripts/newCertFile.sh
 		./config/scripts/newCertFile.sh
 		cp ca.crt ca.key ./config/pki/
 		``` 
 
-	* If you have a root CA certificate, put the CA Certifacete in the path(./config/pki/). 
-	The name must be `ca.crt` and `ca.key`
+	* If you already have a root CA certificate , put the CA Certifacete in the path(./config/pki/). 
+	Each name must be `ca.crt` and `ca.key`
 
 	* If you have to register your keycloak certificate, put the keycloak certificate in the `path(./config/pki/keycloak.crt)`.
 
-3. Execute install.sh script
+3. Set manager.yaml's configuration
+	* Change the following export variables to the appropriate values to run.
+		```bash
+		export REGISTRY_OPERATOR_VERSION=v0.1.0
+		export LOG_FILE_PATH="/root/go/src/github.com/tmax-cloud/registry-operator/logs"
+		
+		sed -i 's/{REGISTRY_OPERATOR_VERSION}/'${REGISTRY_OPERATOR_VERSION}'/g' ./config/manager/manager.yaml
+		sed -i 's/{LOG_FILE_PATH}/'${LOG_FILE_PATH}'/g' ./config/manager/manager.yaml
+		```
+
+4. Execute install.sh script
 	* Create namespace, CRDs, role, etc... Then deploy the registry-operator.
 	(If you have keycloak's certificate, modify config/manager/keycloak_cert_secret.yaml file's contents)
 		```bash
+		cd ${WORKDIR}
 		sudo chmod 755 ./config/scripts/newCertSecret.sh install.sh
 		./install.sh 
 		```
 		
-4. Launch CA certificate
+5. Launch CA certificate
 	* Update CA Certificate (Note: Must be applied to all nodes)
 		1) If the node is CentOS 7
 		```bash
+		cd ${WORKDIR}
 		cp ./config/pki/ca.crt /etc/pki/ca-trust/source/anchors/
 		update-ca-trust
 		```
 
 		2) If the node is Ubuntu 18.04
 		```bash
-		cp ca.crt /usr/local/share/ca-certificates/
+		cd ${WORKDIR}
+		cp ./config/pki/ca.crt /usr/local/share/ca-certificates/
 		update-ca-certificates
 		```
 		
@@ -67,12 +82,14 @@ The registry-operator project is a service to launch private registries and to m
 ## [FOR DEV] Build Binary
 * To build manager binary execute following commands. manager binary will be made in bin directory.
 	```bash
+	cd ${WORKDIR}
 	make manager
 	```
 
 ## [FOR DEV] Build & Push Image
 * To build registry-operator image use operator-sdk tool. Excute following commands.
     ```bash
+	cd ${WORKDIR}
 	export DEV_IMG=tmaxcloudck/registry-operator:0.0.1-dev
     make docker-build-dev
     make docker-push-dev
@@ -81,6 +98,7 @@ The registry-operator project is a service to launch private registries and to m
 ## [FOR RELEASE] Build & Push Image
 * To build registry-operator image use operator-sdk tool. Excute following commands.
     ```bash
+	cd ${WORKDIR}
 	export IMG=tmaxcloudck/registry-operator:0.0.1
     make docker-build
     make docker-push
