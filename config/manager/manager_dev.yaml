@@ -69,11 +69,18 @@ spec:
 #          requests:
 #            cpu: 100m
 #            memory: 20Mi
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /usr/sbin/update-ca-certificates
         volumeMounts:
         - name: manager-mnt
           mountPath: /bin/dev
         - name: operator-log-mnt
-          mountPath: /logs    
+          mountPath: /logs
+        - mountPath: /usr/local/share/ca-certificates
+          name: registry-secret  
       volumes:
       - name: manager-mnt
         hostPath:
@@ -81,6 +88,9 @@ spec:
       - name: operator-log-mnt
         hostPath:
           path: "/root/go/src/github.com/tmax-cloud/registry-operator/logs"
+      - name: registry-secret
+        secret:
+          secretName: registry-ca
       nodeSelector:
         kubernetes.io/hostname: node1
       terminationGracePeriodSeconds: 10
