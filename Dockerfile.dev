@@ -27,7 +27,7 @@ FROM alpine:3.11
 WORKDIR /bin/dev
 RUN mkdir -p /bin/dev ; \
     apk add tzdata
-    
+RUN apk add ca-certificates
 ENV TZ=Asia/Seoul
 COPY --from=builder /workspace/manager .
 
