@@ -170,14 +170,14 @@ func (n *notaryRepo) CreateRootKey() error {
 
 func (n *notaryRepo) SignImage() error {
 	log.Info(fmt.Sprintf("Signing image %s", n.image.GetImageNameWithHost()))
-	imgDigest, size, err := n.image.GetImageManifest()
+	manifest, err := n.image.GetImageManifest()
 	if err != nil {
 		log.Error(err, "")
 		return err
 	}
 
 	// Parse digest
-	dgst, err := digest.Parse(imgDigest)
+	dgst, err := digest.Parse(manifest.Digest)
 	if err != nil {
 		log.Error(err, "")
 		return err
@@ -191,7 +191,7 @@ func (n *notaryRepo) SignImage() error {
 	target := &client.Target{
 		Name:   n.image.Tag,
 		Hashes: data.Hashes{string(dgst.Algorithm()): h},
-		Length: size,
+		Length: manifest.ContentLength,
 	}
 
 	if _, err := n.repo.ListTargets(); err != nil {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth/challenge"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -32,6 +33,23 @@ type Image struct {
 	Tokens    map[TokenType]Token
 
 	HttpClient http.Client
+}
+
+type ImageManifest struct {
+	Digest        string
+	ContentLength int64
+
+	*ImageManifestBody
+}
+
+type ImageManifestBody struct {
+	SchemaVersion int    `json:"schemaVersion"`
+	MediaType     string `json:"mediaType"`
+	Layers        []struct {
+		MediaType string `json:"mediaType"`
+		Size      int64  `json:"size"`
+		Digest    string `json:"digest"`
+	} `json:"layers"`
 }
 
 func NewImage(uri, registryServer, notaryServer, basicAuth string, ca []byte) (*Image, error) {
@@ -93,23 +111,23 @@ func (r *Image) GetImageNameWithHost() string {
 	return path.Join(r.Host, r.Name)
 }
 
-func (r *Image) GetImageManifest() (string, int64, error) {
+func (r *Image) GetImageManifest() (*ImageManifest, error) {
 	u, err := url.Parse(r.ServerUrl)
 	if err != nil {
 		log.Error(err, "")
-		return "", 0, err
+		return nil, err
 	}
 	u.Path = path.Join(u.Path, fmt.Sprintf("v2/%s/manifests/%s", r.Name, r.Tag))
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
 		log.Error(err, "")
-		return "", 0, err
+		return nil, err
 	}
 
 	token, err := r.GetToken(TokenTypeRegistry)
 	if err != nil {
 		log.Error(err, "")
-		return "", 0, err
+		return nil, err
 	}
 
 	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
@@ -118,29 +136,44 @@ func (r *Image) GetImageManifest() (string, int64, error) {
 	resp, err := r.HttpClient.Do(req)
 	if err != nil {
 		log.Error(err, "")
-		return "", 0, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if !client.SuccessStatus(resp.StatusCode) {
 		log.Error(err, "")
 		err := client.HandleErrorResponse(resp)
-		return "", 0, err
+		return nil, err
 	}
 
 	digest := resp.Header.Get("Docker-Content-Digest")
 	lengthStr := resp.Header.Get("Content-Length")
 
 	if digest == "" || lengthStr == "" {
-		return "", 0, fmt.Errorf("expected headers not exist")
+		return nil, fmt.Errorf("expected headers not exist")
 	}
 
 	length, err := strconv.Atoi(lengthStr)
 	if err != nil {
 		log.Error(err, "")
-		return "", 0, err
+		return nil, err
 	}
 
-	return digest, int64(length), nil
+	bodyStr, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Error(err, "")
+		return nil, err
+	}
+	body := &ImageManifestBody{}
+	if err := json.Unmarshal(bodyStr, body); err != nil {
+		log.Error(err, "")
+		return nil, err
+	}
+
+	return &ImageManifest{
+		Digest:            digest,
+		ContentLength:     int64(length),
+		ImageManifestBody: body,
+	}, nil
 }
 
 type TokenType string

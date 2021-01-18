@@ -20,12 +20,12 @@ func Mutate(ar *v1beta1.AdmissionReview, client client.Client) *v1beta1.Admissio
 	req := ar.Request
 
 	// AdmissionReview for Kind=tmax.io/v1, Kind=ImageSigner, Namespace= Name=yun  UID=685e6c98-a47c-4fb5-b2c5-8d8140eb0ffd patchOperation=CREATE UserInfo={admin@tmax.co.kr  [system:authenticated] map[]}
-	log.Info(fmt.Sprintf("AdmissionReview for Kind=%v, Namespace=%v Name=%v  UID=%v patchOperation=%v UserInfo=%v",
+	logger.Info(fmt.Sprintf("AdmissionReview for Kind=%v, Namespace=%v Name=%v  UID=%v patchOperation=%v UserInfo=%v",
 		req.Kind, req.Namespace, req.Name, req.UID, req.Operation, req.UserInfo))
 
 	signer := &regv1.ImageSigner{}
 	if err := json.Unmarshal(req.Object.Raw, signer); err != nil {
-		log.Error(err, "unable to unmarshal imagesigner", "name", req.Name)
+		logger.Error(err, "unable to unmarshal imagesigner", "name", req.Name)
 		return &v1beta1.AdmissionResponse{
 			Result: &metav1.Status{
 				Message: err.Error(),

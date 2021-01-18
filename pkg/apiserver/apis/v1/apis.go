@@ -25,7 +25,7 @@ const (
 	ResourceParamKey = "resourceName"
 )
 
-var log = ctrl.Log.WithName("signer-apis")
+var logger = ctrl.Log.WithName("signer-apis")
 var authClient *authorization.AuthorizationV1Client
 var k8sClient client.Client
 
@@ -33,7 +33,7 @@ func Initiate() {
 	// Auth Client
 	authCli, err := utils.AuthClient()
 	if err != nil {
-		log.Error(err, "")
+		logger.Error(err, "")
 		os.Exit(1)
 	}
 	authClient = authCli
@@ -44,7 +44,7 @@ func Initiate() {
 
 	cli, err := utils.Client(opt)
 	if err != nil {
-		log.Error(err, "")
+		logger.Error(err, "")
 		os.Exit(1)
 	}
 	k8sClient = cli
@@ -56,7 +56,18 @@ func AddV1Apis(parent *wrapper.RouterWrapper) error {
 		return err
 	}
 
-	if err := AddSignerApis(versionWrapper); err != nil {
+	namespaceWrapper := wrapper.New("/namespaces/{namespace}", nil, nil)
+	if err := versionWrapper.Add(namespaceWrapper); err != nil {
+		return err
+	}
+
+	// Image scan request
+	if err := AddScanRequest(namespaceWrapper); err != nil {
+		return err
+	}
+
+	// Image scan result
+	if err := AddScanResult(namespaceWrapper); err != nil {
 		return err
 	}
 

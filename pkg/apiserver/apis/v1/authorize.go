@@ -19,30 +19,17 @@ const (
 	ExtrasHeader = "X-Remote-Extra-"
 )
 
-func Authorize(h http.Handler) http.Handler {
+func authenticate(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if err := authorize(req); err != nil {
-			_ = utils.RespondError(w, http.StatusUnauthorized, err.Error())
+		if req.TLS == nil || len(req.TLS.PeerCertificates) == 0 {
+			_ = utils.RespondError(w, http.StatusUnauthorized, "is not https or there is no peer certificate")
 			return
 		}
-
-		if err := reviewAccess(w, req); err != nil {
-			_ = utils.RespondError(w, http.StatusUnauthorized, err.Error())
-			return
-		}
-
 		h.ServeHTTP(w, req)
 	})
 }
 
-func authorize(req *http.Request) error {
-	if req.TLS == nil || len(req.TLS.PeerCertificates) == 0 {
-		return fmt.Errorf("is not https or there is no peer certificate")
-	}
-	return nil
-}
-
-func reviewAccess(w http.ResponseWriter, req *http.Request) error {
+func reviewAccess(req *http.Request) error {
 	userName, err := getUserName(req.Header)
 	if err != nil {
 		return err
@@ -67,8 +54,7 @@ func reviewAccess(w http.ResponseWriter, req *http.Request) error {
 
 	resourceName, nameExist := vars[ResourceParamKey]
 	if !nameExist {
-		_ = utils.RespondError(w, http.StatusBadRequest, "url is malformed")
-		return fmt.Errorf("")
+		return fmt.Errorf("url is malformed")
 	}
 
 	r := &authorization.SubjectAccessReview{
