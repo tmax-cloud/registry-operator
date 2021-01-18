@@ -31,6 +31,31 @@ const (
 	ScanRequestError      ScanRequestStatusType = "Error"
 )
 
+type ScanTarget struct {
+	// Registry URL (example: docker.io)
+	RegistryUrl string `json:"registryUrl`
+	// Image path (example: library/alpine:3)
+	Images []string `json:"images"`
+	// Alternate URL for registry authentication (example: auth.docker.io)
+	AuthUrl string `json:"authUrl,omitempty"`
+	// Do not verify tls certificates
+	Insecure bool `json:"insecure,omitempty"`
+	// Force allow use of non-ssl
+	ForceNonSSL bool `json:"forceNonSSL,omitempty"`
+	// Login id and password secret object for registry
+	ImagePullSecret string `json:"imagePullSecret,omitempty"`
+	// Debug flag
+	Debug bool `json:"debug,omitempty"`
+	// Skip pinging the registry while establishing connection
+	SkipPing bool `json:"skipPing,omitempty"`
+	// Timeout for HTTP requests
+	TimeOut time.Duration `json:"timeOut,omitempty"`
+	// Number of fixable issues permitted
+	FixableThreshold int `json:"fixableThreshold,omitempty"`
+	// Send vulerability to ES
+	ElasticSearch bool `json:"elasticSearch,omitempty"`
+}
+
 type Vulnerability struct {
 	// Severity name
 	Name string `json:"Name,omitempty"`
@@ -55,28 +80,7 @@ type Vulnerabilities []Vulnerability
 
 // ImageScanRequestSpec defines the desired state of ImageScanRequest
 type ImageScanRequestSpec struct {
-	// Image path (example: docker.io/library/alpine:3)
-	ImageUrl string `json:"imageUrl"`
-	// Alternate URL for registry authentication (example: auth.docker.io)
-	AuthUrl string `json:"authUrl,omitempty"`
-	// Do not verify tls certificates
-	Insecure bool `json:"insecure,omitempty"`
-	// Force allow use of non-ssl
-	ForceNonSSL bool `json:"forceNonSSL,omitempty"`
-	// Username for the registry
-	Username string `json:"username,omitempty"`
-	// Password for the registry
-	Password string `json:"password,omitempty"`
-	// Debug flag
-	Debug bool `json:"debug,omitempty"`
-	// Skip pinging the registry while establishing connection
-	SkipPing bool `json:"skipPing,omitempty"`
-	// Timeout for HTTP requests
-	TimeOut time.Duration `json:"timeOut,omitempty"`
-	// Number of fixable issues permitted
-	FixableThreshold int `json:"fixableThreshold,omitempty"`
-	// Send vulerability to ES
-	ElasticSearch bool `json:"elasticSearch,omitempty"`
+	ScanTargets []ScanTarget `json:"scanTargets"`
 }
 
 // ImageScanRequestStatus defines the observed state of ImageScanRequest
