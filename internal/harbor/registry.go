@@ -44,11 +44,6 @@ func Ingress(c client.Client) (*exv1beta1.Ingress, error) {
 		harborCoreIngress = DefaultHarborCoreIngress
 	}
 
-	harborNotaryIngress := os.Getenv("HARBOR_NOTARY_INGRESS")
-	if harborNotaryIngress == "" {
-		harborNotaryIngress = DefaultHarborNotaryIngress
-	}
-
 	if err := c.Get(context.Background(), types.NamespacedName{Name: harborCoreIngress, Namespace: harborNamespace}, regIng); err != nil {
 		logger.Error(err, "")
 		return nil, err

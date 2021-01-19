@@ -64,11 +64,6 @@ func imageUrl(registryUrl, image string) string {
 	return path.Join(registryUrl, image)
 }
 
-type VulnerabilityReports struct {
-	Registry  string
-	imageVuls map[string]reg.VulnerabilityReport
-}
-
 func GetRegistryImages(c client.Client, registryURL, imageNamePattern string) []string {
 	images := []string{}
 	isHarbor := false

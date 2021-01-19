@@ -149,7 +149,7 @@ func ParseBasicAuth(sec *corev1.Secret, host string) (string, error) {
 	}
 
 	// set default port 443
-	for i, _ := range hosts {
+	for i := range hosts {
 		hosts[i] = setDefaultPort(hosts[i])
 	}
 
@@ -173,11 +173,11 @@ func ParseBasicAuth(sec *corev1.Secret, host string) (string, error) {
 }
 
 func setDefaultPort(url string) string {
-	dregex := regexp.MustCompile(":[\\d]+$")
+	dregex := regexp.MustCompile(`:[\\d]+$`)
 	sregex := regexp.MustCompile("/")
 
 	if sregex.MatchString(url) {
-		dsregex := regexp.MustCompile(":[\\d]+/")
+		dsregex := regexp.MustCompile(`:[\\d]+/`)
 		if !dsregex.MatchString(url) {
 			loc := sregex.FindStringIndex(url)
 			url = url[:loc[0]] + ":443" + url[loc[0]:]
