@@ -20,6 +20,7 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"path"
 
 	reg "github.com/genuinetools/reg/clair"
 	"github.com/go-logr/logr"
@@ -67,47 +68,68 @@ func (r *ImageScanRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{}, nil
 	}
 	//get vulnerability
-	report, err := scanctl.GetVulnerability(instance)
+	reports, err := scanctl.GetVulnerability(r.Client, instance)
+	if err != nil {
+		reqLogger.Error(err, "failed to get vulnerability")
+	}
 
 	//update status
-	return r.updateScanningStatus(instance, &report, err)
+	return r.updateScanningStatus(instance, reports, err)
 }
 
-func (r *ImageScanRequestReconciler) updateScanningStatus(instance *tmaxiov1.ImageScanRequest, report *reg.VulnerabilityReport, err error) (ctrl.Result, error) {
+func (r *ImageScanRequestReconciler) updateScanningStatus(instance *tmaxiov1.ImageScanRequest, reports map[string]map[string]*reg.VulnerabilityReport, err error) (ctrl.Result, error) {
 	reqLogger := r.Log.WithName("update Scanning status")
 	// set condition depending on the error
 	instanceWithStatus := instance.DeepCopy()
+	var status tmaxiov1.ImageScanRequestStatus
 
-	var cond tmaxiov1.ImageScanRequestStatus
 	if err == nil {
 		//start processing
 		if len(instance.Status.Status) == 0 {
-			cond.Message = "Scanning in process"
-			cond.Status = tmaxiov1.ScanRequestProcessing
+			status.Message = "Scanning in process"
+			status.Status = tmaxiov1.ScanRequestProcessing
 
 		} else if instance.Status.Status == tmaxiov1.ScanRequestProcessing {
-			cond.Message = "succeed to get vulnerability"
-			cond.Status = tmaxiov1.ScanRequestSuccess
-			cond.Summary, cond.Fatal, cond.Vulnerabilities = scanctl.ParseAnalysis(instance.Spec.FixableThreshold, report)
-			// send logging server
+			status.Message = "succeed to get vulnerability"
+			status.Status = tmaxiov1.ScanRequestSuccess
+			status.Results = map[string]tmaxiov1.ScanResult{}
 
 			esUrl := os.Getenv("ELASTIC_SEARCH_URL")
-			if err == nil && len(esUrl) != 0 && instance.Spec.ElasticSearch {
-				res, err := scanctl.SendElasticSearchServer(esUrl, instance.Namespace, instance.Name, &cond)
-				if err == nil {
-					bodyBytes, _ := ioutil.ReadAll(res.Body)
-					reqLogger.Info("webhook: " + string(bodyBytes))
+			for registry, imageReports := range reports {
+				for image, report := range imageReports {
+					for _, target := range instance.Spec.ScanTargets {
+						if target.RegistryURL != registry {
+							continue
+						}
+
+						// set scan result
+						result := tmaxiov1.ScanResult{}
+						result.Summary = scanctl.ParseAnalysis(target.FixableThreshold, report)
+						status.Results[path.Join(registry, image)] = result
+
+						// send logging server
+						if err == nil && len(esUrl) != 0 {
+							if target.RegistryURL == registry && target.ElasticSearch {
+								res, err := scanctl.SendElasticSearchServer(esUrl, instance.Namespace, instance.Name, &status)
+								if err == nil {
+									bodyBytes, _ := ioutil.ReadAll(res.Body)
+									reqLogger.Info("webhook: " + string(bodyBytes))
+								}
+							}
+						}
+
+					}
 				}
 			}
 		}
 	} else {
-		cond.Message = err.Error()
-		cond.Reason = "error occurs while analyze vulnerability"
-		cond.Status = "Error"
+		status.Message = err.Error()
+		status.Reason = "error occurs while analyze vulnerability"
+		status.Status = "Error"
 	}
 
 	// set status
-	instanceWithStatus.Status = cond
+	instanceWithStatus.Status = status
 
 	if errUp := r.Client.Status().Patch(context.TODO(), instanceWithStatus, client.MergeFrom(instance)); errUp != nil {
 		reqLogger.Error(errUp, "could not update scanning")

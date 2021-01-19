@@ -33,11 +33,11 @@ const (
 
 type ScanTarget struct {
 	// Registry URL (example: docker.io)
-	RegistryUrl string `json:"registryUrl`
+	RegistryURL string `json:"registryUrl"`
 	// Image path (example: library/alpine:3)
 	Images []string `json:"images"`
 	// Alternate URL for registry authentication (example: auth.docker.io)
-	AuthUrl string `json:"authUrl,omitempty"`
+	AuthURL string `json:"authUrl,omitempty"`
 	// Do not verify tls certificates
 	Insecure bool `json:"insecure,omitempty"`
 	// Force allow use of non-ssl
@@ -54,6 +54,11 @@ type ScanTarget struct {
 	FixableThreshold int `json:"fixableThreshold,omitempty"`
 	// Send vulerability to ES
 	ElasticSearch bool `json:"elasticSearch,omitempty"`
+}
+
+type ScanResult struct {
+	//Scan summary
+	Summary map[string]int `json:"summary,omitempty"`
 }
 
 type Vulnerability struct {
@@ -91,16 +96,13 @@ type ImageScanRequestStatus struct {
 	Reason string `json:"reason,omitempty"`
 	//Scan status
 	Status ScanRequestStatusType `json:"status,omitempty"`
-	//Scan summary
-	Summary map[string]int `json:"summary,omitempty"`
-	//Scan fatal message
-	Fatal []string `json:"fatal,omitempty"`
-	//Scan vulnerabilities
-	Vulnerabilities map[string]Vulnerabilities `json:"vulnerabilities,omitempty"`
+	//Scna results {docker.io/library/alpine:3: {summary : {"Low" : 1, "Medium" : 2, ...}}
+	Results map[string]ScanResult `json:"results,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=icr
 // +kubebuilder:printcolumn:name="STATUS",type=string,JSONPath=`.status.status`
 // +kubebuilder:printcolumn:name="AGE",type=date,JSONPath=`.metadata.creationTimestamp`
 
