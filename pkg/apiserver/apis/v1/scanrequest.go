@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"net/http"
-	"path"
 	"strings"
 )
 
@@ -114,11 +113,11 @@ func newImageScanReq(name, ns string, reqBody *scan.Request) (*v1.ImageScanReque
 			for _, tag := range repo.Versions {
 				// Tag wild card
 				if tag == "*" {
-					tagUrls = []string{path.Join(repoBaseUrl, "*")}
+					tagUrls = []string{fmt.Sprintf("%s:*", repoBaseUrl)}
 					break
 				}
 
-				tagUrls = append(tagUrls, path.Join(repoBaseUrl, tag))
+				tagUrls = append(tagUrls, fmt.Sprintf("%s:%s", repoBaseUrl, tag))
 			}
 
 			repoUrls = append(repoUrls, tagUrls...)
