@@ -7,6 +7,7 @@ import (
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,6 +50,26 @@ func (r *RegistryRepository) Get(c client.Client, reg *regv1.Registry, imageName
 	}
 
 	return repo, nil
+}
+
+func (r *RegistryRepository) List(c client.Client, reg *regv1.Registry) (*regv1.RepositoryList, error) {
+	repoList := &regv1.RepositoryList{}
+
+	label := map[string]string{}
+	label["registry"] = reg.Name
+	labelSelector := labels.SelectorFromSet(labels.Set(label))
+	listOps := &client.ListOptions{
+		Namespace:     reg.Namespace,
+		LabelSelector: labelSelector,
+	}
+
+	logger.Info("List", "Registry", reg.Name, "Namespace", reg.Namespace)
+	if err := c.List(context.TODO(), repoList, listOps); err != nil {
+		logger.Error(err, "failed to list repositories")
+		return nil, err
+	}
+
+	return repoList, nil
 }
 
 func (r *RegistryRepository) Patch(c client.Client, repo *regv1.Repository, patchRepo *regv1.Repository) error {

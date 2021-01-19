@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -126,9 +127,9 @@ func ParseBasicAuth(sec *corev1.Secret, host string) (string, error) {
 	if sec == nil {
 		return "", fmt.Errorf("cannot get secret")
 	}
-	if sec.Type != corev1.SecretTypeDockerConfigJson {
-		return "", fmt.Errorf("secret is not a docker config type")
-	}
+	// if sec.Type != corev1.SecretTypeDockerConfigJson {
+	// 	return "", fmt.Errorf("secret is not a docker config type")
+	// }
 	data, ok := sec.Data[corev1.DockerConfigJsonKey]
 	if !ok {
 		return "", fmt.Errorf("secret is not a docker config type")
@@ -139,16 +140,54 @@ func ParseBasicAuth(sec *corev1.Secret, host string) (string, error) {
 		return "", err
 	}
 
+	hosts := []string{host}
+	if host == "docker.io" {
+		hosts = append(hosts, "index.docker.io/v1/")
+		hosts = append(hosts, "index.docker.io/v1")
+		hosts = append(hosts, "registry-1.docker.io/")
+		hosts = append(hosts, "registry-1.docker.io")
+	}
+
+	// set default port 443
+	for i := range hosts {
+		hosts[i] = setDefaultPort(hosts[i])
+	}
+
 	for k, v := range cfg.Auths {
-		if k == host {
-			if v.Auth != "" {
-				return v.Auth, nil
-			} else if v.Username != "" && v.Password != "" {
-				return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", v.Username, v.Password))), nil
+		k = strings.TrimPrefix(k, "https://")
+		k = strings.TrimPrefix(k, "http://")
+		k = setDefaultPort(k)
+		for _, host := range hosts {
+			if k == host {
+				if v.Auth != "" {
+					return v.Auth, nil
+				} else if v.Username != "" && v.Password != "" {
+					return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", v.Username, v.Password))), nil
+				}
+				return "", fmt.Errorf("cannot find docker credential for %s", host)
 			}
-			return "", fmt.Errorf("cannot find docker credential for %s", host)
 		}
 	}
 
 	return "", fmt.Errorf("cannot find docker credential for %s", host)
+}
+
+func setDefaultPort(url string) string {
+	dregex := regexp.MustCompile(`:[\\d]+$`)
+	sregex := regexp.MustCompile("/")
+
+	if sregex.MatchString(url) {
+		dsregex := regexp.MustCompile(`:[\\d]+/`)
+		if !dsregex.MatchString(url) {
+			loc := sregex.FindStringIndex(url)
+			url = url[:loc[0]] + ":443" + url[loc[0]:]
+			return url
+		}
+	}
+
+	if !dregex.MatchString(url) {
+		url += ":443"
+	}
+
+	return url
 }
