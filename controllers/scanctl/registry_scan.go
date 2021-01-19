@@ -17,9 +17,9 @@ import (
 	"github.com/genuinetools/reg/registry"
 	"github.com/genuinetools/reg/repoutils"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/controllers/repoctl"
-	"github.com/tmax-cloud/registry-operator/internal/harbor"
+	"github.com/tmax-cloud/registry-operator/internal/common/certs"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
+	regApi "github.com/tmax-cloud/registry-operator/pkg/registry"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -64,38 +64,51 @@ func imageUrl(registryUrl, image string) string {
 	return path.Join(registryUrl, image)
 }
 
-func GetRegistryImages(c client.Client, registryURL, imageNamePattern string) []string {
+func GetRegistryImages(c client.Client, registryURL, basicAuth, imageNamePattern string) []string {
 	images := []string{}
-	isHarbor := false
 
-	// if Harbor
-	isHarbor = harbor.IsHarbor(c, registryURL)
+	caSecret, err := certs.GetSystemRootCASecret(c)
+	if err != nil {
+		logger.Error(err, "failed to get system root ca secret")
+		return images
+	}
+	ca := caSecret.Data[certs.RootCACert]
 
-	if !isHarbor {
-		// internal registry
-		reg, err := findRegistryByHost(c, registryURL)
-		if err != nil {
-			logger.Error(err, fmt.Sprintf("failed to find registry: %s", registryURL))
-			return images
+	regCtl := regApi.NewRegistryAPI(registryURL, basicAuth, ca)
+	repos := regCtl.Catalog()
+	if repos == nil {
+		return images
+	}
+	for _, repo := range repos.Repositories {
+		vers := regCtl.Tags(repo)
+		if vers == nil {
+			continue
 		}
-
-		repoCtl := repoctl.New()
-		repos, err := repoCtl.List(c, reg)
-		if err != nil {
-			logger.Error(err, fmt.Sprintf("failed to list repository from '%s' registry", registryURL))
-			return images
-		}
-		for _, repo := range repos.Items {
-			for _, ver := range repo.Spec.Versions {
-				image := repo.Spec.Name + ":" + ver.Version
-				if utils.Matched(imageNamePattern, image) {
-					images = append(images, image)
-				}
+		for _, ver := range vers.Tags {
+			image := repo + ":" + ver
+			if utils.Matched(imageNamePattern, image) {
+				images = append(images, image)
 			}
 		}
 	}
 
 	return images
+}
+
+func getBasicAuth(imagePullSecret, namespace, registryURL string) (string, error) {
+	secret, err := getSecret(imagePullSecret, namespace)
+	if err != nil {
+		logger.Error(err, "failed to get image pull secret")
+		return "", err
+	}
+
+	basic, err := utils.ParseBasicAuth(secret, registryURL)
+	if err != nil {
+		logger.Error(err, "failed to parse basic auth")
+		return "", err
+	}
+
+	return basic, nil
 }
 
 func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map[string]map[string]*reg.VulnerabilityReport, error) {
@@ -116,7 +129,16 @@ func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map
 		for _, targetImage := range target.Images {
 			matchImages := []string{}
 			if strings.Contains(targetImage, "*") || strings.Contains(targetImage, "?") {
-				matchImages = append(matchImages, GetRegistryImages(c, target.RegistryURL, targetImage)...)
+				var basicAuth string
+				if target.ImagePullSecret != "" {
+					basic, err := getBasicAuth(target.ImagePullSecret, instance.Namespace, target.RegistryURL)
+					if err != nil {
+						logger.Error(err, fmt.Sprintf("failed to get basic auth from imagepullsecret: %s", target.ImagePullSecret))
+						return reports, err
+					}
+					basicAuth = basic
+				}
+				matchImages = append(matchImages, GetRegistryImages(c, target.RegistryURL, basicAuth, targetImage)...)
 			} else {
 				matchImages = append(matchImages, targetImage)
 			}
@@ -172,33 +194,6 @@ func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map
 	}
 
 	return reports, nil
-}
-
-func findRegistryByHost(c client.Client, hostname string) (*tmaxiov1.Registry, error) {
-	regList := &tmaxiov1.RegistryList{}
-	if err := c.List(context.TODO(), regList); err != nil {
-		return nil, err
-	}
-
-	var targetReg tmaxiov1.Registry
-	targetFound := false
-	for _, r := range regList.Items {
-		logger.Info(r.Name)
-		serverUrl := strings.TrimPrefix(r.Status.ServerURL, "https://")
-		serverUrl = strings.TrimPrefix(serverUrl, "http://")
-		serverUrl = strings.TrimSuffix(serverUrl, "/")
-
-		if serverUrl == hostname {
-			targetReg = r
-			targetFound = true
-		}
-	}
-
-	if !targetFound {
-		return nil, fmt.Errorf("target registry is not an internal registry")
-	}
-
-	return &targetReg, nil
 }
 
 func getSecret(name, namespace string) (*corev1.Secret, error) {
