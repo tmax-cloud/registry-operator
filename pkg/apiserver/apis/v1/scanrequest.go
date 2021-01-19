@@ -89,7 +89,7 @@ func newImageScanReq(name, ns string, reqBody *scan.Request) (*v1.ImageScanReque
 			return nil, err
 		}
 
-		regCred := v1.K8sPrefix + strings.ToLower(regName)
+		regCred := v1.K8sPrefix + v1.K8sRegistryPrefix + strings.ToLower(regName)
 
 		var repoUrls []string
 		for _, repo := range reg.Repositories {
