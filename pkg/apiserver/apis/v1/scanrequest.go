@@ -38,7 +38,7 @@ func scanRequestHandler(w http.ResponseWriter, req *http.Request) {
 	// Get path parameters
 	vars := mux.Vars(req)
 
-	ns, nsExist := vars["namespace"]
+	ns, nsExist := vars[NamespaceParamKey]
 	if !nsExist {
 		_ = utils.RespondError(w, http.StatusBadRequest, "url is malformed")
 		return

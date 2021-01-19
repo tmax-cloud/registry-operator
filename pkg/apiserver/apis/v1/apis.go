@@ -22,6 +22,7 @@ const (
 	ApiVersion = "v1"
 	SignerKind = "imagesigners"
 
+	NamespaceParamKey = "namespace"
 	ResourceParamKey = "resourceName"
 )
 
@@ -56,7 +57,7 @@ func AddV1Apis(parent *wrapper.RouterWrapper) error {
 		return err
 	}
 
-	namespaceWrapper := wrapper.New("/namespaces/{namespace}", nil, nil)
+	namespaceWrapper := wrapper.New(fmt.Sprintf("/namespaces/{%s}", NamespaceParamKey), nil, nil)
 	if err := versionWrapper.Add(namespaceWrapper); err != nil {
 		return err
 	}

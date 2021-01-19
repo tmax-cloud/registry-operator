@@ -93,7 +93,7 @@ func getScanResult(req *http.Request) (map[string]scan.ResultResponse, error) {
 	// Get path parameters
 	vars := mux.Vars(req)
 
-	ns, nsExist := vars["namespace"]
+	ns, nsExist := vars[NamespaceParamKey]
 	repoName, repoNameExist := vars[RepositoryParamKey]
 	if !nsExist || !repoNameExist {
 		return nil, errors.NewBadRequest("url is malformed")
