@@ -14,10 +14,9 @@ func TestGetScanResult(t *testing.T) {
 	imgUrl := "127.0.0.1:32222/test"
 	imgTag := "test"
 	regUrl := "http://127.0.0.1:32222"
-	clairUrl := "http://127.0.0.1:32223"
+	clairUrl := regUrl
 
-	launchTestRegistry(t)
-	launchTestClair(t)
+	launchTestServer(t)
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
@@ -47,8 +46,9 @@ func TestGetScanResult(t *testing.T) {
 	}
 }
 
-func launchTestRegistry(t *testing.T) {
+func launchTestServer(t *testing.T) {
 	router := mux.NewRouter()
+	// Registry
 	router.HandleFunc("/v2", func(w http.ResponseWriter, req *http.Request) {})
 	router.HandleFunc("/v2/test/manifests/test", func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Add("Content-Type", "application/vnd.docker.distribution.manifest.v2+json")
@@ -65,17 +65,7 @@ func launchTestRegistry(t *testing.T) {
 		}
 	})
 
-	srv := &http.Server{Addr: "0.0.0.0:32222", Handler: router}
-
-	go func() {
-		if err := srv.ListenAndServe(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-}
-
-func launchTestClair(t *testing.T) {
-	router := mux.NewRouter()
+	// Clair
 	router.HandleFunc("/v1/layers/{layerId}", func(w http.ResponseWriter, req *http.Request) {
 		body := "{\"Layer\":{\"Name\":\"sha256:4805af504e5875409ab56b1da4c22a42302f920a6e57bba8902b1fc15c6a06b5\",\"NamespaceName\":\"centos:7\",\"ParentName\":\"sha256:71d1b80d640e2d963088bf3a6346137a8ec65b961be299feda2b632407ee574b\",\"IndexedByVersion\":3,\"Features\":[{\"Name\":\"openssl-libs\",\"NamespaceName\":\"centos:7\",\"VersionFormat\":\"rpm\",\"Version\":\"1:1.0.1e-60.el7\",\"Vulnerabilities\":[{\"Name\":\"RHSA-2019:2304\",\"NamespaceName\":\"centos:7\",\"Description\":\"OpenSSL is a toolkit that implements the Secure Sockets Layer (SSL) and Transport Layer Security (TLS) protocols, as well as a full-strength general-purpose cryptography library. Security Fix(es): * openssl: 0-byte record padding oracle (CVE-2019-1559) * openssl: timing side channel attack in the DSA signature algorithm (CVE-2018-0734) For more details about the security issue(s), including the impact, a CVSS score, acknowledgments, and other related information, refer to the CVE page(s) listed in the References section. Additional Changes: For detailed information on changes in this release, see the Red Hat Enterprise Linux 7.7 Release Notes linked from the References section.\",\"Link\":\"https:\\/\\/access.redhat.com\\/errata\\/RHSA-2019:2304\",\"Severity\":\"Medium\",\"FixedBy\":\"1:1.0.2k-19.el7\"},{\"Name\":\"RHBA-2017:1929\",\"NamespaceName\":\"centos:7\",\"Description\":\"OpenSSL is a toolkit that implements the Secure Sockets Layer (SSL) and Transport Layer Security (TLS) protocols, as well as a full-strength general-purpose cryptography library. For detailed information on changes in this release, see the Red Hat Enterprise Linux 7.4 Release Notes linked from the References section. Users of openssl are advised to upgrade to these updated packages.\",\"Link\":\"https:\\/\\/access.redhat.com\\/errata\\/RHBA-2017:1929\",\"Severity\":\"Medium\",\"FixedBy\":\"1:1.0.2k-8.el7\"}],\"AddedBy\":\"sha256:71d1b80d640e2d963088bf3a6346137a8ec65b961be299feda2b632407ee574b\"}]}}"
 
@@ -85,11 +75,12 @@ func launchTestClair(t *testing.T) {
 		}
 	})
 
-	srv := &http.Server{Addr: "0.0.0.0:32223", Handler: router}
+	srv := &http.Server{Addr: "0.0.0.0:32222", Handler: router}
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			t.Fatal(err)
+			log.Error(err, "")
+			os.Exit(1)
 		}
 	}()
 }

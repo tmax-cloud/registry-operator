@@ -3,6 +3,7 @@ package v1
 import (
 	"fmt"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	authorization "k8s.io/client-go/kubernetes/typed/authorization/v1"
@@ -42,6 +43,7 @@ func Initiate() {
 	// K8s Client
 	opt := client.Options{Scheme: runtime.NewScheme()}
 	utilruntime.Must(tmaxiov1.AddToScheme(opt.Scheme))
+	utilruntime.Must(corev1.AddToScheme(opt.Scheme))
 
 	cli, err := utils.Client(opt)
 	if err != nil {

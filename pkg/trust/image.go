@@ -139,6 +139,11 @@ func (r *Image) GetImageManifest() (*ImageManifest, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	bodyStr, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Error(err, "")
+		return nil, err
+	}
 	if !client.SuccessStatus(resp.StatusCode) {
 		log.Error(err, "")
 		err := client.HandleErrorResponse(resp)
@@ -158,11 +163,6 @@ func (r *Image) GetImageManifest() (*ImageManifest, error) {
 		return nil, err
 	}
 
-	bodyStr, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Error(err, "")
-		return nil, err
-	}
 	body := &ImageManifestBody{}
 	if err := json.Unmarshal(bodyStr, body); err != nil {
 		log.Error(err, "")

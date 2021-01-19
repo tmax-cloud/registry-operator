@@ -125,7 +125,7 @@ func newImageScanReq(ns string, reqBody *scan.Request) (*v1.ImageScanRequest, er
 		targets = append(targets, v1.ScanTarget{
 			Images:          repoUrls,
 			ImagePullSecret: regCred,
-			RegistryUrl:     strings.TrimPrefix(regObj.Status.ServerURL, "https://"),
+			RegistryURL:     strings.TrimPrefix(regObj.Status.ServerURL, "https://"),
 			ElasticSearch:   true,
 			Insecure:        true,
 		})

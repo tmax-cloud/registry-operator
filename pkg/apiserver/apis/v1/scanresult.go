@@ -118,7 +118,7 @@ func getScanResult(req *http.Request) (map[string]scan.ResultResponse, error) {
 
 	// TODO - functionize
 	secret := &corev1.Secret{}
-	if err := k8sClient.Get(context.Background(), types.NamespacedName{Name: v1.K8sPrefix + strings.ToLower(reg.Name), Namespace: ns}, secret); err != nil {
+	if err := k8sClient.Get(context.Background(), types.NamespacedName{Name: v1.K8sPrefix + v1.K8sRegistryPrefix + strings.ToLower(reg.Name), Namespace: ns}, secret); err != nil {
 		log.Info(err.Error())
 		return nil, errors.NewInternalError(err)
 	}
@@ -143,7 +143,7 @@ func getScanResult(req *http.Request) (map[string]scan.ResultResponse, error) {
 		return nil, errors.NewInternalError(fmt.Errorf(msg))
 	}
 
-	img, err := trust.NewImage(path.Join(regBaseUrl, repo.Spec.Name), regBaseUrl, "", basicAuthObj.Auth, nil)
+	img, err := trust.NewImage(path.Join(regBaseUrl, repo.Spec.Name), "https://"+regBaseUrl, "", basicAuthObj.Auth, nil)
 	if err != nil {
 		log.Info(err.Error())
 		return nil, errors.NewInternalError(err)
@@ -162,7 +162,7 @@ func getScanResult(req *http.Request) (map[string]scan.ResultResponse, error) {
 		res, err := scan.GetScanResult(img)
 		if err != nil {
 			log.Info(err.Error())
-			return nil, errors.NewInternalError(err)
+			continue
 		}
 
 		results[version.Version] = res
