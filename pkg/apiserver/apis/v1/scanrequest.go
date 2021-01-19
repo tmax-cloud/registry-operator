@@ -22,11 +22,11 @@ const (
 
 func AddScanRequest(parent *wrapper.RouterWrapper) error {
 	scanRequestWrapper := wrapper.New(fmt.Sprintf("/%s", ScanKind), []string{http.MethodPost}, scanRequestHandler)
-	scanRequestWrapper.Router.Use(authenticate)
-	// TODO : Authorize
 	if err := parent.Add(scanRequestWrapper); err != nil {
 		return err
 	}
+	scanRequestWrapper.Router.Use(authenticate)
+	// TODO : Authorize
 
 	return nil
 }
@@ -93,15 +93,17 @@ func newImageScanReq(ns string, reqBody *scan.Request) (*v1.ImageScanRequest, er
 		var repoUrls []string
 		for _, repo := range reg.Repositories {
 			repoName := repo.Name
-			repoObj := &v1.Repository{}
-			if err := k8sClient.Get(context.Background(), types.NamespacedName{Name: repoName, Namespace: ns}, repoObj); err != nil {
-				return nil, err
-			}
 
 			// Repo wild card
 			if repoName == "*" {
 				repoUrls = []string{"*"}
 				break
+			}
+
+			// Get Repo
+			repoObj := &v1.Repository{}
+			if err := k8sClient.Get(context.Background(), types.NamespacedName{Name: repoName, Namespace: ns}, repoObj); err != nil {
+				return nil, err
 			}
 
 			repoBaseUrl := repoObj.Spec.Name
@@ -123,9 +125,9 @@ func newImageScanReq(ns string, reqBody *scan.Request) (*v1.ImageScanRequest, er
 		targets = append(targets, v1.ScanTarget{
 			Images:          repoUrls,
 			ImagePullSecret: regCred,
-			RegistryUrl: regObj.Status.ServerURL,
-			ElasticSearch: true,
-			Insecure: true,
+			RegistryUrl:     strings.TrimPrefix(regObj.Status.ServerURL, "https://"),
+			ElasticSearch:   true,
+			Insecure:        true,
 		})
 	}
 

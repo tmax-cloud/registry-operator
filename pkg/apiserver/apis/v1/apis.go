@@ -23,7 +23,7 @@ const (
 	SignerKind = "imagesigners"
 
 	NamespaceParamKey = "namespace"
-	ResourceParamKey = "resourceName"
+	ResourceParamKey  = "resourceName"
 )
 
 var logger = ctrl.Log.WithName("signer-apis")

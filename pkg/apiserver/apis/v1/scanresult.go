@@ -29,18 +29,18 @@ const (
 
 func AddScanResult(parent *wrapper.RouterWrapper) error {
 	listScanSummaryWrapper := wrapper.New(fmt.Sprintf("/%s/{%s}/%s", RepositoryKind, RepositoryParamKey, ScanResultKind), []string{http.MethodGet}, listScanSummaryHandler)
-	listScanSummaryWrapper.Router.Use(authenticate)
-	// TODO : Authorize
 	if err := parent.Add(listScanSummaryWrapper); err != nil {
 		return err
 	}
+	listScanSummaryWrapper.Router.Use(authenticate)
+	// TODO : Authorize
 
 	scanResultWrapper := wrapper.New(fmt.Sprintf("/%s/{%s}/%s/{%s}", RepositoryKind, RepositoryParamKey, ScanResultKind, TagParamKey), []string{http.MethodGet}, scanResultHandler)
-	scanResultWrapper.Router.Use(authenticate)
-	// TODO : Authorize
 	if err := parent.Add(scanResultWrapper); err != nil {
 		return err
 	}
+	scanResultWrapper.Router.Use(authenticate)
+	// TODO : Authorize
 
 	return nil
 }
