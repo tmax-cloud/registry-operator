@@ -16,11 +16,11 @@ func ImageSignRequest(ar *v1beta1.AdmissionReview, w http.ResponseWriter, r *htt
 	req := ar.Request
 
 	// AdmissionReview for Kind=tmax.io/v1, Kind=ImageSigner, Namespace= Name=yun  UID=685e6c98-a47c-4fb5-b2c5-8d8140eb0ffd patchOperation=CREATE UserInfo={admin@tmax.co.kr  [system:authenticated] map[]}
-	log.Info(fmt.Sprintf("AdmissionReview for Kind=%v, Namespace=%v Name=%v  UID=%v patchOperation=%v UserInfo=%v",
+	logger.Info(fmt.Sprintf("AdmissionReview for Kind=%v, Namespace=%v Name=%v  UID=%v patchOperation=%v UserInfo=%v",
 		req.Kind, req.Namespace, req.Name, req.UID, req.Operation, req.UserInfo))
 
 	if err := reviewAccessImageSigner(req); err != nil {
-		log.Error(err, "image signer is not allowed. or failed to check subject's authorization")
+		logger.Error(err, "image signer is not allowed. or failed to check subject's authorization")
 		return &v1beta1.AdmissionResponse{
 			Result: &metav1.Status{
 				Message: fmt.Sprintf("image signer is not allowed. or failed to check subject's authorization: %s", err.Error()),
@@ -38,7 +38,7 @@ func reviewAccessImageSigner(req *v1beta1.AdmissionRequest) error {
 
 	isr := &regv1.ImageSignRequest{}
 	if err := json.Unmarshal(req.Object.Raw, isr); err != nil {
-		log.Error(err, "unable to unmarshal imagesignrequest", "name", req.Name)
+		logger.Error(err, "unable to unmarshal imagesignrequest", "name", req.Name)
 		return err
 	}
 
@@ -57,7 +57,7 @@ func reviewAccessImageSigner(req *v1beta1.AdmissionRequest) error {
 		},
 	}
 
-	log.Info("SubjectAccessReview", "spec", fmt.Sprintf("%+v", r.Spec))
+	logger.Info("SubjectAccessReview", "spec", fmt.Sprintf("%+v", r.Spec))
 	result, err := authClient.SubjectAccessReviews().Create(context.TODO(), r, metav1.CreateOptions{})
 	if err != nil {
 		return err

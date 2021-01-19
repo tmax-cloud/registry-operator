@@ -3,6 +3,7 @@ package v1
 import (
 	"fmt"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	authorization "k8s.io/client-go/kubernetes/typed/authorization/v1"
@@ -22,10 +23,11 @@ const (
 	ApiVersion = "v1"
 	SignerKind = "imagesigners"
 
-	ResourceParamKey = "resourceName"
+	NamespaceParamKey = "namespace"
+	ResourceParamKey  = "resourceName"
 )
 
-var log = ctrl.Log.WithName("signer-apis")
+var logger = ctrl.Log.WithName("signer-apis")
 var authClient *authorization.AuthorizationV1Client
 var k8sClient client.Client
 
@@ -33,7 +35,7 @@ func Initiate() {
 	// Auth Client
 	authCli, err := utils.AuthClient()
 	if err != nil {
-		log.Error(err, "")
+		logger.Error(err, "")
 		os.Exit(1)
 	}
 	authClient = authCli
@@ -41,10 +43,11 @@ func Initiate() {
 	// K8s Client
 	opt := client.Options{Scheme: runtime.NewScheme()}
 	utilruntime.Must(tmaxiov1.AddToScheme(opt.Scheme))
+	utilruntime.Must(corev1.AddToScheme(opt.Scheme))
 
 	cli, err := utils.Client(opt)
 	if err != nil {
-		log.Error(err, "")
+		logger.Error(err, "")
 		os.Exit(1)
 	}
 	k8sClient = cli
@@ -56,7 +59,18 @@ func AddV1Apis(parent *wrapper.RouterWrapper) error {
 		return err
 	}
 
-	if err := AddSignerApis(versionWrapper); err != nil {
+	namespaceWrapper := wrapper.New(fmt.Sprintf("/namespaces/{%s}", NamespaceParamKey), nil, nil)
+	if err := versionWrapper.Add(namespaceWrapper); err != nil {
+		return err
+	}
+
+	// Image scan request
+	if err := AddScanRequest(namespaceWrapper); err != nil {
+		return err
+	}
+
+	// Image scan result
+	if err := AddScanResult(namespaceWrapper); err != nil {
 		return err
 	}
 
