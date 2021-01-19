@@ -17,11 +17,12 @@ import (
 )
 
 const (
-	ScanKind = "scans"
+	ScanKind                = "scans"
+	ScanRequestNameParamKey = "scanReqName"
 )
 
 func AddScanRequest(parent *wrapper.RouterWrapper) error {
-	scanRequestWrapper := wrapper.New(fmt.Sprintf("/%s", ScanKind), []string{http.MethodPost}, scanRequestHandler)
+	scanRequestWrapper := wrapper.New(fmt.Sprintf("/%s/{%s}", ScanKind, ScanRequestNameParamKey), []string{http.MethodPost}, scanRequestHandler)
 	if err := parent.Add(scanRequestWrapper); err != nil {
 		return err
 	}
@@ -39,7 +40,8 @@ func scanRequestHandler(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 
 	ns, nsExist := vars[NamespaceParamKey]
-	if !nsExist {
+	reqName, reqNameExist := vars[ScanRequestNameParamKey]
+	if !nsExist || !reqNameExist {
 		_ = utils.RespondError(w, http.StatusBadRequest, "url is malformed")
 		return
 	}
@@ -54,7 +56,7 @@ func scanRequestHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Create ImageScanRequest
-	scanRequest, err := newImageScanReq(ns, reqBody)
+	scanRequest, err := newImageScanReq(reqName, ns, reqBody)
 	if err != nil {
 		log.Info(err.Error())
 		_ = utils.RespondError(w, http.StatusInternalServerError, fmt.Sprintf("req: %s, cannot create ImageScanRequest", reqId))
@@ -71,7 +73,7 @@ func scanRequestHandler(w http.ResponseWriter, req *http.Request) {
 	_ = utils.RespondJSON(w, &scan.RequestResponse{ImageScanRequestName: scanRequest.Name})
 }
 
-func newImageScanReq(ns string, reqBody *scan.Request) (*v1.ImageScanRequest, error) {
+func newImageScanReq(name, ns string, reqBody *scan.Request) (*v1.ImageScanRequest, error) {
 	if reqBody == nil {
 		return nil, fmt.Errorf("reqBody is nil")
 	}
@@ -133,7 +135,7 @@ func newImageScanReq(ns string, reqBody *scan.Request) (*v1.ImageScanRequest, er
 
 	return &v1.ImageScanRequest{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "image-scan-" + randId,
+			Name:      name + "-" + randId,
 			Namespace: ns,
 		},
 		Spec: v1.ImageScanRequestSpec{
