@@ -42,6 +42,8 @@ type ScanTarget struct {
 	Insecure bool `json:"insecure,omitempty"`
 	// Force allow use of non-ssl
 	ForceNonSSL bool `json:"forceNonSSL,omitempty"`
+	// Certificate secret name for private registry. Secret's data key must be 'ca.crt' or 'tls.crt'.
+	CertificateSecret string `json:"certificateSecret,omitempty"`
 	// Login id and password secret object for registry
 	ImagePullSecret string `json:"imagePullSecret,omitempty"`
 	// Debug flag

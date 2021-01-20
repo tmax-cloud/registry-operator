@@ -5,8 +5,9 @@ go 1.13
 require (
 	github.com/Nerzal/gocloak/v7 v7.8.0
 	github.com/bugsnag/bugsnag-go v1.7.0 // indirect
-	github.com/cloudflare/cfssl v1.5.0 // indirect
+	github.com/cloudflare/cfssl v1.5.0
 	github.com/docker/distribution v2.7.1+incompatible
+	github.com/docker/docker v1.4.2-0.20190916154449-92cc603036dd
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/genuinetools/reg v0.16.1
 	github.com/go-logr/logr v0.2.0

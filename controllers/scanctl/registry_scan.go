@@ -17,9 +17,9 @@ import (
 	"github.com/genuinetools/reg/registry"
 	"github.com/genuinetools/reg/repoutils"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/controllers/repoctl"
-	"github.com/tmax-cloud/registry-operator/internal/harbor"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
+	regApi "github.com/tmax-cloud/registry-operator/pkg/registry"
+	clairReg "github.com/tmax-cloud/registry-operator/pkg/scan/clair"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -64,38 +64,70 @@ func imageUrl(registryUrl, image string) string {
 	return path.Join(registryUrl, image)
 }
 
-func GetRegistryImages(c client.Client, registryURL, imageNamePattern string) []string {
+func getCAData(secretName, namespace string) ([]byte, error) {
+	var ca []byte
+	certSecret, err := getSecret(secretName, namespace)
+	if err != nil {
+		logger.Error(err, "failed to get secret")
+		return ca, err
+	}
+	ca = certSecret.Data["ca.crt"]
+	if len(ca) == 0 {
+		ca = certSecret.Data["tls.crt"]
+	}
+	return ca, nil
+}
+
+func GetRegistryImages(c client.Client, registryURL, basicAuth, imageNamePattern, certSecret, namespace string) []string {
 	images := []string{}
-	isHarbor := false
+	var ca []byte
 
-	// if Harbor
-	isHarbor = harbor.IsHarbor(c, registryURL)
+	// set certificate
+	if certSecret != "" {
+		var err error
 
-	if !isHarbor {
-		// internal registry
-		reg, err := findRegistryByHost(c, registryURL)
+		ca, err = getCAData(certSecret, namespace)
 		if err != nil {
-			logger.Error(err, fmt.Sprintf("failed to find registry: %s", registryURL))
+			logger.Error(err, "failed to get ca")
 			return images
 		}
+	}
 
-		repoCtl := repoctl.New()
-		repos, err := repoCtl.List(c, reg)
-		if err != nil {
-			logger.Error(err, fmt.Sprintf("failed to list repository from '%s' registry", registryURL))
-			return images
+	regCtl := regApi.NewRegistryAPI(registryURL, basicAuth, ca)
+	repos := regCtl.Catalog()
+	if repos == nil {
+		return images
+	}
+	for _, repo := range repos.Repositories {
+		vers := regCtl.Tags(repo)
+		if vers == nil {
+			continue
 		}
-		for _, repo := range repos.Items {
-			for _, ver := range repo.Spec.Versions {
-				image := repo.Spec.Name + ":" + ver.Version
-				if utils.Matched(imageNamePattern, image) {
-					images = append(images, image)
-				}
+		for _, ver := range vers.Tags {
+			image := repo + ":" + ver
+			if utils.Matched(imageNamePattern, image) {
+				images = append(images, image)
 			}
 		}
 	}
 
 	return images
+}
+
+func getBasicAuth(imagePullSecret, namespace, registryURL string) (string, error) {
+	secret, err := getSecret(imagePullSecret, namespace)
+	if err != nil {
+		logger.Error(err, "failed to get image pull secret")
+		return "", err
+	}
+
+	basic, err := utils.ParseBasicAuth(secret, registryURL)
+	if err != nil {
+		logger.Error(err, "failed to parse basic auth")
+		return "", err
+	}
+
+	return basic, nil
 }
 
 func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map[string]map[string]*reg.VulnerabilityReport, error) {
@@ -116,7 +148,16 @@ func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map
 		for _, targetImage := range target.Images {
 			matchImages := []string{}
 			if strings.Contains(targetImage, "*") || strings.Contains(targetImage, "?") {
-				matchImages = append(matchImages, GetRegistryImages(c, target.RegistryURL, targetImage)...)
+				var basicAuth string
+				if target.ImagePullSecret != "" {
+					basic, err := getBasicAuth(target.ImagePullSecret, instance.Namespace, target.RegistryURL)
+					if err != nil {
+						logger.Error(err, fmt.Sprintf("failed to get basic auth from imagepullsecret: %s", target.ImagePullSecret))
+						return reports, err
+					}
+					basicAuth = basic
+				}
+				matchImages = append(matchImages, GetRegistryImages(c, target.RegistryURL, basicAuth, targetImage, target.CertificateSecret, instance.Namespace)...)
 			} else {
 				matchImages = append(matchImages, targetImage)
 			}
@@ -174,33 +215,6 @@ func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map
 	return reports, nil
 }
 
-func findRegistryByHost(c client.Client, hostname string) (*tmaxiov1.Registry, error) {
-	regList := &tmaxiov1.RegistryList{}
-	if err := c.List(context.TODO(), regList); err != nil {
-		return nil, err
-	}
-
-	var targetReg tmaxiov1.Registry
-	targetFound := false
-	for _, r := range regList.Items {
-		logger.Info(r.Name)
-		serverUrl := strings.TrimPrefix(r.Status.ServerURL, "https://")
-		serverUrl = strings.TrimPrefix(serverUrl, "http://")
-		serverUrl = strings.TrimSuffix(serverUrl, "/")
-
-		if serverUrl == hostname {
-			targetReg = r
-			targetFound = true
-		}
-	}
-
-	if !targetFound {
-		return nil, fmt.Errorf("target registry is not an internal registry")
-	}
-
-	return &targetReg, nil
-}
-
 func getSecret(name, namespace string) (*corev1.Secret, error) {
 	c, err := client.New(config.GetConfigOrDie(), client.Options{})
 	if err != nil {
@@ -215,24 +229,20 @@ func getSecret(name, namespace string) (*corev1.Secret, error) {
 }
 
 func createRegistryClient(target *tmaxiov1.ScanTarget, domain, namespace string) (*registry.Registry, error) {
+	var ca []byte
+	username, password := "", ""
+
 	// Use the auth-url domain if provided.
 	authDomain := target.AuthURL
 	if authDomain == "" {
 		authDomain = domain
 	}
 
-	username, password := "", ""
-
+	// parse imagepullsecret
 	if len(target.ImagePullSecret) > 0 {
-		secret, err := getSecret(target.ImagePullSecret, namespace)
+		basic, err := getBasicAuth(target.ImagePullSecret, namespace, target.RegistryURL)
 		if err != nil {
-			logger.Error(err, "failed to get image pull secret")
-			return nil, err
-		}
-
-		basic, err := utils.ParseBasicAuth(secret, target.RegistryURL)
-		if err != nil {
-			logger.Error(err, "failed to parse basic auth")
+			logger.Error(err, fmt.Sprintf("failed to get basic auth from imagepullsecret: %s", target.ImagePullSecret))
 			return nil, err
 		}
 
@@ -248,6 +258,18 @@ func createRegistryClient(target *tmaxiov1.ScanTarget, domain, namespace string)
 		password = basic[sepIdx+1:]
 	}
 
+	// get ca data
+	if target.CertificateSecret != "" {
+		var err error
+
+		ca, err = getCAData(target.CertificateSecret, namespace)
+		if err != nil {
+			logger.Error(err, "failed to get ca data")
+			return nil, err
+		}
+	}
+
+	// get auth config
 	auth, err := repoutils.GetAuthConfig(username, password, authDomain)
 	if err != nil {
 		logger.Error(err, "failed to get auth config")
@@ -260,14 +282,14 @@ func createRegistryClient(target *tmaxiov1.ScanTarget, domain, namespace string)
 	}
 
 	// Create the registry client.
-	return registry.New(context.TODO(), auth, registry.Opt{
+	return clairReg.New(context.TODO(), auth, registry.Opt{
 		Domain:   domain,
 		Insecure: target.Insecure,
 		Debug:    target.Debug,
 		SkipPing: target.SkipPing,
 		NonSSL:   target.ForceNonSSL,
 		Timeout:  target.TimeOut,
-	})
+	}, ca)
 }
 
 func SendElasticSearchServer(url string, namespace string, name string, body *tmaxiov1.ImageScanRequestStatus) (resp *http.Response, err error) {
