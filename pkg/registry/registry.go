@@ -232,7 +232,7 @@ func (r *RegistryAPI) fetchToken(scope string) (*Token, error) {
 	}
 	tokenReq.URL.RawQuery = tokenQ.Encode()
 
-	logger.Info(fmt.Sprintf("url=%s, service=%s, scope=%s, realm=%s, basicauth=%s", server, service, scope, realm, r.BasicAuth))
+	// logger.Info(fmt.Sprintf("url=%s, service=%s, scope=%s, realm=%s, basicauth=%s", server, service, scope, realm, r.BasicAuth))
 
 	tokenResp, err := r.HttpClient.Do(tokenReq)
 	if err != nil {
@@ -284,7 +284,6 @@ func (r *RegistryAPI) Catalog() *Repositories {
 			return nil
 		}
 
-		logger.Info(fmt.Sprintf("%s Authorization: %s %s", r.Scheme+r.ServerURL, token.Type, token.Value))
 		req.Header.Add("Authorization", fmt.Sprintf("%s %s", token.Type, token.Value))
 	}
 

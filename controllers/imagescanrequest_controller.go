@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -102,15 +103,19 @@ func (r *ImageScanRequestReconciler) updateScanningStatus(instance *tmaxiov1.Ima
 							continue
 						}
 
+						esReport := tmaxiov1.ImageScanRequestESReport{Image: fmt.Sprintf("%s/%s", registry, image)}
+						reqLogger.Info("new elasticsearch report", "image", fmt.Sprintf("%s/%s", registry, image))
 						// set scan result
-						result := tmaxiov1.ScanResult{}
-						result.Summary = scanctl.ParseAnalysis(target.FixableThreshold, report)
-						status.Results[path.Join(registry, image)] = result
+						esReport.Result.Summary, esReport.Result.Fatal, esReport.Result.Vulnerabilities = scanctl.ParseAnalysis(target.FixableThreshold, report)
+						status.Results[path.Join(registry, image)] = tmaxiov1.ScanResult{Summary: esReport.Result.Summary}
 
 						// send logging server
 						if err == nil && len(esUrl) != 0 {
 							if target.RegistryURL == registry && target.ElasticSearch {
-								res, err := scanctl.SendElasticSearchServer(esUrl, instance.Namespace, instance.Name, &status)
+								res, err := scanctl.SendElasticSearchServer(esUrl, instance.Namespace, instance.Name, &esReport)
+								if err != nil {
+									reqLogger.Error(err, "failed to send ES Server")
+								}
 								if err == nil {
 									bodyBytes, _ := ioutil.ReadAll(res.Body)
 									reqLogger.Info("webhook: " + string(bodyBytes))
