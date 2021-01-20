@@ -54,6 +54,16 @@ The registry-operator project is a service to launch private registries and to m
 			systemctl restart crio
 			```
 
+5. Install clair for image scanning
+	1) make secret file
+		```bash
+		kubectl create secret generic clairsecret --from-file=./config/manager/clair_config.yaml
+		```
+	2) deploy clair server
+		```bash
+		kubectl create -f config/manager/clair.yaml
+		```
+
 ## [FOR DEV] Build Binary
 * To build manager binary execute following commands. manager binary will be made in bin directory.
 	```bash
