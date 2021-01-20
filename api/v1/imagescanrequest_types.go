@@ -61,6 +61,10 @@ type ScanTarget struct {
 type ScanResult struct {
 	//Scan summary
 	Summary map[string]int `json:"summary,omitempty"`
+	//Scan fatal message
+	Fatal []string `json:"fatal,omitempty"`
+	//Scan vulnerabilities
+	Vulnerabilities map[string]Vulnerabilities `json:"vulnerabilities,omitempty"`
 }
 
 type Vulnerability struct {
@@ -100,6 +104,13 @@ type ImageScanRequestStatus struct {
 	Status ScanRequestStatusType `json:"status,omitempty"`
 	//Scna results {docker.io/library/alpine:3: {summary : {"Low" : 1, "Medium" : 2, ...}}
 	Results map[string]ScanResult `json:"results,omitempty"`
+}
+
+// ImageScanRequestStatus defines the observed state of ImageScanRequest
+type ImageScanRequestESReport struct {
+	Image string `json:"image,omitempty"`
+	//Scna results {docker.io/library/alpine:3: {summary : {"Low" : 1, "Medium" : 2, ...}}
+	Result ScanResult `json:"result,omitempty"`
 }
 
 // +kubebuilder:object:root=true

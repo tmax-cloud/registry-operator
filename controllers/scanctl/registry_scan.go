@@ -22,6 +22,7 @@ import (
 	clairReg "github.com/tmax-cloud/registry-operator/pkg/scan/clair"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -35,15 +36,38 @@ var (
 	Priorities = []string{"Unknown", "Negligible", "Low", "Medium", "High", "Critical", "Defcon1"}
 )
 
-func ParseAnalysis(threshold int, report *reg.VulnerabilityReport) map[string]int {
+func ParseAnalysis(threshold int, report *reg.VulnerabilityReport) (map[string]int, []string, map[string]tmaxiov1.Vulnerabilities) {
+	vulnerabilities := make(map[string]tmaxiov1.Vulnerabilities)
 	summary := make(map[string]int)
+	var fatal []string
+
+	//set vulnerabilites
+	for sev, vulns := range report.VulnsBySeverity {
+		var vuls []tmaxiov1.Vulnerability
+		for _, v := range vulns {
+			obj := runtime.RawExtension{}
+			meta, _ := json.Marshal(v.Metadata)
+			obj.Raw = meta
+			vul := tmaxiov1.Vulnerability{
+				Name:          v.Name,
+				NamespaceName: v.NamespaceName,
+				Description:   v.Description,
+				Link:          v.Link,
+				Severity:      v.Severity,
+				Metadata:      obj,
+				FixedBy:       v.FixedBy,
+			}
+			vuls = append(vuls, vul)
+		}
+		vulnerabilities[sev] = vuls
+	}
 
 	for _, val := range Priorities {
 		summary[val] = 0
 	}
 
 	if len(report.VulnsBySeverity) < 1 {
-		return summary
+		return summary, fatal, vulnerabilities
 	}
 
 	//set summary
@@ -51,7 +75,32 @@ func ParseAnalysis(threshold int, report *reg.VulnerabilityReport) map[string]in
 		summary[sev] = len(vulns)
 	}
 
-	return summary
+	//set fatal
+	fixable, ok := report.VulnsBySeverity["Fixable"]
+	if ok {
+		if len(fixable) > threshold {
+			fatal = append(fatal, fmt.Sprintf("%d fixable vulnerabilities found", len(fixable)))
+		}
+	}
+
+	// Return an error if there are more than 10 bad vulns.
+	badVulns := 0
+	// Include any high vulns.
+	if highVulns, ok := report.VulnsBySeverity["High"]; ok {
+		badVulns += len(highVulns)
+	}
+	// Include any critical vulns.
+	if criticalVulns, ok := report.VulnsBySeverity["Critical"]; ok {
+		badVulns += len(criticalVulns)
+	}
+	// Include any defcon1 vulns.
+	if defcon1Vulns, ok := report.VulnsBySeverity["Defcon1"]; ok {
+		badVulns += len(defcon1Vulns)
+	}
+	if badVulns > 10 {
+		fatal = append(fatal, fmt.Sprintf("%d bad vulnerabilities found", len(fixable)))
+	}
+	return summary, fatal, vulnerabilities
 }
 
 func InitParameter(target *tmaxiov1.ScanTarget) {
@@ -292,15 +341,19 @@ func createRegistryClient(target *tmaxiov1.ScanTarget, domain, namespace string)
 	}, ca)
 }
 
-func SendElasticSearchServer(url string, namespace string, name string, body *tmaxiov1.ImageScanRequestStatus) (resp *http.Response, err error) {
+func SendElasticSearchServer(url string, namespace string, name string, body *tmaxiov1.ImageScanRequestESReport) (resp *http.Response, err error) {
 	// send logging server
 	data, err := json.Marshal(body)
 	if err != nil {
+		logger.Error(err, "failed to marshal elastic search report")
 		return nil, err
 	}
-	requestUrl := url + "/image-scanning-" + namespace + "/_doc/" + name
+
+	image := strings.ReplaceAll(body.Image, "/", "_")
+	requestUrl := url + "/image-scanning-" + namespace + "/_doc/" + image
 	res, err := http.Post(requestUrl, "application/json", bytes.NewReader(data))
 	if err != nil {
+		logger.Error(err, "failed to post ES Server")
 		return nil, err
 	}
 	defer res.Body.Close()

@@ -109,10 +109,44 @@ spec:
             results:
               additionalProperties:
                 properties:
+                  fatal:
+                    description: Scan fatal message
+                    items:
+                      type: string
+                    type: array
                   summary:
                     additionalProperties:
                       type: integer
                     description: Scan summary
+                    type: object
+                  vulnerabilities:
+                    additionalProperties:
+                      items:
+                        properties:
+                          Description:
+                            description: Description for severity
+                            type: string
+                          FixedBy:
+                            description: Fixed version
+                            type: string
+                          Link:
+                            description: Description link
+                            type: string
+                          Metadata:
+                            description: Metadata
+                            type: object
+                          Name:
+                            description: Severity name
+                            type: string
+                          NamespaceName:
+                            description: Severity namespace
+                            type: string
+                          Severity:
+                            description: Severity degree
+                            type: string
+                        type: object
+                      type: array
+                    description: Scan vulnerabilities
                     type: object
                 type: object
               description: 'Scna results {docker.io/library/alpine:3: {summary : {"Low"
