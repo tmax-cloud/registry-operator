@@ -83,8 +83,12 @@ spec:
         volumeMounts:
         - name: operator-log-mnt
           mountPath: /logs
-        - mountPath: /usr/local/share/ca-certificates
-          name: registry-secret  
+        - name: registry-secret
+          mountPath: /usr/local/share/ca-certificates/ca.crt
+          subPath: ca.crt
+        - name: extra-ca-secret
+          mountPath: /usr/local/share/ca-certificates/extra-ca.crt
+          subPath: extra-ca.crt
       volumes:
       - name: operator-log-mnt
         hostPath:
@@ -92,4 +96,7 @@ spec:
       - name: registry-secret
         secret:
           secretName: registry-ca
+      - name: extra-ca-secret
+        secret:
+          secretName: extra-ca
       terminationGracePeriodSeconds: 10

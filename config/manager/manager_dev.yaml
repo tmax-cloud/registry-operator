@@ -79,8 +79,12 @@ spec:
           mountPath: /bin/dev
         - name: operator-log-mnt
           mountPath: /logs
-        - mountPath: /usr/local/share/ca-certificates
-          name: registry-secret  
+        - name: registry-secret
+          mountPath: /usr/local/share/ca-certificates/ca.crt
+          subPath: ca.crt
+        - name: extra-ca-secret
+          mountPath: /usr/local/share/ca-certificates/extra-ca.crt
+          subPath: extra-ca.crt
       volumes:
       - name: manager-mnt
         hostPath:
@@ -91,6 +95,9 @@ spec:
       - name: registry-secret
         secret:
           secretName: registry-ca
+      - name: extra-ca-secret
+        secret:
+          secretName: extra-ca
       nodeSelector:
         kubernetes.io/hostname: node1
       terminationGracePeriodSeconds: 10
