@@ -44,6 +44,12 @@ if [[ -f "$KEYCLOAK_CRT_FILE" ]]; then
     . ./config/scripts/newCertSecret.sh keycloak-cert $KEYCLOAK_CRT_FILE
 fi
 
+# Create extra-ca secret
+EXTRA_CRT_FILE=./config/manager/extra_ca_secret.yaml
+if [[ -f "$EXTRA_CRT_FILE" ]]; then 
+    kubectl apply -f $EXTRA_CRT_FILE
+fi
+
 # Deploy operator
 kubectl apply -f config/manager/manager.yaml
 kubectl apply -f config/manager/service.yaml
