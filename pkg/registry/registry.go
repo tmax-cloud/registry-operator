@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -124,7 +123,9 @@ func NewRegistryAPI(serverURL, basicAuth string, ca []byte) *RegistryAPI {
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
 	} else {
 		caPool := x509.NewCertPool()
-		caPool.AppendCertsFromPEM(ca)
+		if ok := caPool.AppendCertsFromPEM(ca); !ok {
+			logger.Info("failed to append external registry ca cert", "ca", string(ca))
+		}
 		tlsConfig = &tls.Config{
 			RootCAs: caPool,
 		}
@@ -195,7 +196,7 @@ func (r *RegistryAPI) fetchToken(scope string) (*Token, error) {
 	if pingResp.StatusCode >= 200 && pingResp.StatusCode < 300 {
 		r.Token = &Token{
 			Type:  TokenTypeBasic,
-			Value: base64.StdEncoding.EncodeToString([]byte(r.BasicAuth)),
+			Value: r.BasicAuth,
 		}
 		return r.Token, nil
 	}
@@ -221,6 +222,7 @@ func (r *RegistryAPI) fetchToken(scope string) (*Token, error) {
 	}
 	tokenReq, err := http.NewRequest(http.MethodGet, realm, nil)
 	if err != nil {
+		logger.Error(err, "failed to create request")
 		return nil, err
 	}
 	tokenReq.Header.Set("Authorization", fmt.Sprintf("Basic %s", r.BasicAuth))
@@ -230,8 +232,11 @@ func (r *RegistryAPI) fetchToken(scope string) (*Token, error) {
 	}
 	tokenReq.URL.RawQuery = tokenQ.Encode()
 
+	logger.Info(fmt.Sprintf("url=%s, service=%s, scope=%s, realm=%s, basicauth=%s", server, service, scope, realm, r.BasicAuth))
+
 	tokenResp, err := r.HttpClient.Do(tokenReq)
 	if err != nil {
+		logger.Error(err, "failed to do")
 		return nil, err
 	}
 	defer tokenResp.Body.Close()
@@ -243,6 +248,7 @@ func (r *RegistryAPI) fetchToken(scope string) (*Token, error) {
 	decoder := json.NewDecoder(tokenResp.Body)
 	token := &tokenResponse{}
 	if err := decoder.Decode(token); err != nil {
+		logger.Error(err, "failed to decode token")
 		return nil, err
 	}
 
@@ -278,6 +284,7 @@ func (r *RegistryAPI) Catalog() *Repositories {
 			return nil
 		}
 
+		logger.Info(fmt.Sprintf("%s Authorization: %s %s", r.Scheme+r.ServerURL, token.Type, token.Value))
 		req.Header.Add("Authorization", fmt.Sprintf("%s %s", token.Type, token.Value))
 	}
 

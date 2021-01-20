@@ -17,7 +17,6 @@ import (
 	"github.com/genuinetools/reg/registry"
 	"github.com/genuinetools/reg/repoutils"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/internal/common/certs"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	regApi "github.com/tmax-cloud/registry-operator/pkg/registry"
 	corev1 "k8s.io/api/core/v1"
@@ -64,15 +63,22 @@ func imageUrl(registryUrl, image string) string {
 	return path.Join(registryUrl, image)
 }
 
-func GetRegistryImages(c client.Client, registryURL, basicAuth, imageNamePattern string) []string {
+func GetRegistryImages(c client.Client, registryURL, basicAuth, imageNamePattern, certSecret, namespace string) []string {
 	images := []string{}
+	var ca []byte
 
-	caSecret, err := certs.GetSystemRootCASecret(c)
-	if err != nil {
-		logger.Error(err, "failed to get system root ca secret")
-		return images
+	// set certificate
+	if certSecret != "" {
+		regCert := &corev1.Secret{}
+		if err := c.Get(context.TODO(), types.NamespacedName{Name: certSecret, Namespace: namespace}, regCert); err != nil {
+			logger.Error(err, "failed to get secret")
+			return images
+		}
+		ca = regCert.Data["ca.crt"]
+		if len(ca) == 0 {
+			ca = regCert.Data["tls.crt"]
+		}
 	}
-	ca := caSecret.Data[certs.RootCACert]
 
 	regCtl := regApi.NewRegistryAPI(registryURL, basicAuth, ca)
 	repos := regCtl.Catalog()
@@ -138,7 +144,7 @@ func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map
 					}
 					basicAuth = basic
 				}
-				matchImages = append(matchImages, GetRegistryImages(c, target.RegistryURL, basicAuth, targetImage)...)
+				matchImages = append(matchImages, GetRegistryImages(c, target.RegistryURL, basicAuth, targetImage, target.CertificateSecret, instance.Namespace)...)
 			} else {
 				matchImages = append(matchImages, targetImage)
 			}
