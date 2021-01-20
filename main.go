@@ -170,7 +170,7 @@ func main() {
 	}()
 
 	// Added for registry
-	synced := true
+	synced := false
 	syncRetryCount := 0
 	setupLog.Info("All registries synchronize...")
 	for !synced && syncRetryCount < 10 {
