@@ -64,6 +64,10 @@ func AddV1Apis(parent *wrapper.RouterWrapper) error {
 		return err
 	}
 
+	// Add auth middleware
+	namespaceWrapper.Router.Use(authenticate)
+	// TODO : Authorize
+
 	// Image scan request
 	if err := AddScanRequest(namespaceWrapper); err != nil {
 		return err

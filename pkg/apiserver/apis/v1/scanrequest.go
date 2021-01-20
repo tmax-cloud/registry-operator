@@ -25,8 +25,6 @@ func AddScanRequest(parent *wrapper.RouterWrapper) error {
 	if err := parent.Add(scanRequestWrapper); err != nil {
 		return err
 	}
-	scanRequestWrapper.Router.Use(authenticate)
-	// TODO : Authorize
 
 	return nil
 }
