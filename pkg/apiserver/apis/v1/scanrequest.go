@@ -56,13 +56,13 @@ func scanRequestHandler(w http.ResponseWriter, req *http.Request) {
 	scanRequest, err := newImageScanReq(reqName, ns, reqBody)
 	if err != nil {
 		log.Info(err.Error())
-		_ = utils.RespondError(w, http.StatusInternalServerError, fmt.Sprintf("req: %s, cannot create ImageScanRequest", reqId))
+		_ = utils.RespondError(w, http.StatusInternalServerError, fmt.Sprintf("req: %s, cannot create ImageScanRequest, err: %s", reqId, err.Error()))
 		return
 	}
 
 	if err := k8sClient.Create(context.Background(), scanRequest); err != nil {
 		log.Info(err.Error())
-		_ = utils.RespondError(w, http.StatusInternalServerError, fmt.Sprintf("req: %s, cannot create ImageScanRequest", reqId))
+		_ = utils.RespondError(w, http.StatusInternalServerError, fmt.Sprintf("req: %s, cannot create ImageScanRequest, err: %s", reqId, err.Error()))
 		return
 	}
 
