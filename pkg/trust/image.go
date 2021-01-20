@@ -43,13 +43,15 @@ type ImageManifest struct {
 }
 
 type ImageManifestBody struct {
-	SchemaVersion int    `json:"schemaVersion"`
-	MediaType     string `json:"mediaType"`
-	Layers        []struct {
-		MediaType string `json:"mediaType"`
-		Size      int64  `json:"size"`
-		Digest    string `json:"digest"`
-	} `json:"layers"`
+	SchemaVersion int                  `json:"schemaVersion"`
+	MediaType     string               `json:"mediaType"`
+	Layers        []ImageManifestLayer `json:"layers"`
+}
+
+type ImageManifestLayer struct {
+	MediaType string `json:"mediaType"`
+	Size      int64  `json:"size"`
+	Digest    string `json:"digest"`
 }
 
 func NewImage(uri, registryServer, notaryServer, basicAuth string, ca []byte) (*Image, error) {

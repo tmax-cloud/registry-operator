@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	reg "github.com/genuinetools/reg/clair"
+	"github.com/opencontainers/go-digest"
 	"github.com/tmax-cloud/registry-operator/pkg/trust"
 	"io/ioutil"
 	"net/http"
@@ -54,29 +55,37 @@ func GetScanResult(img *trust.Image) (ResultResponse, error) {
 	}
 
 	// Get clair result for each layer
-	var vuls []reg.Vulnerability
-	for _, l := range manifest.Layers {
-		vul, err := fetchClairResult(l.Digest)
-		if err != nil {
-			log.Error(err, "")
-			return nil, err
-		}
-		vuls = append(vuls, vul...)
+	filteredLayer, err := filterEmptyLayers(manifest.Layers)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(filteredLayer) == 0 {
+		return nil, fmt.Errorf("all layers are empty")
+	}
+
+	// Fetch image's vulnerabilities (only fetch the top layer)
+	vul, err := fetchClairResult(filteredLayer[0].Digest)
+	if err != nil {
+		log.Error(err, "")
+		return nil, err
 	}
 
 	// Make as a map
 	resp := ResultResponse{}
-	for _, v := range vuls {
-		if resp[v.Severity] == nil {
-			resp[v.Severity] = []reg.Vulnerability{}
+	for _, f := range vul.Layer.Features {
+		for _, v := range f.Vulnerabilities {
+			if resp[v.Severity] == nil {
+				resp[v.Severity] = []reg.Vulnerability{}
+			}
+			resp[v.Severity] = append(resp[v.Severity], v)
 		}
-		resp[v.Severity] = append(resp[v.Severity], v)
 	}
 
 	return resp, nil
 }
 
-func fetchClairResult(layerId string) ([]reg.Vulnerability, error) {
+func fetchClairResult(layerId string) (*ClairResponse, error) {
 	clairServer := os.Getenv("CLAIR_URL")
 	if clairServer == "" {
 		return nil, fmt.Errorf("CLAIR_URL is not set")
@@ -115,9 +124,20 @@ func fetchClairResult(layerId string) ([]reg.Vulnerability, error) {
 		return nil, err
 	}
 
-	var results []reg.Vulnerability
-	for _, f := range layer.Layer.Features {
-		results = append(results, f.Vulnerabilities...)
+	return layer, nil
+}
+
+func filterEmptyLayers(layers []trust.ImageManifestLayer) ([]trust.ImageManifestLayer, error) {
+	var results []trust.ImageManifestLayer
+
+	for _, l := range layers {
+		d, err := digest.Parse(l.Digest)
+		if err != nil {
+			return nil, err
+		}
+		if !reg.IsEmptyLayer(d) {
+			results = append(results, l)
+		}
 	}
 
 	return results, nil

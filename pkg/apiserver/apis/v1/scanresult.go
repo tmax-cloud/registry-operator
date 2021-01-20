@@ -32,15 +32,11 @@ func AddScanResult(parent *wrapper.RouterWrapper) error {
 	if err := parent.Add(listScanSummaryWrapper); err != nil {
 		return err
 	}
-	listScanSummaryWrapper.Router.Use(authenticate)
-	// TODO : Authorize
 
 	scanResultWrapper := wrapper.New(fmt.Sprintf("/%s/{%s}/%s/{%s}", RepositoryKind, RepositoryParamKey, ScanResultKind, TagParamKey), []string{http.MethodGet}, scanResultHandler)
 	if err := parent.Add(scanResultWrapper); err != nil {
 		return err
 	}
-	scanResultWrapper.Router.Use(authenticate)
-	// TODO : Authorize
 
 	return nil
 }
