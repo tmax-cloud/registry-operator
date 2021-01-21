@@ -1,9 +1,8 @@
 package schemes
 
 import (
-	"os"
-
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -22,7 +21,7 @@ func NotaryDBPod(notary *regv1.Notary) *corev1.Pod {
 		pvcName = SubresourceName(notary, SubTypeNotaryDBPVC)
 	}
 
-	DBImage := os.Getenv("NOTARY_DB_IMAGE")
+	DBImage := config.Config.GetString("notary.db.image")
 
 	pod := &corev1.Pod{
 		ObjectMeta: v1.ObjectMeta{
@@ -74,8 +73,8 @@ func NotaryDBPod(notary *regv1.Notary) *corev1.Pod {
 	}
 
 	// set image pull secret
-	if os.Getenv("NOTARY_DB_IMAGE_PULL_SECRET") != "" {
-		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: os.Getenv("NOTARY_DB_IMAGE_PULL_SECRET")})
+	if config.Config.GetString("notary.db.image_pull_secret") != "" {
+		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: config.Config.GetString("notary.db.image_pull_secret")})
 	}
 
 	return pod

@@ -2,8 +2,8 @@ package harbor
 
 import (
 	"context"
-	"os"
 
+	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	exv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,12 +34,12 @@ func IsHarbor(c client.Client, serverURL string) bool {
 
 func Ingress(c client.Client) (*exv1beta1.Ingress, error) {
 	regIng := &exv1beta1.Ingress{}
-	harborNamespace := os.Getenv("HARBOR_NAMESPACE")
+	harborNamespace := config.Config.GetString("harbor.namespace")
 	if harborNamespace == "" {
 		harborNamespace = DefaultHarborNamespace
 	}
 
-	harborCoreIngress := os.Getenv("HARBOR_CORE_INGRESS")
+	harborCoreIngress := config.Config.GetString("harbor.core.ingress")
 	if harborCoreIngress == "" {
 		harborCoreIngress = DefaultHarborCoreIngress
 	}

@@ -2,10 +2,10 @@ package certs
 
 import (
 	"context"
-	"os"
 	"strings"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	regConfig "github.com/tmax-cloud/registry-operator/internal/common/config"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,7 +56,7 @@ func GetSystemRootCASecret(c client.Client) (*corev1.Secret, error) {
 		c = cli
 	}
 
-	opNamespace := os.Getenv("OPERATOR_NAMESPACE")
+	opNamespace := regConfig.Config.GetString("operator.namespace")
 	if opNamespace == "" {
 		opNamespace = regv1.OperatorNamespace
 	}
@@ -108,7 +108,7 @@ func GetSystemKeycloakCert(c client.Client) (*corev1.Secret, error) {
 		c = cli
 	}
 
-	opNamespace := os.Getenv("OPERATOR_NAMESPACE")
+	opNamespace := regConfig.Config.GetString("operator.namespace")
 	if opNamespace == "" {
 		opNamespace = regv1.OperatorNamespace
 	}

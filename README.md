@@ -69,7 +69,7 @@ The registry-operator project is a service to launch private registries and to m
 			systemctl restart crio
 			```
 
-5. Install clair for image scanning
+6. Install clair for image scanning (option)
 	1) make secret file
 		```bash
 		kubectl create secret generic clairsecret --from-file=./config/manager/clair_config.yaml

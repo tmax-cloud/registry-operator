@@ -1,12 +1,12 @@
 package schemes
 
 import (
-	"os"
 	"path"
 	"strconv"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/common/certs"
+	"github.com/tmax-cloud/registry-operator/internal/common/config"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -72,7 +72,7 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 
 	registryImage := reg.Spec.Image
 	if registryImage == "" {
-		registryImage = os.Getenv("REGISTRY_IMAGE")
+		registryImage = config.Config.GetString("registry.image")
 	}
 
 	deployment := &appsv1.Deployment{
@@ -246,8 +246,8 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 
 	deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[0].VolumeMounts, vm)
 
-	if os.Getenv("REGISTRY_IMAGE_PULL_SECRET") != "" {
-		deployment.Spec.Template.Spec.ImagePullSecrets = append(deployment.Spec.Template.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: os.Getenv("REGISTRY_IMAGE_PULL_SECRET")})
+	if config.Config.GetString("registry.image_pull_secret") != "" {
+		deployment.Spec.Template.Spec.ImagePullSecrets = append(deployment.Spec.Template.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: config.Config.GetString("registry.image_pull_secret")})
 	}
 
 	return deployment, nil

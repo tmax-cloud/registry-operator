@@ -3,14 +3,15 @@ package scan
 import (
 	"encoding/json"
 	"fmt"
-	reg "github.com/genuinetools/reg/clair"
-	"github.com/opencontainers/go-digest"
-	"github.com/tmax-cloud/registry-operator/pkg/trust"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
+
+	reg "github.com/genuinetools/reg/clair"
+	"github.com/opencontainers/go-digest"
+	"github.com/tmax-cloud/registry-operator/internal/common/config"
+	"github.com/tmax-cloud/registry-operator/pkg/trust"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -86,7 +87,7 @@ func GetScanResult(img *trust.Image) (ResultResponse, error) {
 }
 
 func fetchClairResult(layerId string) (*ClairResponse, error) {
-	clairServer := os.Getenv("CLAIR_URL")
+	clairServer := config.Config.GetString("clair.url")
 	if clairServer == "" {
 		return nil, fmt.Errorf("CLAIR_URL is not set")
 	}

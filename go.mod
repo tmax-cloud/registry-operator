@@ -24,6 +24,7 @@ require (
 	github.com/operator-framework/operator-lib v0.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron v1.2.0
+	github.com/spf13/viper v1.3.2
 	github.com/theupdateframework/notary v0.6.2-0.20200804143915-84287fd8df4f
 	k8s.io/api v0.19.4
 	k8s.io/apimachinery v0.19.4

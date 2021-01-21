@@ -7,6 +7,7 @@ import (
 	"path"
 
 	"github.com/go-logr/logr"
+	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -21,6 +22,7 @@ type KeycloakClient struct {
 
 func NewKeycloakClient(username, password, realm, service string) *KeycloakClient {
 	logger := logf.Log.WithName("keycloak controller")
+	KeycloakServer := config.Config.GetString("keycloak.service")
 	return &KeycloakClient{
 		realm:      realm,
 		service:    service,

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path"
 
 	gocloak "github.com/Nerzal/gocloak/v7"
@@ -18,16 +17,11 @@ import (
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/common/certs"
+	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-)
-
-var (
-	KeycloakServer = os.Getenv("KEYCLOAK_SERVICE")
-	keycloakUser   = os.Getenv("KEYCLOAK_USERNAME")
-	keycloakPwd    = os.Getenv("KEYCLOAK_PASSWORD")
 )
 
 const (
@@ -45,6 +39,9 @@ type KeycloakController struct {
 
 func NewKeycloakController(namespace, name string) *KeycloakController {
 	logger := logf.Log.WithName("keycloak controller").WithValues("namespace", namespace, "registry name", name)
+	KeycloakServer := config.Config.GetString("keycloak.service")
+	keycloakUser := config.Config.GetString("keycloak.username")
+	keycloakPwd := config.Config.GetString("keycloak.password")
 	client := gocloak.NewClient(KeycloakServer)
 	restyClient := client.RestyClient()
 	restyClient.SetDebug(true)
@@ -55,7 +52,7 @@ func NewKeycloakController(namespace, name string) *KeycloakController {
 
 	// set realm name
 	var realm string
-	clusterName := os.Getenv("CLUSTER_NAME")
+	clusterName := config.Config.GetString("cluster.name")
 	if clusterName == "" {
 		realm = fmt.Sprintf("%s-%s", namespace, name)
 	} else {
@@ -87,6 +84,9 @@ func (c *KeycloakController) GetDockerV2ClientName() string {
 }
 
 func (c *KeycloakController) GetAdminToken() (string, error) {
+	keycloakUser := config.Config.GetString("keycloak.username")
+	keycloakPwd := config.Config.GetString("keycloak.password")
+
 	// login admin
 	token, err := c.client.LoginAdmin(context.Background(), keycloakUser, keycloakPwd, "master")
 	if err != nil {
@@ -276,6 +276,8 @@ func (c *KeycloakController) AddCertificate() error {
 }
 
 func (c *KeycloakController) componentURL() string {
+	KeycloakServer := config.Config.GetString("keycloak.service")
+	keycloakUser := config.Config.GetString("keycloak.username")
 	return KeycloakServer + "/" + path.Join("auth", keycloakUser, "realms", c.GetRealmName(), "components")
 }
 

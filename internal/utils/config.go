@@ -2,7 +2,8 @@ package utils
 
 import (
 	"fmt"
-	"os"
+
+	"github.com/tmax-cloud/registry-operator/internal/common/config"
 )
 
 const (
@@ -12,45 +13,29 @@ const (
 	defaultImageNotaryDB     = "tmaxcloudck/notary_mysql:0.6.2-rc1"
 )
 
-func setUndefinedEnv(key, value string) {
-	if os.Getenv(key) == "" {
-		os.Setenv(key, value)
-	}
-}
-
 // InitEnv sets undefined environments.
 // If IMAGE_REGISTRY is set, it assumes the necessary images are in the registry.
 func InitEnv() {
-	registry := os.Getenv("IMAGE_REGISTRY")
-	if registry != "" {
-		setUndefinedEnv("REGISTRY_IMAGE", fmt.Sprintf("%s/%s", registry, defaultImageRegistry))
-		setUndefinedEnv("NOTARY_SERVER_IMAGE", fmt.Sprintf("%s/%s", registry, defaultImageNotaryServer))
-		setUndefinedEnv("NOTARY_SIGNER_IMAGE", fmt.Sprintf("%s/%s", registry, defaultImageNotarySigner))
-		setUndefinedEnv("NOTARY_DB_IMAGE", fmt.Sprintf("%s/%s", registry, defaultImageNotaryDB))
+	config.Config.SetDefault("operator.namespace", "registry-system")
 
-		setUndefinedEnv("REGISTRY_IMAGE_PULL_SECRET", os.Getenv("IMAGE_REGISTRY_PULL_SECRET"))
-		setUndefinedEnv("NOTARY_SERVER_IMAGE_PULL_SECRET", os.Getenv("IMAGE_REGISTRY_PULL_SECRET"))
-		setUndefinedEnv("NOTARY_SIGNER_IMAGE_PULL_SECRET", os.Getenv("IMAGE_REGISTRY_PULL_SECRET"))
-		setUndefinedEnv("NOTARY_DB_IMAGE_PULL_SECRET", os.Getenv("IMAGE_REGISTRY_PULL_SECRET"))
+	registry := config.Config.GetString("image.registry")
+	if registry != "" {
+		config.Config.SetDefault("registry.image", fmt.Sprintf("%s/%s", registry, defaultImageRegistry))
+		config.Config.SetDefault("notary.server.image", fmt.Sprintf("%s/%s", registry, defaultImageNotaryServer))
+		config.Config.SetDefault("notary.signer.image", fmt.Sprintf("%s/%s", registry, defaultImageNotarySigner))
+		config.Config.SetDefault("notary.db.image", fmt.Sprintf("%s/%s", registry, defaultImageNotaryDB))
+
+		imagePullSecret := config.Config.GetString("image.registry_pull_secret")
+		config.Config.SetDefault("registry.image_pull_secret", imagePullSecret)
+		config.Config.SetDefault("notary.server.image_pull_secret", imagePullSecret)
+		config.Config.SetDefault("notary.signer.image_pull_secret", imagePullSecret)
+		config.Config.SetDefault("notary.db.image_pull_secret", imagePullSecret)
 
 		return
 	}
 
-	setUndefinedEnv("REGISTRY_IMAGE", defaultImageRegistry)
-	setUndefinedEnv("NOTARY_SERVER_IMAGE", defaultImageNotaryServer)
-	setUndefinedEnv("NOTARY_SIGNER_IMAGE", defaultImageNotarySigner)
-	setUndefinedEnv("NOTARY_DB_IMAGE", defaultImageNotaryDB)
-}
-
-func PrintEnv() {
-	envs := []string{
-		"IMAGE_REGISTRY", "REGISTRY_IMAGE", "NOTARY_SERVER_IMAGE", "NOTARY_SIGNER_IMAGE", "NOTARY_DB_IMAGE",
-		"REGISTRY_IMAGE_PULL_SECRET", "NOTARY_SERVER_IMAGE_PULL_SECRET", "NOTARY_SIGNER_IMAGE_PULL_SECRET", "NOTARY_DB_IMAGE_PULL_SECRET",
-	}
-
-	fmt.Println("==================== Init Env Start ====================")
-	for _, env := range envs {
-		fmt.Printf("%-25s: %s\n", env, os.Getenv(env))
-	}
-	fmt.Println("==================== Init Env End ====================")
+	config.Config.SetDefault("registry.image", defaultImageRegistry)
+	config.Config.SetDefault("notary.server.image", defaultImageNotaryServer)
+	config.Config.SetDefault("notary.signer.image", defaultImageNotarySigner)
+	config.Config.SetDefault("notary.db.image", defaultImageNotaryDB)
 }

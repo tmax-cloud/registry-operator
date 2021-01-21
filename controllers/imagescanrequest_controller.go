@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path"
 
 	reg "github.com/genuinetools/reg/clair"
@@ -32,6 +31,7 @@ import (
 
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/controllers/scanctl"
+	"github.com/tmax-cloud/registry-operator/internal/common/config"
 )
 
 // ImageScanRequestReconciler reconciles a ImageScanRequest object
@@ -95,7 +95,7 @@ func (r *ImageScanRequestReconciler) updateScanningStatus(instance *tmaxiov1.Ima
 			status.Status = tmaxiov1.ScanRequestSuccess
 			status.Results = map[string]tmaxiov1.ScanResult{}
 
-			esUrl := os.Getenv("ELASTIC_SEARCH_URL")
+			esURL := config.Config.GetString("elastic_search.url")
 			for registry, imageReports := range reports {
 				for image, report := range imageReports {
 					for _, target := range instance.Spec.ScanTargets {
@@ -110,9 +110,9 @@ func (r *ImageScanRequestReconciler) updateScanningStatus(instance *tmaxiov1.Ima
 						status.Results[path.Join(registry, image)] = tmaxiov1.ScanResult{Summary: esReport.Result.Summary}
 
 						// send logging server
-						if err == nil && len(esUrl) != 0 {
+						if err == nil && len(esURL) != 0 {
 							if target.RegistryURL == registry && target.ElasticSearch {
-								res, err := scanctl.SendElasticSearchServer(esUrl, instance.Namespace, instance.Name, &esReport)
+								res, err := scanctl.SendElasticSearchServer(esURL, instance.Namespace, instance.Name, &esReport)
 								if err != nil {
 									reqLogger.Error(err, "failed to send ES Server")
 								}
