@@ -58,10 +58,10 @@ spec:
           mountPath: /bin/dev
         - name: operator-log-mnt
           mountPath: /logs
-        - mountPath: /usr/local/share/ca-certificates
-          name: registry-secret
-        - mountPath: /registry-operator/config
-          name: manager-config
+        - name: registry-secret
+          mountPath: /usr/local/share/ca-certificates
+        - name: manager-config
+          mountPath: /registry-operator/config
       volumes:
       - name: manager-mnt
         hostPath:

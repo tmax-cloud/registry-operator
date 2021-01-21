@@ -56,8 +56,10 @@ spec:
         volumeMounts:
         - name: operator-log-mnt
           mountPath: /logs
-        - mountPath: /usr/local/share/ca-certificates
-          name: registry-secret
+        - name: registry-secret
+          mountPath: /usr/local/share/ca-certificates
+        - name: manager-config
+          mountPath: /registry-operator/config
       volumes:
       - name: operator-log-mnt
         hostPath:
@@ -65,4 +67,7 @@ spec:
       - name: registry-secret
         secret:
           secretName: registry-ca
+      - name: manager-config
+        configMap:
+          name: manager-config
       terminationGracePeriodSeconds: 10
