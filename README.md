@@ -26,6 +26,7 @@ The registry-operator project is a service to launch private registries and to m
 3. Set manager.yaml's configuration
 	* Change the following export variables to the appropriate values to run.
 		```bash
+		cd ${WORKDIR}
 		export REGISTRY_OPERATOR_VERSION=v0.1.0
 		sed -i 's/{REGISTRY_OPERATOR_VERSION}/'${REGISTRY_OPERATOR_VERSION}'/g' ./config/manager/manager.yaml
 		```
