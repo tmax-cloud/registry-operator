@@ -22,7 +22,6 @@ import (
 	"io"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/tmax-cloud/registry-operator/pkg/apiserver"
 
@@ -169,24 +168,10 @@ func main() {
 		wg.Done()
 	}()
 
-	// Added for registry
-	synced := true
-	syncRetryCount := 0
-	setupLog.Info("All registries synchronize...")
-	for !synced && syncRetryCount < 10 {
-		if err := regApi.AllRegistrySync(mgr.GetClient(), mgr.GetScheme()); err != nil {
-			time.Sleep(1 * time.Second)
-			syncRetryCount++
-			continue
-		}
-
-		synced = true
+	// Synchronize All Registries
+	if err := regApi.SyncAllRegistry(mgr.GetClient(), mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "failed to synchronize all registries")
 	}
-
-	if syncRetryCount >= 10 {
-		setupLog.Info("failed to synchronize all registries")
-	}
-	// [TEST]//
 
 	// Wait until webserver and manager is over
 	wg.Wait()

@@ -70,11 +70,9 @@ func (c *KeycloakClient) GetToken(scopes []string) (string, error) {
 
 	token := &KeycloakTokenResponse{}
 	if err := json.Unmarshal(body, token); err != nil {
-		c.logger.Info("contents", "token", string(body))
+		c.logger.Error(err, "contents", "token", string(body))
 		return "", err
 	}
-
-	c.logger.Info("token", "val", token.Token)
 
 	return token.Token, nil
 }
