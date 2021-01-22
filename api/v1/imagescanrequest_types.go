@@ -20,7 +20,6 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
 type ScanRequestStatusType string
@@ -79,7 +78,8 @@ type Vulnerability struct {
 	// Severity degree
 	Severity string `json:"Severity,omitempty"`
 	// Metadata
-	Metadata runtime.RawExtension `json:"Metadata,omitempty"`
+	//Metadata runtime.RawExtension `json:"Metadata,omitempty"`
+
 	// Fixed version
 	FixedBy string `json:"FixedBy,omitempty"`
 }

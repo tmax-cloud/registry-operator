@@ -132,9 +132,6 @@ spec:
                           Link:
                             description: Description link
                             type: string
-                          Metadata:
-                            description: Metadata
-                            type: object
                           Name:
                             description: Severity name
                             type: string
