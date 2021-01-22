@@ -26,7 +26,7 @@ kubectl apply -f config/apiservice/apiservice.yaml
 kubectl apply -f config/webhook/mutating-webhook.yaml
 
 # Apply manager config
-kubectl apply -f config/webhook/manager_config.yaml
+kubectl create configmap manager-config -n registry-system --from-file=config/manager/manager_config.yaml || true
 
 # Create registry CA
 CA_CRT_FILE=./config/pki/ca.crt
