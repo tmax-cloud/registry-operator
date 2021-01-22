@@ -7,6 +7,7 @@ import (
 	"github.com/operator-framework/operator-lib/status"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/controllers/keycloakctl"
+	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -115,9 +116,10 @@ func (r *RegistryNotary) create(c client.Client, reg *regv1.Registry, patchReg *
 
 func (r *RegistryNotary) getAuthConfig() *regv1.AuthConfig {
 	auth := &regv1.AuthConfig{}
-	auth.Realm = keycloakctl.KeycloakServer + "/" + path.Join("auth", "realms", r.KcCtl.GetRealmName(), "protocol", "docker-v2", "auth")
+	KeycloakServer := config.Config.GetString("keycloak.service")
+	auth.Realm = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCtl.GetRealmName(), "protocol", "docker-v2", "auth")
 	auth.Service = r.KcCtl.GetDockerV2ClientName()
-	auth.Issuer = keycloakctl.KeycloakServer + "/" + path.Join("auth", "realms", r.KcCtl.GetRealmName())
+	auth.Issuer = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCtl.GetRealmName())
 
 	return auth
 }

@@ -10,5 +10,8 @@ const (
 )
 
 func CAData(secret *corev1.Secret) ([]byte, []byte) {
+	if secret == nil {
+		return nil, nil
+	}
 	return secret.Data[RootCACert], secret.Data[RootCAPriv]
 }

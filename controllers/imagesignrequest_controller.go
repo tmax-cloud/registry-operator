@@ -19,12 +19,12 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	exv1beta1 "k8s.io/api/extensions/v1beta1"
 
 	"github.com/tmax-cloud/registry-operator/controllers/repoctl"
+	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -145,17 +145,17 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	// Check if it's Harbor registry
 	isHarbor := false
 	regIng := &exv1beta1.Ingress{}
-	harborNamespace := os.Getenv("HARBOR_NAMESPACE")
+	harborNamespace := config.Config.GetString("harbor.namespace")
 	if harborNamespace == "" {
 		harborNamespace = DefaultHarborNamespace
 	}
 
-	harborCoreIngress := os.Getenv("HARBOR_CORE_INGRESS")
+	harborCoreIngress := config.Config.GetString("harbor.core.ingress")
 	if harborCoreIngress == "" {
 		harborCoreIngress = DefaultHarborCoreIngress
 	}
 
-	harborNotaryIngress := os.Getenv("HARBOR_NOTARY_INGRESS")
+	harborNotaryIngress := config.Config.GetString("harbor.notary.ingress")
 	if harborNotaryIngress == "" {
 		harborNotaryIngress = DefaultHarborNotaryIngress
 	}

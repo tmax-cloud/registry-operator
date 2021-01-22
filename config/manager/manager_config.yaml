@@ -1,0 +1,37 @@
+# cluster:
+  # name: my-kube
+
+# image:
+  # registry: <image_registry>
+  # registry_pull_secret: <registry-pull-secret>
+
+registry:
+  image: registry:2.7.1
+  image_pull_secret: ""
+  
+notary:
+  server:
+    image: tmaxcloudck/notary_server:0.6.2-rc1
+    image_pull_secret: ""
+  signer:
+    image: tmaxcloudck/notary_signer:0.6.2-rc1
+    image_pull_secret: ""
+  db:
+    image: tmaxcloudck/notary_mysql:0.6.2-rc1
+    image_pull_secret: ""
+
+keycloak:
+  service: https://172.22.11.9:8443
+
+clair:
+  url: "http://tmax-harbor-clair.harbor.svc.cluster.local:6060"
+
+elastic_search:
+  url: "http://elasticsearch.kube-logging.svc.cluster.local:9200"
+
+harbor:
+  namespace: harbor
+  core:
+    ingress: tmax-harbor-ingress
+  notary:
+    ingress: tmax-harbor-ingress-notary

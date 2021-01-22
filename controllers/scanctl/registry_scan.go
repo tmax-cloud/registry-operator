@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"path"
 	"strings"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/genuinetools/reg/registry"
 	"github.com/genuinetools/reg/repoutils"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
+	regConfig "github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	regApi "github.com/tmax-cloud/registry-operator/pkg/registry"
 	clairReg "github.com/tmax-cloud/registry-operator/pkg/scan/clair"
@@ -183,7 +183,7 @@ func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map
 	reports := map[string]map[string]*reg.VulnerabilityReport{}
 
 	//get clair url
-	clairServer := os.Getenv("CLAIR_URL")
+	clairServer := regConfig.Config.GetString("clair.url")
 	if len(clairServer) == 0 {
 		return reports, errors.NewBadRequest("cannot find clairUrl")
 	}

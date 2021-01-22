@@ -2,10 +2,10 @@ package regctl
 
 import (
 	"context"
-	"os"
 	"path"
 	"strings"
 
+	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 
@@ -122,10 +122,11 @@ func (r *RegistryDeployment) create(c client.Client, reg *regv1.Registry, patchR
 }
 
 func (r *RegistryDeployment) getAuthConfig() *regv1.AuthConfig {
+	KeycloakServer := config.Config.GetString("keycloak.service")
 	auth := &regv1.AuthConfig{}
-	auth.Realm = keycloakctl.KeycloakServer + "/" + path.Join("auth", "realms", r.KcCli.GetRealm(), "protocol", "docker-v2", "auth")
+	auth.Realm = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCli.GetRealm(), "protocol", "docker-v2", "auth")
 	auth.Service = r.KcCli.GetService()
-	auth.Issuer = keycloakctl.KeycloakServer + "/" + path.Join("auth", "realms", r.KcCli.GetRealm())
+	auth.Issuer = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCli.GetRealm())
 
 	return auth
 }
@@ -198,7 +199,7 @@ func (r *RegistryDeployment) patch(c client.Client, reg *regv1.Registry, patchRe
 		switch d.Key {
 		case ImageDiffKey:
 			if reg.Spec.Image == "" {
-				deployContainer.Image = os.Getenv("REGISTRY_IMAGE")
+				deployContainer.Image = config.Config.GetString("image.registry")
 				continue
 			}
 
@@ -281,7 +282,7 @@ func (r *RegistryDeployment) compare(reg *regv1.Registry) []utils.Diff {
 		volumeMap[vol.Name] = vol
 	}
 
-	if (reg.Spec.Image != "" && reg.Spec.Image != deployContainer.Image) || (reg.Spec.Image == "" && deployContainer.Image != os.Getenv("REGISTRY_IMAGE")) {
+	if (reg.Spec.Image != "" && reg.Spec.Image != deployContainer.Image) || (reg.Spec.Image == "" && deployContainer.Image != config.Config.GetString("image.registry")) {
 		diff = append(diff, utils.Diff{Type: utils.Replace, Key: ImageDiffKey})
 	}
 

@@ -1,10 +1,10 @@
 package schemes
 
 import (
-	"os"
 	"path"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +25,7 @@ func NotarySignerPod(notary *regv1.Notary) *corev1.Pod {
 
 	mode := int32(511)
 
-	signerImage := os.Getenv("NOTARY_SIGNER_IMAGE")
+	signerImage := config.Config.GetString("notary.signer.image")
 
 	pod := &corev1.Pod{
 		ObjectMeta: v1.ObjectMeta{
@@ -126,8 +126,8 @@ func NotarySignerPod(notary *regv1.Notary) *corev1.Pod {
 		},
 	}
 
-	if os.Getenv("NOTARY_SIGNER_IMAGE_PULL_SECRET") != "" {
-		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: os.Getenv("NOTARY_SIGNER_IMAGE_PULL_SECRET")})
+	if config.Config.GetString("notary.signer.image_pull_secret") != "" {
+		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: config.Config.GetString("notary.signer.image_pull_secret")})
 	}
 
 	return pod

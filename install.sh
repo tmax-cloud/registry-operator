@@ -25,6 +25,9 @@ kubectl apply -f config/apiservice/apiservice.yaml
 # Apply webhook
 kubectl apply -f config/webhook/mutating-webhook.yaml
 
+# Apply manager config
+kubectl apply -f config/webhook/manager_config.yaml
+
 # Create registry CA
 CA_CRT_FILE=./config/pki/ca.crt
 CA_KEY_FILE=./config/pki/ca.key

@@ -20,7 +20,7 @@ spec:
         - /manager
         args:
         - --enable-leader-election
-        image: tmaxcloudck/registry-operator:0.0.1
+        image: tmaxcloudck/registry-operator:{REGISTRY_OPERATOR_VERSION}
         name: manager
         imagePullPolicy: Always
         env:
@@ -36,16 +36,6 @@ spec:
                 fieldPath: metadata.namespace
           - name: TZ
             value: Asia/Seoul
-          # CLUSTER_NAME is Name for distinguishing clusters
-          # If registry resource is created with CLUSTER_NAME set, you must delete all of the resources and change this value
-          # - name: CLUSTER_NAME
-          #  value: {CLUSTER_NAME}
-          # IMAGE_REGISTRY is private image registry url including image such as registry:2.7.1 and tmaxcloudck/notary_server:0.6.2-rc1 etc. 
-          # Input like 172.22.11.2:5000 at <image_registry>.
-          # - name: IMAGE_REGISTRY
-          #   value: "<image_registry>"
-          # - name: IMAGE_REGISTRY_PULL_SECRET
-          #   value: "<registry-pull-secret>"
           - name: KEYCLOAK_SERVICE
             value: https://keycloak-test-service.reg-test.svc.cluster.local:8443
           - name: KEYCLOAK_USERNAME
@@ -58,23 +48,6 @@ spec:
                 secretKeyRef:
                   name: keycloak-secret
                   key: password
-          - name: CLAIR_URL
-            value: "http://clairsvc.default.svc.cluster.local:6060"
-          - name: ELASTIC_SEARCH_URL
-            value: "http://elasticsearch-svc.default.svc.cluster.local:9200"
-          - name: HARBOR_NAMESPACE
-            value: harbor
-          - name: HARBOR_CORE_INGRESS
-            value: tmax-harbor-ingress
-          - name: HARBOR_NOTARY_INGRESS
-            value: tmax-harbor-ingress-notary
-#        resources:
-#          limits:
-#            cpu: 100m
-#            memory: 30Mi
-#          requests:
-#            cpu: 100m
-#            memory: 20Mi
         lifecycle:
           postStart:
             exec:
@@ -83,13 +56,18 @@ spec:
         volumeMounts:
         - name: operator-log-mnt
           mountPath: /logs
-        - mountPath: /usr/local/share/ca-certificates
-          name: registry-secret  
+        - name: registry-secret
+          mountPath: /usr/local/share/ca-certificates
+        - name: manager-config
+          mountPath: /registry-operator/config
       volumes:
       - name: operator-log-mnt
         hostPath:
-          path: "/root/go/src/github.com/tmax-cloud/registry-operator/logs"
+          path: /var/log/registry-operator/logs
       - name: registry-secret
         secret:
           secretName: registry-ca
+      - name: manager-config
+        configMap:
+          name: manager-config
       terminationGracePeriodSeconds: 10

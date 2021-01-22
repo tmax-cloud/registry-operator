@@ -5,9 +5,9 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"os"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -90,7 +90,7 @@ const (
 func getRootCACertificate(c client.Client) (*x509.Certificate, *rsa.PrivateKey) {
 	logger := utils.GetRegistryLogger(corev1.Secret{}, "CertScheme", "secret")
 
-	opNamespace := os.Getenv("OPERATOR_NAMESPACE")
+	opNamespace := config.Config.GetString("operator.namespace")
 	if opNamespace == "" {
 		opNamespace = regv1.OperatorNamespace
 	}
