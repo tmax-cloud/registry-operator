@@ -11,9 +11,17 @@ spec:
   additionalPrinterColumns:
   - JSONPath: .spec.image
     name: IMAGE
+    priority: 1
+    type: string
+  - JSONPath: .status.serverURL
+    name: REGISTRY_URL
+    type: string
+  - JSONPath: .status.notaryURL
+    name: NOTARY_URL
     type: string
   - JSONPath: .status.capacity
     name: CAPACITY
+    priority: 1
     type: string
   - JSONPath: .status.phase
     name: STATUS
