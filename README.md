@@ -30,8 +30,8 @@ The registry-operator project is a service to launch private registries and to m
 		export REGISTRY_OPERATOR_VERSION=v0.1.0
 		sed -i 's/{REGISTRY_OPERATOR_VERSION}/'${REGISTRY_OPERATOR_VERSION}'/g' ./config/manager/manager.yaml
 		```
-	* Customize env file(`config/manager/manager_dev.yaml`)
-		* reference: [Environment Description](./docs/env.md) 
+	* Customize env file(`config/manager/manager_config.yaml`)
+		* reference: [Environment Description](./docs/envs.md) 
 
 4. Execute install.sh script
 	* Create namespace, CRDs, role, etc... Then deploy the registry-operator.
