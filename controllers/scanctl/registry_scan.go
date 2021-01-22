@@ -3,6 +3,7 @@ package scanctl
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -351,7 +352,11 @@ func SendElasticSearchServer(url string, namespace string, name string, body *tm
 
 	image := strings.ReplaceAll(body.Image, "/", "_")
 	requestUrl := url + "/image-scanning-" + namespace + "/_doc/" + image
-	res, err := http.Post(requestUrl, "application/json", bytes.NewReader(data))
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	cli := &http.Client{Transport: tr}
+	res, err := cli.Post(requestUrl, "application/json", bytes.NewReader(data))
 	if err != nil {
 		logger.Error(err, "failed to post ES Server")
 		return nil, err
