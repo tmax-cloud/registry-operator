@@ -103,8 +103,10 @@ type RegistryStatus struct {
 // Registry is the Schema for the registries API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=registries,scope=Namespaced,shortName=reg
-// +kubebuilder:printcolumn:name="IMAGE",type=string,JSONPath=`.spec.image`
-// +kubebuilder:printcolumn:name="CAPACITY",type=string,JSONPath=`.status.capacity`
+// +kubebuilder:printcolumn:name="IMAGE",type=string,priority=1,JSONPath=`.spec.image`
+// +kubebuilder:printcolumn:name="REGISTRY_URL",type=string,JSONPath=`.status.serverURL`
+// +kubebuilder:printcolumn:name="NOTARY_URL",type=string,JSONPath=`.status.notaryURL`
+// +kubebuilder:printcolumn:name="CAPACITY",type=string,priority=1,JSONPath=`.status.capacity`
 // +kubebuilder:printcolumn:name="STATUS",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="AGE",type=date,JSONPath=`.metadata.creationTimestamp`
 type Registry struct {
