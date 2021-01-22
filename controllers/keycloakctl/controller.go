@@ -44,7 +44,6 @@ func NewKeycloakController(namespace, name string) *KeycloakController {
 	keycloakPwd := config.Config.GetString("keycloak.password")
 	client := gocloak.NewClient(KeycloakServer)
 	restyClient := client.RestyClient()
-	restyClient.SetDebug(true)
 	// TODO: 인증서 추가할 것
 	restyClient.SetTLSClientConfig(&tls.Config{
 		InsecureSkipVerify: true,
