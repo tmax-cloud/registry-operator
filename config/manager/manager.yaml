@@ -46,16 +46,12 @@ spec:
                 secretKeyRef:
                   name: keycloak-secret
                   key: password
-        lifecycle:
-          postStart:
-            exec:
-              command:
-              - /usr/sbin/update-ca-certificates
         volumeMounts:
         - name: operator-log-mnt
           mountPath: /logs
         - name: registry-secret
-          mountPath: /usr/local/share/ca-certificates
+          mountPath: /etc/ssl/certs/ca.crt
+          subPath: ca.crt
         - name: manager-config
           mountPath: /registry-operator/config
       volumes:
