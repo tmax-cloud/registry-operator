@@ -7,6 +7,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/cloudflare/cfssl/log"
+	"io/ioutil"
 	"net/http"
 	"path"
 	"strings"
@@ -55,8 +57,8 @@ func ParseAnalysis(threshold int, report *reg.VulnerabilityReport) (map[string]i
 				Description:   v.Description,
 				Link:          v.Link,
 				Severity:      v.Severity,
-				Metadata:      obj,
-				FixedBy:       v.FixedBy,
+				//Metadata:      obj,
+				FixedBy: v.FixedBy,
 			}
 			vuls = append(vuls, vul)
 		}
@@ -361,6 +363,12 @@ func SendElasticSearchServer(url string, namespace string, name string, body *tm
 		logger.Error(err, "failed to post ES Server")
 		return nil, err
 	}
+	log.Info(res.StatusCode)
+	resBody, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	log.Info(string(resBody))
 	defer res.Body.Close()
 	return res, err
 }
