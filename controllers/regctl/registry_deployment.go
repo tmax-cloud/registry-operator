@@ -199,7 +199,7 @@ func (r *RegistryDeployment) patch(c client.Client, reg *regv1.Registry, patchRe
 		switch d.Key {
 		case ImageDiffKey:
 			if reg.Spec.Image == "" {
-				deployContainer.Image = config.Config.GetString("image.registry")
+				deployContainer.Image = config.Config.GetString("registry.image")
 				continue
 			}
 
@@ -282,7 +282,7 @@ func (r *RegistryDeployment) compare(reg *regv1.Registry) []utils.Diff {
 		volumeMap[vol.Name] = vol
 	}
 
-	if (reg.Spec.Image != "" && reg.Spec.Image != deployContainer.Image) || (reg.Spec.Image == "" && deployContainer.Image != config.Config.GetString("image.registry")) {
+	if (reg.Spec.Image != "" && reg.Spec.Image != deployContainer.Image) || (reg.Spec.Image == "" && deployContainer.Image != config.Config.GetString("registry.imaGE")) {
 		diff = append(diff, utils.Diff{Type: utils.Replace, Key: ImageDiffKey})
 	}
 
