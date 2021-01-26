@@ -199,7 +199,7 @@ func (r *RegistryDeployment) patch(c client.Client, reg *regv1.Registry, patchRe
 		switch d.Key {
 		case ImageDiffKey:
 			if reg.Spec.Image == "" {
-				deployContainer.Image = config.Config.GetString("image.registry")
+				deployContainer.Image = config.Config.GetString("registry.image")
 				continue
 			}
 
