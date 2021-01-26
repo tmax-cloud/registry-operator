@@ -15,8 +15,7 @@ import (
 var Config *viper.Viper
 
 const (
-	configFilePath  = "/registry-operator/config/manager_config.yaml"
-	defaultSyncTime = 5
+	configFilePath = "/registry-operator/config/manager_config.yaml"
 
 	defaultImageRegistry     = "registry:2.7.1"
 	defaultImageNotaryServer = "tmaxcloudck/notary_server:0.6.2-rc1"
@@ -94,17 +93,8 @@ func PrintConfig() {
 
 // OnConfigChange read config file every syncTime seconds if config file is changed
 func OnConfigChange(syncTime time.Duration) {
-	if syncTime == 0 {
-		syncTime = defaultSyncTime
-	}
-
-	go func() {
-		for {
-			Config.WatchConfig()
-			Config.OnConfigChange(func(e fsnotify.Event) {
-				fmt.Printf("'%s' config file is changed\n", e.Name)
-			})
-			time.Sleep(syncTime * time.Second)
-		}
-	}()
+	Config.WatchConfig()
+	Config.OnConfigChange(func(e fsnotify.Event) {
+		fmt.Printf("'%s' config file is changed\n", e.Name)
+	})
 }
