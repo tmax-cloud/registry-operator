@@ -34,7 +34,6 @@ import (
 
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/common/operatorlog"
-	"github.com/tmax-cloud/registry-operator/internal/utils"
 	regApi "github.com/tmax-cloud/registry-operator/registry"
 
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -79,11 +78,11 @@ func main() {
 	// backup Logfile daily
 	operatorlog.StartDailyBackup(logFile)
 
-	// set default env
-	utils.InitEnv()
-
-	// print config
+	// set config
+	config.InitEnv()
+	config.ReadInConfig()
 	config.PrintConfig()
+	config.OnConfigChange(3)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
