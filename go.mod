@@ -9,6 +9,7 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v1.4.2-0.20190916154449-92cc603036dd
 	github.com/docker/go-metrics v0.0.1 // indirect
+	github.com/fsnotify/fsnotify v1.4.9
 	github.com/genuinetools/reg v0.16.1
 	github.com/go-logr/logr v0.2.0
 	github.com/gofrs/uuid v3.3.0+incompatible // indirect
