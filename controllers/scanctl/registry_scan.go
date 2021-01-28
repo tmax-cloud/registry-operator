@@ -7,12 +7,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/cloudflare/cfssl/log"
 	"io/ioutil"
 	"net/http"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/cloudflare/cfssl/log"
 
 	"github.com/genuinetools/reg/clair"
 	reg "github.com/genuinetools/reg/clair"
@@ -186,7 +187,7 @@ func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map
 	reports := map[string]map[string]*reg.VulnerabilityReport{}
 
 	//get clair url
-	clairServer := regConfig.Config.GetString("clair.url")
+	clairServer := regConfig.Config.GetString(regConfig.ConfigClairURL)
 	if len(clairServer) == 0 {
 		return reports, errors.NewBadRequest("cannot find clairUrl")
 	}

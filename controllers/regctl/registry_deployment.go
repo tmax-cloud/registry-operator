@@ -122,7 +122,7 @@ func (r *RegistryDeployment) create(c client.Client, reg *regv1.Registry, patchR
 }
 
 func (r *RegistryDeployment) getAuthConfig() *regv1.AuthConfig {
-	KeycloakServer := config.Config.GetString("keycloak.service")
+	KeycloakServer := config.Config.GetString(config.ConfigKeycloakService)
 	auth := &regv1.AuthConfig{}
 	auth.Realm = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCli.GetRealm(), "protocol", "docker-v2", "auth")
 	auth.Service = r.KcCli.GetService()

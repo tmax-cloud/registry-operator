@@ -116,7 +116,7 @@ func (r *RegistryNotary) create(c client.Client, reg *regv1.Registry, patchReg *
 
 func (r *RegistryNotary) getAuthConfig() *regv1.AuthConfig {
 	auth := &regv1.AuthConfig{}
-	KeycloakServer := config.Config.GetString("keycloak.service")
+	KeycloakServer := config.Config.GetString(config.ConfigKeycloakService)
 	auth.Realm = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCtl.GetRealmName(), "protocol", "docker-v2", "auth")
 	auth.Service = r.KcCtl.GetDockerV2ClientName()
 	auth.Issuer = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCtl.GetRealmName())

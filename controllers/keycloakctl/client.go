@@ -22,7 +22,7 @@ type KeycloakClient struct {
 
 func NewKeycloakClient(username, password, realm, service string) *KeycloakClient {
 	logger := logf.Log.WithName("keycloak controller")
-	KeycloakServer := config.Config.GetString("keycloak.service")
+	KeycloakServer := config.Config.GetString(config.ConfigKeycloakService)
 	return &KeycloakClient{
 		realm:      realm,
 		service:    service,

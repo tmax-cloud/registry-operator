@@ -39,7 +39,7 @@ type KeycloakController struct {
 
 func NewKeycloakController(namespace, name string) *KeycloakController {
 	logger := logf.Log.WithName("keycloak controller").WithValues("namespace", namespace, "registry name", name)
-	KeycloakServer := config.Config.GetString("keycloak.service")
+	KeycloakServer := config.Config.GetString(config.ConfigKeycloakService)
 	keycloakUser := config.Config.GetString("keycloak.username")
 	keycloakPwd := config.Config.GetString("keycloak.password")
 	client := gocloak.NewClient(KeycloakServer)
@@ -51,7 +51,7 @@ func NewKeycloakController(namespace, name string) *KeycloakController {
 
 	// set realm name
 	var realm string
-	clusterName := config.Config.GetString("cluster.name")
+	clusterName := config.Config.GetString(config.ConfigClusterName)
 	if clusterName == "" {
 		realm = fmt.Sprintf("%s-%s", namespace, name)
 	} else {
@@ -275,7 +275,7 @@ func (c *KeycloakController) AddCertificate() error {
 }
 
 func (c *KeycloakController) componentURL() string {
-	KeycloakServer := config.Config.GetString("keycloak.service")
+	KeycloakServer := config.Config.GetString(config.ConfigKeycloakService)
 	keycloakUser := config.Config.GetString("keycloak.username")
 	return KeycloakServer + "/" + path.Join("auth", keycloakUser, "realms", c.GetRealmName(), "components")
 }
