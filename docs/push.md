@@ -2,11 +2,11 @@
 
 1. Trust Self Signed CA Certificate
     * (If your registry is registry made by registry-operator in hypercloud, there is CA Certificate in `hpcd-registry-rootca` secret of registry's namespace. `ca.crt` in `hpcd-registry-rootca` secret is the self signed ca certificate.)
-    ```bash
-    # Command to get rootca in default namespace and create 'ca.crt' file
-    export NAMESPACE=default
-    kubectl get secret hpcd-registry-rootca -n ${NAMESPACE} -o="jsonpath={.data['ca\.crt']}" |base64 -d > ca.crt
-    ```
+        ```bash
+        # Command to get rootca in default namespace and create 'ca.crt' file
+        export NAMESPACE=default
+        kubectl get secret hpcd-registry-rootca -n ${NAMESPACE} -o="jsonpath={.data['ca\.crt']}" |base64 -d > ca.crt
+        ```
 
     * Move `ca.crt` to CA certificate directory.
         1) If the node is CentOS 7
