@@ -1,7 +1,7 @@
-# <module name> Usage
+# `<module name>` Usage
 
 ### What is it?
-<module> is ...
+`<module>` is ...
 
 ### How to create
 spec field's description and command to create
