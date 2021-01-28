@@ -4,7 +4,7 @@
 	- [Install procedure](./install.md#install-procedure)
 	- [Test your installation](./install.md#test-your-installation)
 	- [Tear down](./install.md#tear-down)
-- [Environment Description](./envs.md)
+- [Environmental Variable Description](./envs.md)
 - [About Developement](./dev.md)
 - [About Release](./release.md)
 - [How to push Image](./push.md)

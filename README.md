@@ -7,7 +7,7 @@ The registry-operator project is a service to launch private registries and to m
 	- [Install procedure](./docs/install.md#install-procedure)
 	- [Test your installation](./docs/install.md#test-your-installation)
 	- [Tear down](./docs/install.md#tear-down)
-- [Environment Description](./docs/envs.md)
+- [Environmental Variable Description](./docs/envs.md)
 - [About Developement](./docs/dev.md)
 - [About Release](./docs/release.md)
 - [How to push Image](./docs/push.md)

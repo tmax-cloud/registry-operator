@@ -19,7 +19,7 @@
 2. Login Registry
     ```bash
     export REGISTRY_URL={REGISTRY_URL}
-    docker login ${REGISTRY_URL}
+    docker login ${REGISTRY_URL}        # enter username and password
     ```
 
     * Example
