@@ -2,6 +2,11 @@
 
 1. Trust Self Signed CA Certificate
     * (If your registry is registry made by registry-operator in hypercloud, there is CA Certificate in `hpcd-registry-rootca` secret of registry's namespace. `ca.crt` in `hpcd-registry-rootca` secret is the self signed ca certificate.)
+    ```bash
+    # Command to get rootca in default namespace and create 'ca.crt' file
+    export NAMESPACE=default
+    kubectl get secret hpcd-registry-rootca -n ${NAMESPACE} -o="jsonpath={.data['ca\.crt']}" |base64 -d > ca.crt
+    ```
 
     * Move `ca.crt` to CA certificate directory.
         1) If the node is CentOS 7
@@ -16,7 +21,12 @@
 		update-ca-certificates
 		```
 
-2. Login Registry
+2. Docker Restart
+    ```bash
+    systemctl restart docker
+    ```
+
+3. Login Registry
     ```bash
     export REGISTRY_URL={REGISTRY_URL}
     docker login ${REGISTRY_URL}        # enter username and password
@@ -28,7 +38,7 @@
     docker login ${REGISTRY_URL}
     ```
 
-3. Push Image
+4. Push Image
     ```bash
     export IMAGE={IMAGE}
     docker pull ${IMAGE}
