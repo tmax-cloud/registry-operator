@@ -27,7 +27,7 @@
     ```
 
 3. Login Registry
-Note: If you don't know registry's username and password, refer to [Get Registry Login Username/Password from ImagePullSecret](#get-registry-login-username-and-password-from -imagepullsecret)
+Note: If you don't know registry's username and password, refer to [Get Registry Login Username Password from ImagePullSecret](#get-registry-login-username-and-password-from-imagepullsecret)
 
     ```bash
     export REGISTRY_URL={REGISTRY_URL}
