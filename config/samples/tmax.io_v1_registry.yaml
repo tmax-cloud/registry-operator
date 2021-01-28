@@ -9,7 +9,7 @@ spec:
   loginId: tmax
   loginPassword: tmax123
   notary:
-    enabled: true
+    enabled: false
     serviceType: LoadBalancer
     persistentVolumeClaim:
       create:
