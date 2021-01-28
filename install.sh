@@ -2,6 +2,8 @@
 
 set -e
 
+echo "* Deploy registry-operator start"
+
 # Create registry-system namespace
 kubectl apply -f config/manager/namespace.yaml
 
@@ -51,6 +53,7 @@ fi
 kubectl apply -f config/manager/manager.yaml
 kubectl apply -f config/manager/service.yaml
 
-echo "deploy registry-operator success"
+echo
+echo "Deploy registry-operator success!!"
 
 exit 0
