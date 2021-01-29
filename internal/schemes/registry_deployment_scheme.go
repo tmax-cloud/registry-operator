@@ -72,7 +72,7 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 
 	registryImage := reg.Spec.Image
 	if registryImage == "" {
-		registryImage = config.Config.GetString("registry.image")
+		registryImage = config.Config.GetString(config.ConfigRegistryImage)
 	}
 
 	deployment := &appsv1.Deployment{
@@ -246,8 +246,8 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 
 	deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[0].VolumeMounts, vm)
 
-	if config.Config.GetString("registry.image_pull_secret") != "" {
-		deployment.Spec.Template.Spec.ImagePullSecrets = append(deployment.Spec.Template.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: config.Config.GetString("registry.image_pull_secret")})
+	if config.Config.GetString(config.ConfigRegistryImagePullSecret) != "" {
+		deployment.Spec.Template.Spec.ImagePullSecrets = append(deployment.Spec.Template.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: config.Config.GetString(config.ConfigRegistryImagePullSecret)})
 	}
 
 	return deployment, nil
