@@ -12,9 +12,13 @@ import (
 	"path"
 	"strings"
 	"time"
+<<<<<<< HEAD
 
 	"github.com/cloudflare/cfssl/log"
 
+=======
+	
+>>>>>>> Refactor GetVulnerability
 	"github.com/genuinetools/reg/clair"
 	reg "github.com/genuinetools/reg/clair"
 	"github.com/genuinetools/reg/registry"
@@ -111,7 +115,7 @@ func InitParameter(target *tmaxiov1.ScanTarget) {
 	}
 }
 
-func imageUrl(registryUrl, image string) string {
+func imageFullPath(registryUrl, image string) string {
 	return path.Join(registryUrl, image)
 }
 
@@ -151,6 +155,7 @@ func GetRegistryImages(c client.Client, registryURL, basicAuth, imageNamePattern
 	return images
 }
 
+<<<<<<< HEAD
 func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map[string]map[string]*reg.VulnerabilityReport, error) {
 	reports := map[string]map[string]*reg.VulnerabilityReport{}
 
@@ -158,15 +163,68 @@ func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map
 	clairServer := regConfig.Config.GetString(regConfig.ConfigClairURL)
 	if len(clairServer) == 0 {
 		return reports, errors.NewBadRequest("cannot find clairUrl")
+=======
+func getBasicAuth(imagePullSecret, namespace, registryURL string) (string, error) {
+	logger.Info("Get " + imagePullSecret + "secret from " + namespace)
+	secret, err := getSecret(imagePullSecret, namespace)
+	if err != nil {
+		logger.Error(err, "failed to get image pull secret")
+		return "", err
 	}
 
-	for i, target := range instance.Spec.ScanTargets {
-		InitParameter(&instance.Spec.ScanTargets[i])
+	basic, err := utils.ParseBasicAuth(secret, registryURL)
+	if err != nil {
+		logger.Error(err, "failed to parse basic auth")
+		return "", err
+	}
+
+	return basic, nil
+}
+
+
+func setImageNames(c client.Client, image string, imagePullSecret string, certificateSecret string, namespace string, registryURL string) ([]string, error) {
+	var entries = []string{}
+			
+	if strings.Contains(image, "*") || strings.Contains(image, "?") {
+		var basicAuth string
+		
+		if imagePullSecret == "" {
+			return entries, errors.NewBadRequest("Image(" + image + ")'s ImagePullSecret not provided.")
+		}
+		
+		basic, err := getBasicAuth(imagePullSecret, namespace, registryURL)
+		if err != nil {
+			return entries, errors.NewBadRequest("Failed to get basic auth from imagePullSecret" + imagePullSecret)
+		}
+
+		basicAuth = basic
+		entries = append(entries, GetRegistryImages(c, registryURL, basicAuth, image, certificateSecret, namespace)...)
+	} else {
+		entries = append(entries, image)
+	}
+
+	return entries, nil
+}
+
+func GetVulnerability(c client.Client, o *tmaxiov1.ImageScanRequest) (map[string]map[string]*reg.VulnerabilityReport, error) {
+	
+	reports := map[string]map[string]*reg.VulnerabilityReport{}
+
+	// clair address 
+	scannerAddr := regConfig.Config.GetString("clair.url")
+	if len(scannerAddr) == 0 {
+		return reports, errors.NewBadRequest("Cannot get address of Clair server.")
+>>>>>>> Refactor GetVulnerability
+	}
+
+	for i, target := range o.Spec.ScanTargets {
+		InitParameter(&o.Spec.ScanTargets[i])
 		if target.FixableThreshold < 0 {
 			return reports, errors.NewBadRequest("fixable threshold must be a positive integer")
 		}
 
 		for _, targetImage := range target.Images {
+<<<<<<< HEAD
 			matchImages := []string{}
 			if strings.Contains(targetImage, "*") || strings.Contains(targetImage, "?") {
 				var basicAuth string
@@ -181,11 +239,17 @@ func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map
 				matchImages = append(matchImages, GetRegistryImages(c, target.RegistryURL, basicAuth, targetImage, target.CertificateSecret, instance.Namespace)...)
 			} else {
 				matchImages = append(matchImages, targetImage)
+=======
+			imageNames, err := setImageNames(c, targetImage, target.ImagePullSecret, target.CertificateSecret, o.Namespace, target.RegistryURL)
+			if err != nil {
+				logger.Error(err, "Failed to set image entries.")
+>>>>>>> Refactor GetVulnerability
 			}
 
-			for _, imgName := range matchImages {
-				imgUrl := imageUrl(target.RegistryURL, imgName)
+			for _, name := range imageNames {
+				imgUrl := imageFullPath(target.RegistryURL, name)
 				logger.Info(fmt.Sprintf("scan image: %s", imgUrl))
+				
 				image, err := registry.ParseImage(imgUrl)
 				if err != nil {
 					logger.Error(err, "failed to parse image")
@@ -193,14 +257,14 @@ func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map
 				}
 
 				// Create the registry client.
-				r, err := createRegistryClient(&target, image.Domain, instance.Namespace)
+				r, err := createRegistryClient(&target, image.Domain, o.Namespace)
 				if err != nil {
 					logger.Error(err, "failed to create registry client")
 					return reports, err
 				}
 
 				// Initialize clair client.
-				cr, err := clair.New(clairServer, clair.Opt{
+				cr, err := clair.New(scannerAddr, clair.Opt{
 					Debug:    target.Debug,
 					Timeout:  target.TimeOut,
 					Insecure: target.Insecure,
@@ -220,10 +284,10 @@ func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map
 
 				// set report
 				if m, ok := reports[target.RegistryURL]; ok {
-					m[imgName] = &report
+					m[name] = &report
 					reports[target.RegistryURL] = m
 				} else {
-					reports[target.RegistryURL] = map[string]*reg.VulnerabilityReport{imgName: &report}
+					reports[target.RegistryURL] = map[string]*reg.VulnerabilityReport{name: &report}
 				}
 
 			}

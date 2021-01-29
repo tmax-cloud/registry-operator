@@ -45,13 +45,11 @@ type ImageScanRequestReconciler struct {
 // +kubebuilder:rbac:groups=tmax.io,resources=imagescanrequests/status,verbs=get;update;patch
 
 func (r *ImageScanRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	reqLogger.Info("Reconciling Scanning")
+	logger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
+	logger.Info("Reconciling Scanning")
 
-	// your logic here
-	instance := &tmaxiov1.ImageScanRequest{}
-	err := r.Client.Get(context.TODO(), req.NamespacedName, instance)
-
+	o := &tmaxiov1.ImageScanRequest{}
+	err := r.Client.Get(context.TODO(), req.NamespacedName, o)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -62,20 +60,23 @@ func (r *ImageScanRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, err
 	}
-	if len(instance.Status.Status) == 0 {
-		return r.updateScanningStatus(instance, nil, nil)
-	} else if instance.Status.Status != tmaxiov1.ScanRequestProcessing {
-		reqLogger.Info("already handled scannning")
+
+
+	if len(o.Status.Status) == 0 {
+		return r.updateScanningStatus(o, nil, nil)
+	} else if o.Status.Status != tmaxiov1.ScanRequestProcessing {
+		logger.Info("Already in procssing...")
 		return ctrl.Result{}, nil
 	}
 	//get vulnerability
-	reports, err := scanctl.GetVulnerability(r.Client, instance)
+	logger.Info("Try to get vulnerability...")
+	reports, err := scanctl.GetVulnerability(r.Client, o)
 	if err != nil {
-		reqLogger.Error(err, "failed to get vulnerability")
+		logger.Error(err, "failed to get vulnerability")
 	}
 
 	//update status
-	return r.updateScanningStatus(instance, reports, err)
+	return r.updateScanningStatus(o, reports, err)
 }
 
 func (r *ImageScanRequestReconciler) updateScanningStatus(instance *tmaxiov1.ImageScanRequest, reports map[string]map[string]*reg.VulnerabilityReport, err error) (ctrl.Result, error) {
