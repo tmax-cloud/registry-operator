@@ -33,7 +33,7 @@
 		sed -i 's/{REGISTRY_OPERATOR_VERSION}/'${REGISTRY_OPERATOR_VERSION}'/g' ./config/manager/manager.yaml
 		```
 	* Customize env file(`config/manager/manager_config.yaml`)
-		* reference: [Environment Description](./docs/envs.md) 
+		* reference: [Environment Description](./envs.md) 
 
 4. Execute install.sh script
 	* Create namespace, CRDs, role, etc... Then deploy the registry-operator.
@@ -107,5 +107,5 @@
     ```bash
     cd ${WORKDIR}
     chmod 755 ./uninstall.sh
-    ./uninstall -c
+    ./uninstall -m
     ```
