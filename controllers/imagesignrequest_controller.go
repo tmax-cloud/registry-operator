@@ -210,10 +210,12 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 
 		// Verify if registry is valid now
 		if len(img.ServerUrl) == 0 {
-			makeResponse(signReq, false, "RegistryMisconfigured", "serverUrl is not set")
+			makeResponse(signReq, false, "RegistryMisconfigured", "serverUrl is not set for the registry")
+			return ctrl.Result{}, nil
 		}
 		if len(img.NotaryServerUrl) == 0 {
-			makeResponse(signReq, false, "RegistryMisconfigured", "notaryUrl is not set")
+			makeResponse(signReq, false, "RegistryMisconfigured", "notaryUrl is not set for the registry, maybe notary is disabled for the registry")
+			return ctrl.Result{}, nil
 		}
 	}
 
