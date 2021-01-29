@@ -209,7 +209,12 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		img.NotaryServerUrl = signCtl.Regctl.GetNotaryEndpoint()
 
 		// Verify if registry is valid now
-		// TODO - status.ServerURLs length & hmm... status?
+		if len(img.ServerUrl) == 0 {
+			makeResponse(signReq, false, "RegistryMisconfigured", "serverUrl is not set")
+		}
+		if len(img.NotaryServerUrl) == 0 {
+			makeResponse(signReq, false, "RegistryMisconfigured", "notaryUrl is not set")
+		}
 	}
 
 	if regSecret.ResourceVersion != "" {
