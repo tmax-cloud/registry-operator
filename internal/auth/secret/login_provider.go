@@ -1,11 +1,11 @@
-package auth
+package secret
 
 import (
 	"fmt"
 	"k8s.io/api/core/v1"
 )
 
-type SecretAuthProvider struct {
+type LoginSecret struct {
 	Secret *corev1.Secret
 	credit *DockerLoginCredential
 }
@@ -23,8 +23,8 @@ type DockerConfigJson struct {
 	Auths  map[RegistryURL]DockerLoginCredential `json:"auths"`
 }
 
-func NewSecretAuth(secret v1.Secret) *SecretAuthProvider {
-	instance := SecretAuthProvider{secret}
+func NewLoginAuth(secret *v1.Secret) *LoginProvider {
+	instance := LoginSecret{secret}
 
 	err := instance.init()
 	if err != nil {
@@ -34,11 +34,11 @@ func NewSecretAuth(secret v1.Secret) *SecretAuthProvider {
 	return &instance
 }
 
-func (p *SecretAuthProvider) init() error {
+func (p *LoginSecret) init() error {
 	
 	switch p.secret.Type {
 	case v1.SecretTypeDockerConfigJson:
-		p.user, p.password, err := p.parseDocerConfigJson()
+		err := p.parseDocerConfigJson()
 		if err != nil {
 			return err
 		}
@@ -51,28 +51,21 @@ func (p *SecretAuthProvider) init() error {
 	return nil
 }
 
-func (p *SecretAuthProvider) getID() (string, error) {
+func (p *LoginSecret) getID() (string, error) {
 	if len(p.credit.Username) < 1 {
 		return nil, error.New("User ID is empty")
 	}
 	return p.credit.Username, nil
 }
 
-func (p *SecretAuthProvider) getPassword() (string, error) {
+func (p *LoginSecret) getPassword() (string, error) {
 	if len(p.credit.Password) < 1 {
 		return nil, error.New("Password is empty")
 	}
 	return p.credit.Password, nil
 }
 
-func (p *SecretAuthProvider) getServerAddress() (string, error) {
-	if len(p.credit.Password) < 1 {
-		return nil, error.New("Password is empty")
-	}
-	return p.credit.Password, nil
-}
-
-func (p *SecretAuthProvider) parseDocerConfigJson() (id, password string, error) {
+func (p *LoginSecret) parseDocerConfigJson() (id, password string, error) {
 	
 	data, ok := p.Secret.Data[v1.DockerConfigJsonKey]
 	if !ok {
@@ -93,6 +86,6 @@ func (p *SecretAuthProvider) parseDocerConfigJson() (id, password string, error)
 	}
 }
 
-// func (p *SecretAuthProvider) parseOpaqueSecret() (id, password string, error) {
+// func (p *LoginSecret) parseOpaqueSecret() (id, password string, error) {
 
 // }

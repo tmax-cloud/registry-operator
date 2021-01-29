@@ -1,26 +1,46 @@
 package auth
 
 import (
-	"fmt"
-	"relfect"
-	"k8s.io/api/core/v1"
+	"errors"
+	"reflect"
+
+	secret "github.com/tmax-cloud/registry-operator/internal/auth/secret"
+	v1 "k8s.io/api/core/v1"
 )
 
-type AuthProvider interface {
+type LoginProvider interface {
 	getID() string
 	getPassword() string
 }
 
+type CertProvider interface {
+	getCert() string
+	getKey() string
+}
 
-func New(dataSource interface{}) (AuthProvider, error){
+func NewLoginProvider(dataSource interface{}) (*LoginProvider, error) {
 
-	var ret AuthProvider
+	var ret *LoginProvider
 
-	switch(dataSource.Type) {
+	switch dataSource.(type) {
 	case v1.Secret:
-		ret = NewSecretAuth(dataSource)
+		ret = secret.NewLoginAuth(dataSource.(*v1.Secret))
 	default:
-		return nil, error.New("Unsupported data source type: " + reflect.TypeOf(dataSource).Name())
+		return nil, errors.New("Unsupported data source type: " + reflect.TypeOf(dataSource).Name())
+	}
+
+	return ret, nil
+}
+
+func NewCertProvider(dataSource interface{}) (*CertProvider, error) {
+
+	var ret *CertProvider
+
+	switch dataSource.(type) {
+	case v1.Secret:
+		ret = secret.NewCertAuth(dataSource.(*v1.Secret))
+	default:
+		return nil, errors.New("Unsupported data source type: " + reflect.TypeOf(dataSource).Name())
 	}
 
 	return ret, nil
