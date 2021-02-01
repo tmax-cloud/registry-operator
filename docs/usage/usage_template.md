@@ -1,15 +1,19 @@
 # `<module name>` Usage
 
-### What is it?
+## What is it?
+
 `<module>` is ...
 
-### How to create
+## How to create
+
 spec field's description and command to create
 
-### Example
+## Example
+
 example to create
 
-### Result
+## Result
+
 resource's results or states 
 
-### More... 
+## More... 

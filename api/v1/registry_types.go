@@ -17,36 +17,46 @@ type RegistrySpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
-	Image         string `json:"image,omitempty"`
-	Description   string `json:"description,omitempty"`
-	LoginId       string `json:"loginId"`
+	// Registry's image name
+	Image string `json:"image,omitempty"`
+	// Description for registry
+	Description string `json:"description,omitempty"`
+	// Login ID for registry
+	LoginId string `json:"loginId"`
+	// Login password for registry
 	LoginPassword string `json:"loginPassword"`
-	// Set notary service
+	// Settings for notary service
 	Notary RegistryNotary `json:"notary,omitempty"`
 	// The name of the configmap where the registry config.yml content
 	CustomConfigYml string `json:"customConfigYml,omitempty"`
 
-	// DomainName         string             `json:"domainName,omitempty"`
+	// Settings for registry's deployemnt
 	RegistryDeployment RegistryDeployment `json:"registryDeployment,omitempty"`
-
-	// Supported service types are ingress and loadBalancer
-	RegistryService       RegistryService `json:"service"`
-	PersistentVolumeClaim RegistryPVC     `json:"persistentVolumeClaim"`
+	// Service type to expose registry
+	RegistryService RegistryService `json:"service"`
+	// Settings for registry pvc
+	PersistentVolumeClaim RegistryPVC `json:"persistentVolumeClaim"`
 }
 
 type RegistryNotary struct {
+	// Activate notary service to sign images
 	Enabled bool `json:"enabled"`
-	// use Ingress or LoadBalancer
+	// Use Ingress or LoadBalancer
 	// +kubebuilder:validation:Enum=Ingress;LoadBalancer
-	ServiceType           NotaryServiceType `json:"serviceType"`
-	PersistentVolumeClaim NotaryPVC         `json:"persistentVolumeClaim"`
+	ServiceType NotaryServiceType `json:"serviceType"`
+	// Settings for notary pvc
+	PersistentVolumeClaim NotaryPVC `json:"persistentVolumeClaim"`
 }
 
 type RegistryDeployment struct {
-	Labels       map[string]string    `json:"labels,omitempty"`
-	NodeSelector map[string]string    `json:"nodeSelector,omitempty"`
-	Selector     metav1.LabelSelector `json:"selector,omitempty"`
-	Tolerations  []corev1.Toleration  `json:"tolerations,omitempty"`
+	// Deployment's label
+	Labels map[string]string `json:"labels,omitempty"`
+	// Registry pod's node selector
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// Deployment's label selector
+	Selector metav1.LabelSelector `json:"selector,omitempty"`
+	// Deployment's toleration configuration
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type RegistryServiceType string
@@ -57,7 +67,7 @@ const (
 )
 
 type RegistryService struct {
-	// use Ingress or LoadBalancer
+	// Use Ingress or LoadBalancer
 	// +kubebuilder:validation:Enum=Ingress;LoadBalancer
 	ServiceType RegistryServiceType `json:"serviceType"`
 	// use ingress service type

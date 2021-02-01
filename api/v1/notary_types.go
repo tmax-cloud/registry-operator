@@ -28,8 +28,11 @@ import (
 type NotarySpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	RootCASecret string     `json:"rootCASecret"`
-	AuthConfig   AuthConfig `json:"authConfig"`
+	// Root CA certificate secret for notary
+	RootCASecret string `json:"rootCASecret"`
+	// Settings for registry authentication config
+	AuthConfig AuthConfig `json:"authConfig"`
+	// Service type to expose notary
 	// +kubebuilder:validation:Enum=Ingress;LoadBalancer
 	ServiceType           NotaryServiceType `json:"serviceType"`
 	PersistentVolumeClaim NotaryPVC         `json:"persistentVolumeClaim"`
@@ -43,9 +46,11 @@ const (
 )
 
 type NotaryPVC struct {
+	// Use exist pvc
 	// +kubebuilder:validation:OneOf
 	Exist *ExistPvc `json:"exist,omitempty"` // [TODO] One Of
 
+	// Create new pvc
 	// +kubebuilder:validation:OneOf
 	Create *CreatePvc `json:"create,omitempty"` // [TODO] One Of
 }

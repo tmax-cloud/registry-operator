@@ -64,25 +64,33 @@ spec:
                 content
               type: string
             description:
+              description: Description for registry
               type: string
             image:
+              description: Registry's image name
               type: string
             loginId:
+              description: Login ID for registry
               type: string
             loginPassword:
+              description: Login password for registry
               type: string
             notary:
-              description: Set notary service
+              description: Settings for notary service
               properties:
                 enabled:
+                  description: Activate notary service to sign images
                   type: boolean
                 persistentVolumeClaim:
+                  description: Settings for notary pvc
                   properties:
                     create:
+                      description: Create new pvc
                       properties:
                         accessModes:
-                          description: AccessModes is . Recommend value is "ReadWriteMany"
-                            You can choose ReadWriteOnce, ReadOnlyMany and ReadWriteMany
+                          description: 'Each PV''s access modes are set to the specific
+                            modes supported by that particular volume. Ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes
+                            You can choose ReadWriteOnce, ReadOnlyMany and ReadWriteMany'
                           items:
                             enum:
                             - ReadWriteOnce
@@ -94,10 +102,10 @@ spec:
                             is deleted (default: false)'
                           type: boolean
                         storageClassName:
-                          description: Enter StorageClassName like "csi-cephfs-sc"
+                          description: StorageClassName like "csi-cephfs-sc"
                           type: string
                         storageSize:
-                          description: Enter the desired storage size like "10Gi"
+                          description: Desired storage size like "10Gi"
                           type: string
                       required:
                       - accessModes
@@ -105,6 +113,7 @@ spec:
                       - storageSize
                       type: object
                     exist:
+                      description: Use exist pvc
                       properties:
                         pvcName:
                           description: PVC's name you have created
@@ -114,7 +123,7 @@ spec:
                       type: object
                   type: object
                 serviceType:
-                  description: use Ingress or LoadBalancer
+                  description: Use Ingress or LoadBalancer
                   enum:
                   - Ingress
                   - LoadBalancer
@@ -125,12 +134,14 @@ spec:
               - serviceType
               type: object
             persistentVolumeClaim:
+              description: Settings for registry pvc
               properties:
                 create:
                   properties:
                     accessModes:
-                      description: AccessModes is . Recommend value is "ReadWriteMany"
-                        You can choose ReadWriteOnce, ReadOnlyMany and ReadWriteMany
+                      description: 'Each PV''s access modes are set to the specific
+                        modes supported by that particular volume. Ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes
+                        You can choose ReadWriteOnce, ReadOnlyMany and ReadWriteMany'
                       items:
                         enum:
                         - ReadWriteOnce
@@ -142,10 +153,10 @@ spec:
                         (default: false)'
                       type: boolean
                     storageClassName:
-                      description: Enter StorageClassName like "csi-cephfs-sc"
+                      description: StorageClassName like "csi-cephfs-sc"
                       type: string
                     storageSize:
-                      description: Enter the desired storage size like "10Gi"
+                      description: Desired storage size like "10Gi"
                       type: string
                   required:
                   - accessModes
@@ -165,21 +176,20 @@ spec:
                   type: string
               type: object
             registryDeployment:
-              description: DomainName         string             `json:"domainName,omitempty"`
+              description: Settings for registry's deployemnt
               properties:
                 labels:
                   additionalProperties:
                     type: string
+                  description: Deployment's label
                   type: object
                 nodeSelector:
                   additionalProperties:
                     type: string
+                  description: Registry pod's node selector
                   type: object
                 selector:
-                  description: A label selector is a label query over a set of resources.
-                    The result of matchLabels and matchExpressions are ANDed. An empty
-                    label selector matches all objects. A null label selector matches
-                    no objects.
+                  description: Deployment's label selector
                   properties:
                     matchExpressions:
                       description: matchExpressions is a list of label selector requirements.
@@ -223,6 +233,7 @@ spec:
                       type: object
                   type: object
                 tolerations:
+                  description: Deployment's toleration configuration
                   items:
                     description: The pod this Toleration is attached to tolerates
                       any taint that matches the triple <key,value,effect> using the
@@ -263,10 +274,10 @@ spec:
                   type: array
               type: object
             service:
-              description: Supported service types are ingress and loadBalancer
+              description: Service type to expose registry
               properties:
                 serviceType:
-                  description: use Ingress or LoadBalancer
+                  description: Use Ingress or LoadBalancer
                   enum:
                   - Ingress
                   - LoadBalancer
