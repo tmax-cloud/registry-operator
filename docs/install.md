@@ -4,10 +4,12 @@
 * `kubectl` is installed
 
 ### Install procedure
-1. On your local machine, clone this repository.
+1. On your local machine, get released source to install.
     ```bash
-    git clone https://github.com/tmax-cloud/registry-operator.git
-	export WORKDIR=$(pwd)/registry-operator
+	export VERSION=v0.2.1
+	mkdir registry-operator-$VERSION
+    wget -c https://github.com/tmax-cloud/registry-operator/archive/$VERSION.tar.gz -O - |tar -xz -C registry-operator-$VERSION --strip-components=1
+	export WORKDIR=$(pwd)/registry-operator-$VERSION
     cd ${WORKDIR}
     ```
     
@@ -23,15 +25,9 @@
 	* If you already have a root CA certificate , put the CA Certifacete in the path(./config/pki/). 
 	Each name must be `ca.crt` and `ca.key`
 
-	* If you have to register your keycloak certificate, put the keycloak certificate in the `path(./config/pki/keycloak.crt)`.
+	* If you have to register your keycloak certificate, put the keycloak certificate in the `path(config/pki/keycloak.crt)`.
 
 3. Set manager.yaml's configuration
-	* Change the following export variables to the appropriate values to run.
-		```bash
-		cd ${WORKDIR}
-		export REGISTRY_OPERATOR_VERSION=v0.1.0
-		sed -i 's/{REGISTRY_OPERATOR_VERSION}/'${REGISTRY_OPERATOR_VERSION}'/g' ./config/manager/manager.yaml
-		```
 	* Customize env file(`config/manager/manager_config.yaml`)
 		* reference: [Environment Description](./envs.md) 
 
