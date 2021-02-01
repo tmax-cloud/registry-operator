@@ -145,17 +145,17 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	// Check if it's Harbor registry
 	isHarbor := false
 	regIng := &exv1beta1.Ingress{}
-	harborNamespace := config.Config.GetString("harbor.namespace")
+	harborNamespace := config.Config.GetString(config.ConfigHarborNamespace)
 	if harborNamespace == "" {
 		harborNamespace = DefaultHarborNamespace
 	}
 
-	harborCoreIngress := config.Config.GetString("harbor.core.ingress")
+	harborCoreIngress := config.Config.GetString(config.ConfigHarborCoreIngress)
 	if harborCoreIngress == "" {
 		harborCoreIngress = DefaultHarborCoreIngress
 	}
 
-	harborNotaryIngress := config.Config.GetString("harbor.notary.ingress")
+	harborNotaryIngress := config.Config.GetString(config.ConfigHarborNotaryIngress)
 	if harborNotaryIngress == "" {
 		harborNotaryIngress = DefaultHarborNotaryIngress
 	}

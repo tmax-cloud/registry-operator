@@ -95,7 +95,7 @@ func (r *ImageScanRequestReconciler) updateScanningStatus(instance *tmaxiov1.Ima
 			status.Status = tmaxiov1.ScanRequestSuccess
 			status.Results = map[string]tmaxiov1.ScanResult{}
 
-			esURL := config.Config.GetString("elastic_search.url")
+			esURL := config.Config.GetString(config.ConfigElasticSearchURL)
 			for registry, imageReports := range reports {
 				for image, report := range imageReports {
 					for _, target := range instance.Spec.ScanTargets {

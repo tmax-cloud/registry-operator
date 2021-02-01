@@ -87,7 +87,7 @@ func GetScanResult(img *trust.Image) (ResultResponse, error) {
 }
 
 func fetchClairResult(layerId string) (*ClairResponse, error) {
-	clairServer := config.Config.GetString("clair.url")
+	clairServer := config.Config.GetString(config.ConfigClairURL)
 	if clairServer == "" {
 		return nil, fmt.Errorf("CLAIR_URL is not set")
 	}

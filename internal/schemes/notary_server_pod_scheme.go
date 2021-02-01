@@ -25,7 +25,7 @@ func NotaryServerPod(notary *regv1.Notary) *corev1.Pod {
 
 	mode := int32(511)
 
-	serverImage := config.Config.GetString("notary.server.image")
+	serverImage := config.Config.GetString(config.ConfigNotaryServerImage)
 
 	pod := &corev1.Pod{
 		ObjectMeta: v1.ObjectMeta{
@@ -167,8 +167,8 @@ func NotaryServerPod(notary *regv1.Notary) *corev1.Pod {
 		},
 	}
 
-	if config.Config.GetString("notary.server.image_pull_secret") != "" {
-		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: config.Config.GetString("notary.server.image_pull_secret")})
+	if config.Config.GetString(config.ConfigNotaryServerImagePullSecret) != "" {
+		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: config.Config.GetString(config.ConfigNotaryServerImagePullSecret)})
 	}
 
 	return pod

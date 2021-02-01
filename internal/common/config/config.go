@@ -52,26 +52,26 @@ func init() {
 func InitEnv() {
 	Config.SetDefault("operator.namespace", "registry-system")
 
-	registry := Config.GetString("image.registry")
+	registry := Config.GetString(ConfigImageRegistry)
 	if registry != "" {
-		Config.SetDefault("registry.image", fmt.Sprintf("%s/%s", registry, defaultImageRegistry))
-		Config.SetDefault("notary.server.image", fmt.Sprintf("%s/%s", registry, defaultImageNotaryServer))
-		Config.SetDefault("notary.signer.image", fmt.Sprintf("%s/%s", registry, defaultImageNotarySigner))
-		Config.SetDefault("notary.db.image", fmt.Sprintf("%s/%s", registry, defaultImageNotaryDB))
+		Config.SetDefault(ConfigRegistryImage, fmt.Sprintf("%s/%s", registry, defaultImageRegistry))
+		Config.SetDefault(ConfigNotaryServerImage, fmt.Sprintf("%s/%s", registry, defaultImageNotaryServer))
+		Config.SetDefault(ConfigNotarySignerImage, fmt.Sprintf("%s/%s", registry, defaultImageNotarySigner))
+		Config.SetDefault(ConfigNotaryDBImage, fmt.Sprintf("%s/%s", registry, defaultImageNotaryDB))
 
-		imagePullSecret := Config.GetString("image.registry_pull_secret")
-		Config.SetDefault("registry.image_pull_secret", imagePullSecret)
-		Config.SetDefault("notary.server.image_pull_secret", imagePullSecret)
-		Config.SetDefault("notary.signer.image_pull_secret", imagePullSecret)
-		Config.SetDefault("notary.db.image_pull_secret", imagePullSecret)
+		imagePullSecret := Config.GetString(ConfigImageRegistryPullRequest)
+		Config.SetDefault(ConfigRegistryImagePullSecret, imagePullSecret)
+		Config.SetDefault(ConfigNotaryServerImagePullSecret, imagePullSecret)
+		Config.SetDefault(ConfigNotarySignerImagePullSecret, imagePullSecret)
+		Config.SetDefault(ConfigNotaryDBImagePullSecret, imagePullSecret)
 
 		return
 	}
 
-	Config.SetDefault("registry.image", defaultImageRegistry)
-	Config.SetDefault("notary.server.image", defaultImageNotaryServer)
-	Config.SetDefault("notary.signer.image", defaultImageNotarySigner)
-	Config.SetDefault("notary.db.image", defaultImageNotaryDB)
+	Config.SetDefault(ConfigRegistryImage, defaultImageRegistry)
+	Config.SetDefault(ConfigNotaryServerImage, defaultImageNotaryServer)
+	Config.SetDefault(ConfigNotarySignerImage, defaultImageNotarySigner)
+	Config.SetDefault(ConfigNotaryDBImage, defaultImageNotaryDB)
 }
 
 // ReadInConfig is read config file

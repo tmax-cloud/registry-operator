@@ -188,7 +188,7 @@ func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map
 	reports := map[string]map[string]*reg.VulnerabilityReport{}
 
 	//get clair url
-	clairServer := regConfig.Config.GetString("clair.url")
+	clairServer := regConfig.Config.GetString(regConfig.ConfigClairURL)
 	if len(clairServer) == 0 {
 		return reports, errors.NewBadRequest("cannot find clairUrl")
 	}

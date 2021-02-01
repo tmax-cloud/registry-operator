@@ -25,7 +25,7 @@ func NotarySignerPod(notary *regv1.Notary) *corev1.Pod {
 
 	mode := int32(511)
 
-	signerImage := config.Config.GetString("notary.signer.image")
+	signerImage := config.Config.GetString(config.ConfigNotarySignerImage)
 
 	pod := &corev1.Pod{
 		ObjectMeta: v1.ObjectMeta{
@@ -126,8 +126,8 @@ func NotarySignerPod(notary *regv1.Notary) *corev1.Pod {
 		},
 	}
 
-	if config.Config.GetString("notary.signer.image_pull_secret") != "" {
-		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: config.Config.GetString("notary.signer.image_pull_secret")})
+	if config.Config.GetString(config.ConfigNotarySignerImagePullSecret) != "" {
+		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: config.Config.GetString(config.ConfigNotarySignerImagePullSecret)})
 	}
 
 	return pod
