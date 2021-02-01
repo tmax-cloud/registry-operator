@@ -7,18 +7,20 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/cloudflare/cfssl/log"
 	"io/ioutil"
 	"net/http"
 	"path"
 	"strings"
 	"time"
 
+	"github.com/cloudflare/cfssl/log"
+
 	"github.com/genuinetools/reg/clair"
 	reg "github.com/genuinetools/reg/clair"
 	"github.com/genuinetools/reg/registry"
 	"github.com/genuinetools/reg/repoutils"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/common/certs"
 	regConfig "github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	regApi "github.com/tmax-cloud/registry-operator/pkg/registry"
@@ -319,6 +321,18 @@ func createRegistryClient(target *tmaxiov1.ScanTarget, domain, namespace string)
 			logger.Error(err, "failed to get ca data")
 			return nil, err
 		}
+	}
+
+	// get keycloak ca if exists
+	keycloakCA, err := certs.GetSystemKeycloakCert(nil)
+	if err != nil && !errors.IsNotFound(err) {
+		logger.Error(err, "failed to get system keycloak cert")
+		return nil, err
+	}
+
+	if keycloakCA != nil {
+		caCert, _ := certs.CAData(keycloakCA)
+		ca = append(ca, caCert...)
 	}
 
 	// get auth config

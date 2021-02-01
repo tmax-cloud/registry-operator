@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudflare/cfssl/log"
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	apiv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -170,7 +169,7 @@ func (r *RegistryAPI) GetToken(scope string) (*Token, error) {
 }
 
 func (r *RegistryAPI) fetchToken(scope string) (*Token, error) {
-	log.Info("Fetching token...")
+	logger.Info("Fetching token...")
 	server := r.Scheme + r.ServerURL
 	// Ping
 	u, err := url.Parse(server)

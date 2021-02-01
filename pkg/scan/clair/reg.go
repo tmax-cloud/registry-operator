@@ -27,7 +27,12 @@ func New(ctx context.Context, auth types.AuthConfig, opt reg.Opt, ca []byte) (*r
 			},
 		}
 	} else if len(ca) > 0 {
-		caPool := x509.NewCertPool()
+		caPool, err := x509.SystemCertPool()
+		if err != nil {
+			logger.Error(err, "failed to get system cert pool")
+			return newFromTransport(ctx, auth, transport, opt)
+		}
+
 		if ok := caPool.AppendCertsFromPEM(ca); !ok {
 			logger.Info("failed to append external registry ca cert", "ca", string(ca))
 		}
@@ -105,6 +110,7 @@ func newFromTransport(ctx context.Context, auth types.AuthConfig, transport http
 
 	if registry.Pingable() && !opt.SkipPing {
 		if err := registry.Ping(ctx); err != nil {
+			logger.Error(err, "failed to ping to registry")
 			return nil, err
 		}
 	}
