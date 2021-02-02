@@ -209,8 +209,14 @@ func (r *RegistryDeployment) patch(c client.Client, reg *regv1.Registry, patchRe
 			found := false
 			for i, vm := range deployContainer.VolumeMounts {
 				if vm.Name == "registry" {
-					deployContainer.VolumeMounts[i].MountPath = reg.Spec.PersistentVolumeClaim.MountPath
 					found = true
+
+					if len(reg.Spec.PersistentVolumeClaim.MountPath) == 0 {
+						deployContainer.VolumeMounts[i].MountPath = schemes.RegistryPVCMountPath
+						break
+					}
+
+					deployContainer.VolumeMounts[i].MountPath = reg.Spec.PersistentVolumeClaim.MountPath
 					break
 				}
 			}
