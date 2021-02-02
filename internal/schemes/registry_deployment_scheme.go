@@ -15,8 +15,10 @@ import (
 )
 
 const (
-	configMapMountPath   = "/etc/docker/registry"
-	registryPVCMountPath = "/var/lib/registry"
+	// RegistryPVCMountPath is registry's default mount path to pvc
+	RegistryPVCMountPath = "/var/lib/registry"
+
+	configMapMountPath = "/etc/docker/registry"
 
 	registryTLSCrtPath = "/certs/registry/tls.crt"
 	registryTLSKeyPath = "/certs/registry/tls.key"
@@ -47,7 +49,7 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 
 	// Set mountpath
 	if len(reg.Spec.PersistentVolumeClaim.MountPath) == 0 {
-		pvcMountPath = registryPVCMountPath
+		pvcMountPath = RegistryPVCMountPath
 	} else {
 		pvcMountPath = reg.Spec.PersistentVolumeClaim.MountPath
 	}
@@ -146,6 +148,10 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
+									Name:      "registry",
+									MountPath: pvcMountPath,
+								},
+								{
 									Name:      "config",
 									MountPath: configMapMountPath,
 								},
@@ -202,6 +208,14 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 					},
 					Volumes: []corev1.Volume{
 						{
+							Name: "registry",
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: pvcName,
+								},
+							},
+						},
+						{
 							Name: "config",
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -225,26 +239,11 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 								},
 							},
 						},
-						{
-							Name: "registry",
-							VolumeSource: corev1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: pvcName,
-								},
-							},
-						},
 					},
 				},
 			},
 		},
 	}
-
-	vm := corev1.VolumeMount{
-		Name:      "registry",
-		MountPath: pvcMountPath,
-	}
-
-	deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[0].VolumeMounts, vm)
 
 	if config.Config.GetString(config.ConfigRegistryImagePullSecret) != "" {
 		deployment.Spec.Template.Spec.ImagePullSecrets = append(deployment.Spec.Template.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: config.Config.GetString(config.ConfigRegistryImagePullSecret)})
