@@ -1,7 +1,6 @@
 package schemes
 
 import (
-	"fmt"
 	"path"
 	"strconv"
 
@@ -54,8 +53,6 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 	} else {
 		pvcMountPath = reg.Spec.PersistentVolumeClaim.MountPath
 	}
-
-	fmt.Println("[===========DEBUG]MountPath", pvcMountPath)
 
 	// Set pvc
 	if reg.Spec.PersistentVolumeClaim.Exist != nil {
