@@ -23,7 +23,7 @@
 
 ## Example
 
-Reference: [Test Example](../../config/samples/tmax.io_v1_registry.yaml)
+Reference: [Test Example](../../config/samples/tmax.io_v1_imagesignrequest.yaml)
 
 ## Result
 
