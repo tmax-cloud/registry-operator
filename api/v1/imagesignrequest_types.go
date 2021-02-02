@@ -39,7 +39,7 @@ type RegistrySecret struct {
 	// you should refer to https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 	// to make it first.
 	DcjSecretName string `json:"dcjSecretName"`
-	// If Certificate is required, enter certifiacete's secret name
+	// If you want to trust registry's certificate, enter certifiacete's secret name
 	CertSecretName string `json:"certSecretName,omitempty"`
 }
 

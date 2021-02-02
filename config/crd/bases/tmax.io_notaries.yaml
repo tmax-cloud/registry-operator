@@ -43,6 +43,7 @@ spec:
           description: NotarySpec defines the desired state of Notary
           properties:
             authConfig:
+              description: Settings for registry authentication config
               properties:
                 issuer:
                   type: string
@@ -58,10 +59,12 @@ spec:
             persistentVolumeClaim:
               properties:
                 create:
+                  description: Create new pvc
                   properties:
                     accessModes:
-                      description: AccessModes is . Recommend value is "ReadWriteMany"
-                        You can choose ReadWriteOnce, ReadOnlyMany and ReadWriteMany
+                      description: 'Each PV''s access modes are set to the specific
+                        modes supported by that particular volume. Ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes
+                        You can choose ReadWriteOnce, ReadOnlyMany and ReadWriteMany'
                       items:
                         enum:
                         - ReadWriteOnce
@@ -73,10 +76,10 @@ spec:
                         (default: false)'
                       type: boolean
                     storageClassName:
-                      description: Enter StorageClassName like "csi-cephfs-sc"
+                      description: StorageClassName like "csi-cephfs-sc"
                       type: string
                     storageSize:
-                      description: Enter the desired storage size like "10Gi"
+                      description: Desired storage size like "10Gi"
                       type: string
                   required:
                   - accessModes
@@ -84,6 +87,7 @@ spec:
                   - storageSize
                   type: object
                 exist:
+                  description: Use exist pvc
                   properties:
                     pvcName:
                       description: PVC's name you have created
@@ -94,9 +98,11 @@ spec:
               type: object
             rootCASecret:
               description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                Important: Run "make" to regenerate code after modifying this file'
+                Important: Run "make" to regenerate code after modifying this file
+                Root CA certificate secret for notary'
               type: string
             serviceType:
+              description: Service type to expose notary
               enum:
               - Ingress
               - LoadBalancer

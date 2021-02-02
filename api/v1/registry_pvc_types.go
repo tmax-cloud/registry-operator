@@ -8,14 +8,15 @@ type ExistPvc struct {
 }
 
 type CreatePvc struct {
-	// AccessModes is . Recommend value is "ReadWriteMany"
+	// Each PV's access modes are set to the specific modes supported by that particular volume.
+	// Ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes
 	// You can choose ReadWriteOnce, ReadOnlyMany and ReadWriteMany
 	AccessModes []AccessMode `json:"accessModes"`
 
-	// Enter the desired storage size like "10Gi"
+	// Desired storage size like "10Gi"
 	StorageSize string `json:"storageSize"`
 
-	// Enter StorageClassName like "csi-cephfs-sc"
+	// StorageClassName like "csi-cephfs-sc"
 	StorageClassName string `json:"storageClassName"`
 
 	// Delete the pvc as well when this registry is deleted (default: false)
