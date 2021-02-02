@@ -48,20 +48,27 @@ spec:
         spec:
           properties:
             name:
+              description: Repository name
               type: string
             registry:
+              description: Name of Registry which owns repository
               type: string
             versions:
+              description: Versions(=Tags) of image
               items:
                 properties:
                   createdAt:
+                    description: Created time of image version
                     format: date-time
                     type: string
                   delete:
+                    description: If true, this version will be deleted soon.
                     type: boolean
                   signer:
+                    description: If signed image, image signer name is set.
                     type: string
                   version:
+                    description: Version(=Tag) name
                     type: string
                 required:
                 - version

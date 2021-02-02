@@ -1,8 +1,10 @@
 # **ImageScanRequest resource**
 
-### **What is it?**
+## **What is it?**
 
 ImageScanRequest represents the current image scanning state against the Clair which installed on with operator. It can also sending a scan report to elasticsearch and a user can view statistics from Kibana.
+
+## How to create
 
 ### spec field
 
@@ -20,7 +22,6 @@ images|Yes|[]string|Image names to scan ('*' for all and '?' for regex can be us
 imagePullSecret|No|string|The secret name which contains a login credential for registry (Should be DockerConfigJson type)
 insecure|No|bool|Allow insecure registry connection when using SSL
 elasticSearch|No|bool|whether send vulunerability reports to elasticsearch
-
 
 ## Example
 

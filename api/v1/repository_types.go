@@ -3,16 +3,23 @@ package v1
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 type RepositorySpec struct {
-	Name     string         `json:"name,omitempty"`
+	// Repository name
+	Name string `json:"name,omitempty"`
+	// Versions(=Tags) of image
 	Versions []ImageVersion `json:"versions,omitempty"`
-	Registry string         `json:"registry,omitempty"`
+	// Name of Registry which owns repository
+	Registry string `json:"registry,omitempty"`
 }
 
 type ImageVersion struct {
+	// Created time of image version
 	CreatedAt metav1.Time `json:"createdAt,omitempty"`
-	Version   string      `json:"version"`
-	Delete    bool        `json:"delete,omitempty"`
-	Signer    string      `json:"signer,omitempty"`
+	// Version(=Tag) name
+	Version string `json:"version"`
+	// If true, this version will be deleted soon.
+	Delete bool `json:"delete,omitempty"`
+	// If signed image, image signer name is set.
+	Signer string `json:"signer,omitempty"`
 }
 
 // +kubebuilder:object:root=true

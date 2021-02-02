@@ -10,7 +10,7 @@
 
 |Key|Required|Type|Description|
 |:-------------------------------------------:|-----|-------------------|-----|
-|`spec.image`                                 | No  | string            | Registry's image name | 
+|`spec.image`                                 | No  | string            | Registry's image name |
 |`spec.description`                           | No  | string            | Description for registry |
 |`spec.loginId`                               | Yes | string            | Login ID for registry |
 |`spec.loginPassword`                         | Yes | string            | Login password for registry |
@@ -105,8 +105,7 @@ Reference: [Test Example](../../config/samples/tmax.io_v1_registry.yaml)
 
   * If `spec.customConfigYml` is not set
     * CM: hpcd-{REGISTRY_NAME}
-  * If `spec.service.serviceType` is Ingress 
+  * If `spec.service.serviceType` is Ingress
     * Ingress: hpcd-{REGISTRY_NAME}
   * If `spec.notary.enabled` is true
     * Notary: {REGISTRY_NAME}
-
