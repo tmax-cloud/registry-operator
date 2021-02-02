@@ -34,6 +34,14 @@ func Mutate(ar *v1beta1.AdmissionReview, client client.Client) *v1beta1.Admissio
 	}
 
 	var patch []patchOperation
+	if signer.Spec == (regv1.ImageSignerSpec{}) {
+		isSpec := regv1.ImageSignerSpec{}
+		patch = append(patch, patchOperation{
+			Op:    "add",
+			Path:  "/spec",
+			Value: isSpec,
+		})
+	}
 
 	patch = append(patch, patchOperation{
 		Op:    "add",
