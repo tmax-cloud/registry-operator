@@ -8,6 +8,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"testing"
+	"time"
 )
 
 func TestGetScanResult(t *testing.T) {
@@ -17,6 +18,8 @@ func TestGetScanResult(t *testing.T) {
 	clairUrl := regUrl
 
 	launchTestServer(t)
+
+	time.Sleep(3 * time.Second)
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
