@@ -14,12 +14,12 @@ func ConfigMap(reg *regv1.Registry, data map[string]string) *corev1.ConfigMap {
 	var resName string
 	label := map[string]string{}
 	label["app"] = "registry"
-	label["apps"] = regv1.K8sPrefix + reg.Name
+	label["apps"] = SubresourceName(reg, SubTypeRegistryConfigmap)
 
 	if len(reg.Spec.CustomConfigYml) != 0 {
 		resName = reg.Spec.CustomConfigYml
 	} else {
-		resName = regv1.K8sPrefix + reg.Name
+		resName = SubresourceName(reg, SubTypeRegistryConfigmap)
 	}
 
 	return &corev1.ConfigMap{

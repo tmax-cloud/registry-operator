@@ -22,14 +22,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ScanRequestStatusType is status type of scan request
 type ScanRequestStatusType string
 
 const (
-	ScanRequestSuccess    ScanRequestStatusType = "Success"
+	// ScanRequestSuccess is scan request's result is in a successful state
+	ScanRequestSuccess ScanRequestStatusType = "Success"
+	// ScanRequestProcessing is scan request is processing state
 	ScanRequestProcessing ScanRequestStatusType = "Processing"
-	ScanRequestError      ScanRequestStatusType = "Error"
+	// ScanRequestError is scan request is failed
+	ScanRequestError ScanRequestStatusType = "Error"
 )
 
+// ScanTarget is a target setting to scan images
 type ScanTarget struct {
 	// Registry URL (example: docker.io)
 	RegistryURL string `json:"registryUrl"`
@@ -57,6 +62,7 @@ type ScanTarget struct {
 	ElasticSearch bool `json:"elasticSearch,omitempty"`
 }
 
+// ScanResult is result of scanning an image
 type ScanResult struct {
 	//Scan summary
 	Summary map[string]int `json:"summary,omitempty"`
@@ -66,6 +72,7 @@ type ScanResult struct {
 	Vulnerabilities map[string]Vulnerabilities `json:"vulnerabilities,omitempty"`
 }
 
+// Vulnerability is the information of the vulnerability found.
 type Vulnerability struct {
 	// Severity name
 	Name string `json:"Name,omitempty"`
@@ -84,6 +91,7 @@ type Vulnerability struct {
 	FixedBy string `json:"FixedBy,omitempty"`
 }
 
+// Vulnerabilities is a set of Vulnerability instances
 type Vulnerabilities []Vulnerability
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -106,7 +114,7 @@ type ImageScanRequestStatus struct {
 	Results map[string]ScanResult `json:"results,omitempty"`
 }
 
-// ImageScanRequestStatus defines the observed state of ImageScanRequest
+// ImageScanRequestESReport is a report to send the result to Elastic Search
 type ImageScanRequestESReport struct {
 	Image string `json:"image,omitempty"`
 	//Scna results {docker.io/library/alpine:3: {summary : {"Low" : 1, "Medium" : 2, ...}}

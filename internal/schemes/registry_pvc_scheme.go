@@ -12,7 +12,7 @@ func PersistentVolumeClaim(reg *regv1.Registry) *corev1.PersistentVolumeClaim {
 	var resName string
 	label := map[string]string{}
 	label["app"] = "registry"
-	label["apps"] = regv1.K8sPrefix + reg.Name
+	label["apps"] = SubresourceName(reg, SubTypeRegistryPVC)
 
 	var accessModes []corev1.PersistentVolumeAccessMode
 	var vm corev1.PersistentVolumeMode = corev1.PersistentVolumeFilesystem
@@ -28,7 +28,7 @@ func PersistentVolumeClaim(reg *regv1.Registry) *corev1.PersistentVolumeClaim {
 		}
 	}
 
-	resName = regv1.K8sPrefix + reg.Name
+	resName = SubresourceName(reg, SubTypeRegistryPVC)
 
 	for _, mode := range reg.Spec.PersistentVolumeClaim.Create.AccessModes {
 		accessModes = append(accessModes, corev1.PersistentVolumeAccessMode(mode))

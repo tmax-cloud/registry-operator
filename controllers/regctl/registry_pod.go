@@ -3,6 +3,7 @@ package regctl
 import (
 	"context"
 
+	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -131,7 +132,7 @@ func (r *RegistryPod) get(c client.Client, reg *regv1.Registry) error {
 	podList := &corev1.PodList{}
 	label := map[string]string{}
 	label["app"] = "registry"
-	label["apps"] = regv1.K8sPrefix + reg.Name
+	label["apps"] = schemes.SubresourceName(reg, schemes.SubTypeRegistryDeployment)
 
 	labelSelector := labels.SelectorFromSet(labels.Set(label))
 	listOps := &client.ListOptions{

@@ -19,7 +19,7 @@ import (
 )
 
 const SecretOpaqueTypeName = regv1.ConditionTypeSecretOpaque
-const SecretTLSTypeName = regv1.ConditionTypeSecretTls
+const SecretTLSTypeName = regv1.ConditionTypeSecretTLS
 
 type RegistryCertSecret struct {
 	secretOpaque *corev1.Secret

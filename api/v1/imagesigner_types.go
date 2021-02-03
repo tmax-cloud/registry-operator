@@ -50,6 +50,7 @@ type ImageSignerStatus struct {
 	*SignerKeyState `json:"signerKeyState,omitempty"`
 }
 
+// SignerKeyState is ehe status information about whether signer key is created
 type SignerKeyState struct {
 	// Whether SignerKey is created
 	Created bool `json:"created,omitempty"`

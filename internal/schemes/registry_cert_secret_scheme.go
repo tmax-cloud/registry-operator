@@ -1,8 +1,6 @@
 package schemes
 
 import (
-	"strings"
-
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 
@@ -45,7 +43,7 @@ func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secr
 
 	return &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      regv1.K8sPrefix + strings.ToLower(reg.Name),
+				Name:      SubresourceName(reg, SubTypeRegistryOpaqueSecret),
 				Namespace: reg.Namespace,
 				Labels: map[string]string{
 					"secret": "data",
@@ -56,7 +54,7 @@ func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secr
 		},
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      regv1.K8sPrefix + regv1.TLSPrefix + strings.ToLower(reg.Name),
+				Name:      SubresourceName(reg, SubTypeRegistryTLSSecret),
 				Namespace: reg.Namespace,
 				Labels: map[string]string{
 					"secret": "tls",

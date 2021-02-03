@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	SecretDCJTypeName = regv1.ConditionTypeSecretDockerConfigJson
+	SecretDCJTypeName = regv1.ConditionTypeSecretDockerConfigJSON
 )
 
 type RegistryDCJSecret struct {
