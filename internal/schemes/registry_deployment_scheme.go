@@ -12,20 +12,26 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
 	// RegistryPVCMountPath is registry's default mount path to pvc
 	RegistryPVCMountPath = "/var/lib/registry"
 
-	configMapMountPath = "/etc/docker/registry"
+	// DefaultResourceCPU is default resource cpu requirement
+	DefaultResourceCPU = "0.1"
+	// DefaultResourceMemory is default resource memory requirement
+	DefaultResourceMemory = "512Mi"
+	configMapMountPath    = "/etc/docker/registry"
 
 	registryTLSCrtPath = "/certs/registry/tls.crt"
 	registryTLSKeyPath = "/certs/registry/tls.key"
 	registryRootCAPath = "/certs/rootca/ca.crt"
 )
 
-func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*appsv1.Deployment, error) {
+// Deployment is a scheme of registry deployment
+func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment, error) {
 	var resName, pvcMountPath, pvcName, configMapName string
 	resName = SubresourceName(reg, SubTypeRegistryDeployment)
 	label, labelSelector := map[string]string{}, map[string]string{}
@@ -101,8 +107,12 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 							Name:  "registry",
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("0.2"),
-									corev1.ResourceMemory: resource.MustParse("512Mi"),
+									corev1.ResourceCPU:    resource.MustParse(DefaultResourceCPU),
+									corev1.ResourceMemory: resource.MustParse(DefaultResourceMemory),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse(DefaultResourceCPU),
+									corev1.ResourceMemory: resource.MustParse(DefaultResourceMemory),
 								},
 							},
 							Ports: []corev1.ContainerPort{
@@ -164,46 +174,34 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 									MountPath: path.Dir(registryRootCAPath),
 								},
 							},
-							// ReadinessProbe: &corev1.Probe{
-							// 	PeriodSeconds:       3,
-							// 	SuccessThreshold:    1,
-							// 	TimeoutSeconds:      1,
-							// 	InitialDelaySeconds: 5,
-							// 	FailureThreshold:    10,
-							// 	Handler: corev1.Handler{
-							// 		HTTPGet: &corev1.HTTPGetAction{
-							// 			Path: "/v2/_catalog",
-							// 			Port: intstr.IntOrString{IntVal: RegistryTargetPort},
-							// 			HTTPHeaders: []corev1.HTTPHeader{
-							// 				corev1.HTTPHeader{
-							// 					Name:  "authorization",
-							// 					Value: "Bearer " + token,
-							// 				},
-							// 			},
-							// 			Scheme: corev1.URISchemeHTTPS,
-							// 		},
-							// 	},
-							// },
-							// LivenessProbe: &corev1.Probe{
-							// 	PeriodSeconds:       5,
-							// 	SuccessThreshold:    1,
-							// 	TimeoutSeconds:      30,
-							// 	InitialDelaySeconds: 5,
-							// 	FailureThreshold:    10,
-							// 	Handler: corev1.Handler{
-							// 		HTTPGet: &corev1.HTTPGetAction{
-							// 			Path: "/v2/_catalog",
-							// 			Port: intstr.IntOrString{IntVal: RegistryTargetPort},
-							// 			HTTPHeaders: []corev1.HTTPHeader{
-							// 				corev1.HTTPHeader{
-							// 					Name:  "authorization",
-							// 					Value: "Bearer " + token,
-							// 				},
-							// 			},
-							// 			Scheme: corev1.URISchemeHTTPS,
-							// 		},
-							// 	},
-							// },
+							ReadinessProbe: &corev1.Probe{
+								PeriodSeconds:       10,
+								TimeoutSeconds:      1,
+								InitialDelaySeconds: 5,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/",
+										Port:   intstr.IntOrString{IntVal: RegistryTargetPort},
+										Scheme: corev1.URISchemeHTTPS,
+									},
+								},
+							},
+							LivenessProbe: &corev1.Probe{
+								PeriodSeconds:       10,
+								TimeoutSeconds:      1,
+								InitialDelaySeconds: 200,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/",
+										Port:   intstr.IntOrString{IntVal: RegistryTargetPort},
+										Scheme: corev1.URISchemeHTTPS,
+									},
+								},
+							},
 						},
 					},
 					Volumes: []corev1.Volume{
@@ -243,6 +241,19 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig, token string) (*app
 				},
 			},
 		},
+	}
+
+	if !reg.Spec.RegistryDeployment.Resources.Limits.Cpu().IsZero() {
+		deployment.Spec.Template.Spec.Containers[0].Resources.Limits[corev1.ResourceCPU] = *reg.Spec.RegistryDeployment.Resources.Limits.Cpu()
+	}
+	if !reg.Spec.RegistryDeployment.Resources.Limits.Memory().IsZero() {
+		deployment.Spec.Template.Spec.Containers[0].Resources.Limits[corev1.ResourceMemory] = *reg.Spec.RegistryDeployment.Resources.Limits.Memory()
+	}
+	if !reg.Spec.RegistryDeployment.Resources.Requests.Cpu().IsZero() {
+		deployment.Spec.Template.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU] = *reg.Spec.RegistryDeployment.Resources.Requests.Cpu()
+	}
+	if !reg.Spec.RegistryDeployment.Resources.Requests.Memory().IsZero() {
+		deployment.Spec.Template.Spec.Containers[0].Resources.Requests[corev1.ResourceMemory] = *reg.Spec.RegistryDeployment.Resources.Requests.Memory()
 	}
 
 	if config.Config.GetString(config.ConfigRegistryImagePullSecret) != "" {

@@ -57,6 +57,8 @@ type RegistryDeployment struct {
 	Selector metav1.LabelSelector `json:"selector,omitempty"`
 	// Deployment's toleration configuration
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+	// Deployment's resource requirements
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type RegistryServiceType string

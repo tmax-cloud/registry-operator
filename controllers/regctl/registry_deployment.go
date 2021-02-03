@@ -2,8 +2,8 @@ package regctl
 
 import (
 	"context"
+	"fmt"
 	"path"
-	"strings"
 
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
@@ -17,6 +17,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,17 +25,23 @@ import (
 )
 
 const (
-	MountPathDiffKey = "MountPath"
-	PvcNameDiffKey   = "PvcName"
-	ImageDiffKey     = "Image"
+	mountPathDiffKey     = "MountPath"
+	pvcNameDiffKey       = "PvcName"
+	imageDiffKey         = "Image"
+	limitCPUDiffKey      = "limitCPU"
+	limitMemoryDiffKey   = "limitMemory"
+	requestCPUDiffKey    = "requestCPU"
+	requestMemoryDiffKey = "requestMemory"
 )
 
+// RegistryDeployment handles deployment resource
 type RegistryDeployment struct {
 	KcCli  *keycloakctl.KeycloakClient
 	deploy *appsv1.Deployment
 	logger *utils.RegistryLogger
 }
 
+// Handle makes deployment to be in the desired state
 func (r *RegistryDeployment) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	if err := r.get(c, reg); err != nil {
 		if errors.IsNotFound(err) {
@@ -64,6 +71,7 @@ func (r *RegistryDeployment) Handle(c client.Client, reg *regv1.Registry, patchR
 	return nil
 }
 
+// Ready checks that deployment is ready
 func (r *RegistryDeployment) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
 	condition := &status.Condition{
@@ -81,7 +89,18 @@ func (r *RegistryDeployment) Ready(c client.Client, reg *regv1.Registry, patchRe
 
 	if r.deploy == nil {
 		r.logger.Info("NotReady")
+		err = regv1.MakeRegistryError("NotReady")
+		return err
+	}
 
+	diff := r.compare(reg)
+	if diff == nil {
+		r.logger.Error(nil, "Invalid deployment!!!")
+		if err := r.delete(c, patchReg); err != nil {
+			return err
+		}
+	} else if len(diff) > 0 {
+		r.logger.Info("NotReady")
 		err = regv1.MakeRegistryError("NotReady")
 		return err
 	}
@@ -131,38 +150,16 @@ func (r *RegistryDeployment) getAuthConfig() *regv1.AuthConfig {
 	return auth
 }
 
-// func (r *RegistryDeployment) getToken(c client.Client, reg *regv1.Registry) (string, error) {
-// 	// get token
-// 	scopes := []string{"registry:catalog:*"}
-// 	token, err := r.KcCli.GetToken(scopes)
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	return token, nil
-// }
-
 func (r *RegistryDeployment) get(c client.Client, reg *regv1.Registry) error {
 	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryDeployment))
-	token := ""
-	// token, err := r.getToken(c, reg)
-	// if err != nil {
-	// 	if err != nil {
-	// 		r.logger.Error(err, "Get token is failed")
-	// 		return err
-	// 	}
-	// }
-
-	deploy, err := schemes.Deployment(reg, r.getAuthConfig(), token)
+	deploy, err := schemes.Deployment(reg, r.getAuthConfig())
 	if err != nil {
 		r.logger.Error(err, "Get regsitry deployment scheme is failed")
 		return err
 	}
-
 	r.deploy = deploy
 
 	req := types.NamespacedName{Name: r.deploy.Name, Namespace: r.deploy.Namespace}
-
 	if err := c.Get(context.TODO(), req, r.deploy); err != nil {
 		r.logger.Error(err, "Get regsitry deployment is failed")
 		return err
@@ -174,15 +171,12 @@ func (r *RegistryDeployment) get(c client.Client, reg *regv1.Registry) error {
 func (r *RegistryDeployment) patch(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
 	target := r.deploy.DeepCopy()
 	originObject := client.MergeFrom(r.deploy)
-
-	var deployContainer *corev1.Container = nil
-	// var contPvcVm *corev1.VolumeMount = nil
-	volumeMap := map[string]corev1.Volume{}
 	podSpec := target.Spec.Template.Spec
 
-	r.logger.Info("Get", "Patch Keys", strings.Join(utils.DiffKeyList(diff), ", "))
+	r.logger.Info("Get", "Patch", fmt.Sprintf("%+v\n", diff))
 
 	// Get registry container
+	var deployContainer *corev1.Container = nil
 	for i, cont := range podSpec.Containers {
 		if cont.Name == "registry" {
 			deployContainer = &podSpec.Containers[i]
@@ -197,47 +191,60 @@ func (r *RegistryDeployment) patch(c client.Client, reg *regv1.Registry, patchRe
 
 	for _, d := range diff {
 		switch d.Key {
-		case ImageDiffKey:
-			if reg.Spec.Image == "" {
-				deployContainer.Image = config.Config.GetString(config.ConfigRegistryImage)
-				continue
-			}
+		case imageDiffKey:
+			deployContainer.Image = d.Value.(string)
 
-			deployContainer.Image = reg.Spec.Image
-
-		case MountPathDiffKey:
+		case mountPathDiffKey:
 			found := false
 			for i, vm := range deployContainer.VolumeMounts {
 				if vm.Name == "registry" {
 					found = true
-
-					if len(reg.Spec.PersistentVolumeClaim.MountPath) == 0 {
-						deployContainer.VolumeMounts[i].MountPath = schemes.RegistryPVCMountPath
-						break
-					}
-
-					deployContainer.VolumeMounts[i].MountPath = reg.Spec.PersistentVolumeClaim.MountPath
+					deployContainer.VolumeMounts[i].MountPath = d.Value.(string)
 					break
 				}
 			}
 
 			if !found {
 				r.logger.Error(regv1.MakeRegistryError(regv1.PvcVolumeMountNotFound), "registry pvc volume mount is nil")
-				return nil
 			}
 
-		case PvcNameDiffKey:
-			// Get volumes
-			for _, vol := range podSpec.Volumes {
-				volumeMap[vol.Name] = vol
+		case pvcNameDiffKey:
+			found := false
+			for i, vol := range podSpec.Volumes {
+				if vol.Name == "registry" {
+					found = true
+					podSpec.Volumes[i].PersistentVolumeClaim.ClaimName = d.Value.(string)
+					break
+				}
 			}
 
-			vol := volumeMap["registry"]
-			if reg.Spec.PersistentVolumeClaim.Create != nil {
-				vol.PersistentVolumeClaim.ClaimName = regv1.K8sPrefix + reg.Name
-			} else {
-				vol.PersistentVolumeClaim.ClaimName = reg.Spec.PersistentVolumeClaim.Exist.PvcName
+			if !found {
+				r.logger.Error(regv1.MakeRegistryError(regv1.PvcVolumeNotFound), "registry pvc volume is nil")
 			}
+
+		case limitCPUDiffKey:
+			if deployContainer.Resources.Limits == nil {
+				deployContainer.Resources.Limits = corev1.ResourceList{}
+			}
+			deployContainer.Resources.Limits[corev1.ResourceCPU] = d.Value.(resource.Quantity)
+
+		case limitMemoryDiffKey:
+			if deployContainer.Resources.Limits == nil {
+				deployContainer.Resources.Limits = corev1.ResourceList{}
+			}
+			deployContainer.Resources.Limits[corev1.ResourceMemory] = d.Value.(resource.Quantity)
+
+		case requestCPUDiffKey:
+			if deployContainer.Resources.Requests == nil {
+				deployContainer.Resources.Requests = corev1.ResourceList{}
+			}
+			deployContainer.Resources.Requests[corev1.ResourceCPU] = d.Value.(resource.Quantity)
+
+		case requestMemoryDiffKey:
+			if deployContainer.Resources.Requests == nil {
+				deployContainer.Resources.Requests = corev1.ResourceList{}
+			}
+			deployContainer.Resources.Requests[corev1.ResourceMemory] = d.Value.(resource.Quantity)
 		}
 	}
 
@@ -267,14 +274,14 @@ func (r *RegistryDeployment) delete(c client.Client, patchReg *regv1.Registry) e
 
 func (r *RegistryDeployment) compare(reg *regv1.Registry) []utils.Diff {
 	diff := []utils.Diff{}
-	var deployContainer *corev1.Container = nil
 	podSpec := r.deploy.Spec.Template.Spec
-	volumeMap := map[string]corev1.Volume{}
 
 	// Get registry container
+	var deployContainer *corev1.Container = nil
 	for _, cont := range podSpec.Containers {
 		if cont.Name == "registry" {
 			deployContainer = &cont
+			break
 		}
 	}
 
@@ -283,46 +290,88 @@ func (r *RegistryDeployment) compare(reg *regv1.Registry) []utils.Diff {
 		return nil
 	}
 
-	// Get volumes
-	for _, vol := range podSpec.Volumes {
-		volumeMap[vol.Name] = vol
+	// Diff Image
+	regImage := reg.Spec.Image
+	if regImage == "" {
+		regImage = config.Config.GetString(config.ConfigRegistryImage)
 	}
 
-	if (reg.Spec.Image != "" && reg.Spec.Image != deployContainer.Image) || (reg.Spec.Image == "" && deployContainer.Image != config.Config.GetString(config.ConfigRegistryImage)) {
-		diff = append(diff, utils.Diff{Type: utils.Replace, Key: ImageDiffKey})
+	if regImage != deployContainer.Image {
+		diff = append(diff, utils.Diff{Type: utils.Replace, Key: imageDiffKey, Value: regImage})
 	}
 
-	if reg.Spec.PersistentVolumeClaim.Create != nil {
-		vol, exist := volumeMap["registry"]
-		if !exist {
-			r.logger.Info("Registry volume is not exist.")
-		} else if vol.VolumeSource.PersistentVolumeClaim.ClaimName != (regv1.K8sPrefix + reg.Name) {
-			diff = append(diff, utils.Diff{Type: utils.Replace, Key: PvcNameDiffKey})
-		}
-	} else {
-		vol, exist := volumeMap["registry"]
-		if !exist {
-			r.logger.Info("Registry volume is not exist.")
-		} else if vol.VolumeSource.PersistentVolumeClaim.ClaimName != reg.Spec.PersistentVolumeClaim.Exist.PvcName {
-			diff = append(diff, utils.Diff{Type: utils.Replace, Key: PvcNameDiffKey})
-		}
+	// Diff volumes
+	volumeName := ""
+	if reg.Spec.PersistentVolumeClaim.Exist != nil {
+		volumeName = reg.Spec.PersistentVolumeClaim.Exist.PvcName
+	}
+	if volumeName == "" {
+		volumeName = schemes.SubresourceName(reg, schemes.SubTypeRegistryPVC)
 	}
 
-	var contPvcVm *corev1.VolumeMount = nil
-	for i, vm := range deployContainer.VolumeMounts {
-		if vm.Name == "registry" {
-			contPvcVm = &deployContainer.VolumeMounts[i]
+	var deployVolume *corev1.Volume = nil
+	for i, vol := range podSpec.Volumes {
+		if vol.Name == "registry" {
+			deployVolume = &podSpec.Volumes[i]
 			break
 		}
 	}
 
-	if contPvcVm == nil {
-		r.logger.Error(regv1.MakeRegistryError(regv1.PvcVolumeMountNotFound), "registry pvc volume mount is nil")
-		return nil
+	if deployVolume == nil {
+		r.logger.Error(regv1.MakeRegistryError(regv1.PvcVolumeNotFound), "registry pvc volume mount is nil ")
+	} else if deployVolume.VolumeSource.PersistentVolumeClaim.ClaimName != volumeName {
+		diff = append(diff, utils.Diff{Type: utils.Replace, Key: pvcNameDiffKey, Value: volumeName})
 	}
 
-	if reg.Spec.PersistentVolumeClaim.MountPath != contPvcVm.MountPath {
-		diff = append(diff, utils.Diff{Type: utils.Replace, Key: MountPathDiffKey})
+	// Diff Volume Mount
+	mountPath := reg.Spec.PersistentVolumeClaim.MountPath
+	if mountPath == "" {
+		mountPath = schemes.RegistryPVCMountPath
+	}
+
+	var contPvcVM *corev1.VolumeMount = nil
+	for i, vm := range deployContainer.VolumeMounts {
+		if vm.Name == "registry" {
+			contPvcVM = &deployContainer.VolumeMounts[i]
+			break
+		}
+	}
+	if contPvcVM == nil {
+		r.logger.Error(regv1.MakeRegistryError(regv1.PvcVolumeMountNotFound), "registry pvc volume mount is nil ")
+	} else if contPvcVM.MountPath != mountPath {
+		diff = append(diff, utils.Diff{Type: utils.Replace, Key: mountPathDiffKey, Value: mountPath})
+	}
+
+	// Diff Resource Requirement
+	regLitmitCPU := *reg.Spec.RegistryDeployment.Resources.Limits.Cpu()
+	regLitmitMemory := *reg.Spec.RegistryDeployment.Resources.Limits.Memory()
+	regRequestCPU := *reg.Spec.RegistryDeployment.Resources.Requests.Cpu()
+	regRequestMemory := *reg.Spec.RegistryDeployment.Resources.Requests.Memory()
+
+	if regLitmitCPU.IsZero() {
+		regLitmitCPU = resource.MustParse(schemes.DefaultResourceCPU)
+	}
+	if regLitmitMemory.IsZero() {
+		regLitmitMemory = resource.MustParse(schemes.DefaultResourceMemory)
+	}
+	if regRequestCPU.IsZero() {
+		regRequestCPU = resource.MustParse(schemes.DefaultResourceCPU)
+	}
+	if regRequestMemory.IsZero() {
+		regRequestMemory = resource.MustParse(schemes.DefaultResourceMemory)
+	}
+
+	if !deployContainer.Resources.Limits.Cpu().Equal(regLitmitCPU) {
+		diff = append(diff, utils.Diff{Type: utils.Replace, Key: limitCPUDiffKey, Value: regLitmitCPU})
+	}
+	if !deployContainer.Resources.Limits.Memory().Equal(regLitmitMemory) {
+		diff = append(diff, utils.Diff{Type: utils.Replace, Key: limitMemoryDiffKey, Value: regLitmitMemory})
+	}
+	if !deployContainer.Resources.Requests.Cpu().Equal(regRequestCPU) {
+		diff = append(diff, utils.Diff{Type: utils.Replace, Key: requestCPUDiffKey, Value: regRequestCPU})
+	}
+	if !deployContainer.Resources.Requests.Memory().Equal(regRequestMemory) {
+		diff = append(diff, utils.Diff{Type: utils.Replace, Key: requestMemoryDiffKey, Value: regRequestMemory})
 	}
 
 	return diff

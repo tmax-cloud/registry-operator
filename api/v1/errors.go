@@ -9,6 +9,7 @@ const (
 	ContainerStatusIsNil   = "ContainerStatusIsNil"
 	PodNotRunning          = "PodNotRunning"
 	PvcVolumeMountNotFound = "PvcVolumeMountNotFound"
+	PvcVolumeNotFound      = "PvcVolumeNotFound"
 )
 
 type RegistryErrors struct {
