@@ -19,8 +19,10 @@ const (
 	// RegistryPVCMountPath is registry's default mount path to pvc
 	RegistryPVCMountPath = "/var/lib/registry"
 
-	defaultResourceCPU    = "0.1"
-	defaultResourceMemory = "512Mi"
+	// DefaultResourceCPU is default resource cpu requirement
+	DefaultResourceCPU = "0.1"
+	// DefaultResourceMemory is default resource memory requirement
+	DefaultResourceMemory = "512Mi"
 	configMapMountPath    = "/etc/docker/registry"
 
 	registryTLSCrtPath = "/certs/registry/tls.crt"
@@ -105,12 +107,12 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment
 							Name:  "registry",
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse(defaultResourceCPU),
-									corev1.ResourceMemory: resource.MustParse(defaultResourceMemory),
+									corev1.ResourceCPU:    resource.MustParse(DefaultResourceCPU),
+									corev1.ResourceMemory: resource.MustParse(DefaultResourceMemory),
 								},
 								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse(defaultResourceCPU),
-									corev1.ResourceMemory: resource.MustParse(defaultResourceMemory),
+									corev1.ResourceCPU:    resource.MustParse(DefaultResourceCPU),
+									corev1.ResourceMemory: resource.MustParse(DefaultResourceMemory),
 								},
 							},
 							Ports: []corev1.ContainerPort{

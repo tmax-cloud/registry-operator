@@ -77,8 +77,9 @@ func (r *RegistryLogger) Error(err error, msg string, keysAndValues ...interface
 }
 
 type Diff struct {
-	Type DiffType
-	Key  string
+	Type  DiffType
+	Key   string
+	Value interface{}
 }
 
 type DiffType string
