@@ -247,11 +247,8 @@ func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map
 
 				// Get the vulnerability report.
 				if report, err = cr.Vulnerabilities(context.TODO(), r, image.Path, image.Reference()); err != nil {
-					// Fallback to Clair v3 API.
-					if report, err = cr.VulnerabilitiesV3(context.TODO(), r, image.Path, image.Reference()); err != nil {
-						logger.Error(err, "failed to check vulnerabilities")
-						return reports, err
-					}
+					logger.Error(err, "failed to get image vulnerabilities")
+					return reports, err
 				}
 
 				// set report
