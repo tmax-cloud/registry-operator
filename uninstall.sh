@@ -16,6 +16,9 @@ Usage() {
     echo "  -m, --manager"
     echo "                 delete manager resources without crd resources"
     echo
+    echo "  -s, --clair"
+    echo "                 delete clair only"
+    echo
 }
 
 # Delete manager resources without crd resources
@@ -57,6 +60,18 @@ DeleteCRD() {
     kubectl delete -f config/crd/bases
 }
 
+DeleteClair() {
+    # Delete CRDs
+    if [ -e config/manager/clair/dev.yml ]
+    then
+        kubectl delete -n registry-system -f config/manager/clair/dev.yml
+        rm config/manager/clair/dev.yml
+    else
+        echo "Not found clair deployment file."
+    fi
+}
+
+
 ####################
 ##   Main Start   ##
 ####################
@@ -66,7 +81,7 @@ if [[ "$#" == 0 ]]; then
     exit 0
 fi
 
-if ! options=$(getopt -o achm -l all,crd,help,manager -- "$@")
+if ! options=$(getopt -o achms -l all,crd,help,manager,clair -- "$@")
 then
     echo "ERROR: invalid command option"
     Usage
@@ -79,6 +94,7 @@ while true; do
     case "$1" in
         -a|--all) 
             echo "* Tear down registry-operator"
+            DeleteClair
             DeleteManager
             DeleteCRD
             shift ;;
@@ -93,6 +109,10 @@ while true; do
         -m|--manager) 
             echo "* Tear down registry-operator resources without crds"
             DeleteManager
+            shift ;;
+        -s|--clair) 
+            echo "* Tear down clair server"
+            DeleteClair
             shift ;;
         --)           
             shift 
