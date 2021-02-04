@@ -190,7 +190,7 @@ func collectSubController(reg *regv1.Registry, kc *keycloakctl.KeycloakControlle
 		collection = append(collection, &regctl.RegistryNotary{KcCtl: kc})
 	}
 
-	kcCli := keycloakctl.NewKeycloakClient(reg.Spec.LoginId, reg.Spec.LoginPassword, kc.GetRealmName(), kc.GetDockerV2ClientName())
+	kcCli := keycloakctl.NewKeycloakClient(reg.Spec.LoginID, reg.Spec.LoginPassword, kc.GetRealmName(), kc.GetDockerV2ClientName())
 	collection = append(collection, &regctl.RegistryPVC{}, &regctl.RegistryService{}, &regctl.RegistryCertSecret{},
 		&regctl.RegistryDCJSecret{}, &regctl.RegistryConfigMap{}, &regctl.RegistryDeployment{KcCli: kcCli}, &regctl.RegistryPod{})
 

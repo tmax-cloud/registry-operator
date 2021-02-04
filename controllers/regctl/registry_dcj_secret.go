@@ -157,7 +157,7 @@ func (r *RegistryDCJSecret) compare(reg *regv1.Registry) []utils.Diff {
 			return nil
 		}
 		loginAndPassword, _ := base64.StdEncoding.DecodeString(element.Auth)
-		if string(loginAndPassword) != reg.Spec.LoginId+":"+reg.Spec.LoginPassword {
+		if string(loginAndPassword) != reg.Spec.LoginID+":"+reg.Spec.LoginPassword {
 			return nil
 		}
 	}

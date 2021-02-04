@@ -150,15 +150,15 @@ func (c *KeycloakController) CreateRealm(reg, patchReg *regv1.Registry) error {
 		}
 	}
 
-	if !c.isExistUser(reg.Spec.LoginId) {
-		c.logger.Info(fmt.Sprintf("%s user is not found in keystore", reg.Spec.LoginId))
-		c.logger.Info("CreateUser", "username", reg.Spec.LoginId)
-		if err := c.CreateUser(c.token, reg.Spec.LoginId, reg.Spec.LoginPassword); err != nil {
+	if !c.isExistUser(reg.Spec.LoginID) {
+		c.logger.Info(fmt.Sprintf("%s user is not found in keystore", reg.Spec.LoginID))
+		c.logger.Info("CreateUser", "username", reg.Spec.LoginID)
+		if err := c.CreateUser(c.token, reg.Spec.LoginID, reg.Spec.LoginPassword); err != nil {
 			return err
 		}
 	}
 
-	if !c.isExistRealm(c.name) || !c.isExistCertificate() || !c.isExistUser(reg.Spec.LoginId) {
+	if !c.isExistRealm(c.name) || !c.isExistCertificate() || !c.isExistUser(reg.Spec.LoginID) {
 		return fmt.Errorf("failed to create realm/certificate/user")
 	}
 
