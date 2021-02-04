@@ -6,11 +6,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	RegistryLoginUrl = CustomObjectGroup + "/registry-login-url"
-	RegistryKind     = "Registry"
-)
-
 // RegistrySpec defines the desired state of Registry
 type RegistrySpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -25,6 +20,8 @@ type RegistrySpec struct {
 	LoginId string `json:"loginId"`
 	// Login password for registry
 	LoginPassword string `json:"loginPassword"`
+	// If ReadOnly is true, clients will not be allowed to write(push) to the registry.
+	ReadOnly bool `json:"readOnly,omitempty"`
 	// Settings for notary service
 	Notary RegistryNotary `json:"notary,omitempty"`
 	// The name of the configmap where the registry config.yml content
@@ -97,17 +94,30 @@ type RegistryStatus struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
-	Conditions          status.Conditions `json:"conditions,omitempty"`
-	Phase               string            `json:"phase,omitempty"`
-	Message             string            `json:"message,omitempty"`
-	Reason              string            `json:"reason,omitempty"`
-	PhaseChangedAt      metav1.Time       `json:"phaseChangedAt,omitempty"`
-	Capacity            string            `json:"capacity,omitempty"`
-	ClusterIP           string            `json:"clusterIP,omitempty"`
-	LoadBalancerIP      string            `json:"loadBalancerIP,omitempty"`
-	PodRecreateRequired bool              `json:"podRecreateRequired,omitempty"`
-	ServerURL           string            `json:"serverURL,omitempty"`
-	NotaryURL           string            `json:"notaryURL,omitempty"`
+	// Conditions are status of subresources
+	Conditions status.Conditions `json:"conditions,omitempty"`
+	// Phase is status of registry
+	Phase string `json:"phase,omitempty"`
+	// Message is a message of registry status
+	Message string `json:"message,omitempty"`
+	// Reason is a reason of registry status
+	Reason string `json:"reason,omitempty"`
+	// PhaseChangedAt is the time when phase was changed
+	PhaseChangedAt metav1.Time `json:"phaseChangedAt,omitempty"`
+	// Capacity is registry's srotage size
+	Capacity string `json:"capacity,omitempty"`
+	// ReadOnly is whether the registry is readonly
+	ReadOnly bool `json:"readOnly,omitempty"`
+	// ClusterIP is cluster ip of service
+	ClusterIP string `json:"clusterIP,omitempty"`
+	// LoadBalancerIP is external ip of service
+	LoadBalancerIP string `json:"loadBalancerIP,omitempty"`
+	// PodRecreateRequired is set if the registry pod is required to be recreated
+	PodRecreateRequired bool `json:"podRecreateRequired,omitempty"`
+	// ServerURL is registry server URL
+	ServerURL string `json:"serverURL,omitempty"`
+	// NotaryURL is notary server URL
+	NotaryURL string `json:"notaryURL,omitempty"`
 }
 
 // +kubebuilder:object:root=true

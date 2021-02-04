@@ -18,6 +18,10 @@ import (
 const (
 	// RegistryPVCMountPath is registry's default mount path to pvc
 	RegistryPVCMountPath = "/var/lib/registry"
+	// RegistryEnvKeyStorageMaintenance is registry storage maintenance config
+	RegistryEnvKeyStorageMaintenance = "REGISTRY_STORAGE_MAINTENANCE"
+	// RegistryEnvValueStorageMaintenance sets readonly
+	RegistryEnvValueStorageMaintenance = `{"readonly":{"enabled":true}}`
 
 	// DefaultResourceCPU is default resource cpu requirement
 	DefaultResourceCPU = "0.1"
@@ -241,6 +245,15 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment
 				},
 			},
 		},
+	}
+
+	if reg.Spec.ReadOnly {
+		deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
+			corev1.EnvVar{
+				Name:  RegistryEnvKeyStorageMaintenance,
+				Value: RegistryEnvValueStorageMaintenance,
+			},
+		)
 	}
 
 	if !reg.Spec.RegistryDeployment.Resources.Limits.Cpu().IsZero() {
