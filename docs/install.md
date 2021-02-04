@@ -105,3 +105,15 @@
     chmod 755 ./uninstall.sh
     ./uninstall -m
     ```
+* If you want to remove only CRDs, execute follwing command.
+    ```bash
+    cd ${WORKDIR}
+    chmod 755 ./uninstall.sh
+    ./uninstall -c
+    ```
+* If you want to remove Clair server only, execute follwing command.
+    ```bash
+    cd ${WORKDIR}
+    chmod 755 ./uninstall.sh
+    ./uninstall -s
+    ```
