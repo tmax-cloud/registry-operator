@@ -16,11 +16,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// RegistryPod contains things to handle pod resource
 type RegistryPod struct {
 	pod    *corev1.Pod
 	logger *utils.RegistryLogger
 }
 
+// Handle makes pod to be in the desired state
 func (r *RegistryPod) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	if err := r.get(c, reg); err != nil {
 		r.logger.Error(err, "Pod error")
@@ -40,6 +42,7 @@ func (r *RegistryPod) Handle(c client.Client, reg *regv1.Registry, patchReg *reg
 	return nil
 }
 
+// Ready checks that pod is ready
 func (r *RegistryPod) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
 	podCondition := &status.Condition{

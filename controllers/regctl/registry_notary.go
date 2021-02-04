@@ -18,12 +18,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// RegistryNotary contains things to handle notary resource
 type RegistryNotary struct {
 	KcCtl  *keycloakctl.KeycloakController
 	not    *regv1.Notary
 	logger *utils.RegistryLogger
 }
 
+// Handle makes notary to be in the desired state
 func (r *RegistryNotary) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	if err := r.get(c, reg); err != nil {
 		if errors.IsNotFound(err) {
@@ -49,6 +51,7 @@ func (r *RegistryNotary) Handle(c client.Client, reg *regv1.Registry, patchReg *
 	return nil
 }
 
+// Ready checks that notary is ready
 func (r *RegistryNotary) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
 	condition := &status.Condition{

@@ -9,6 +9,7 @@ import (
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 )
 
+// RegistrySubresource is an interface to handle resigstry subreousrces
 type RegistrySubresource interface {
 	Handle(client.Client, *regv1.Registry, *regv1.Registry, *runtime.Scheme) error
 	Ready(client.Client, *regv1.Registry, *regv1.Registry, bool) error

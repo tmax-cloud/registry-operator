@@ -40,6 +40,7 @@ func getPod(c client.Client, reg *regv1.Registry) (*corev1.Pod, error) {
 	return pod, nil
 }
 
+// PodName returns registry pod name
 func PodName(c client.Client, reg *regv1.Registry) (string, error) {
 	pod, err := getPod(c, reg)
 	if err != nil {
@@ -50,6 +51,7 @@ func PodName(c client.Client, reg *regv1.Registry) (string, error) {
 	return pod.Name, nil
 }
 
+// DeletePod deletes registry pod
 func DeletePod(c client.Client, reg *regv1.Registry) error {
 	pod, err := getPod(c, reg)
 	if err != nil {

@@ -18,11 +18,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// RegistryConfigMap contains things to handle deployment resource
 type RegistryConfigMap struct {
 	cm     *corev1.ConfigMap
 	logger *utils.RegistryLogger
 }
 
+// Handle makes configmap to be in the desired state
 func (r *RegistryConfigMap) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	if err := r.get(c, reg); err != nil {
 		if errors.IsNotFound(err) {
@@ -39,6 +41,7 @@ func (r *RegistryConfigMap) Handle(c client.Client, reg *regv1.Registry, patchRe
 	return nil
 }
 
+// Ready checks that configmap is ready
 func (r *RegistryConfigMap) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
 	condition := &status.Condition{
