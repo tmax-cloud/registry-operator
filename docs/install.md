@@ -1,17 +1,21 @@
 # Installation
 
-### Prerequisites
-* `kubectl` is installed
+## Prerequisites
 
-### Install procedure
+* `kubectl` is installed
+* `wget` is installed
+
+## Install procedure
+
 1. On your local machine, get released source to install.
-    ```bash
+
+	```bash
 	export VERSION=v0.2.1
 	mkdir registry-operator-$VERSION
-    wget -c https://github.com/tmax-cloud/registry-operator/archive/$VERSION.tar.gz -O - |tar -xz -C registry-operator-$VERSION --strip-components=1
+	wget -c https://github.com/tmax-cloud/registry-operator/archive/$VERSION.tar.gz -O - |tar -xz -C registry-operator-$VERSION --strip-components=1
 	export WORKDIR=$(pwd)/registry-operator-$VERSION
-    cd ${WORKDIR}
-    ```
+	cd ${WORKDIR}
+	```
     
 2. Create or use CA certificate
 	* If you don't have a root CA certificate, excute following commandsto create new root ca certificate.
