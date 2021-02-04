@@ -1,0 +1,25 @@
+resources:
+# - 00-secret.yml
+- 10-init.yml
+- 20-es-svc.yml
+- 30-es.yml
+- 40-kibana-svc.yml
+- 50-kibana.yml
+configMapGenerator:
+- name: efk-opendistro-es-kibana-config
+  files:
+  - config/kibana.yml
+- name: efk-opendistro-es-es-logging
+  files:
+  - config/logging.yml
+secretGenerator:
+- name: email-secret
+  literals:
+  - EMAIL_PASSWORD=2019114!
+  - EMAIL_USER=poptmaxcloud@gmail.com
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    type: generated
+  annotations:
+    note: generated

@@ -1,0 +1,11 @@
+appender:
+  console:
+    layout:
+      conversionPattern: '[%d{ISO8601}][%-5p][%-25c] %m%n'
+      type: consolePattern
+    type: console
+es.logger.level: INFO
+logger:
+  action: DEBUG
+  com.amazonaws: WARN
+rootLogger: ${es.logger.level}, console

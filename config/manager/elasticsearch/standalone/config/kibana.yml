@@ -1,0 +1,20 @@
+---
+## Default Kibana configuration from Kibana base image.
+## https://github.com/elastic/kibana/blob/master/src/dev/build/tasks/os_packages/docker_generator/templates/kibana_yml.template.ts
+#
+server.name: opendistro-kibana
+server.host: 0.0.0.0
+elasticsearch.hosts: http://localhost:9200
+
+server.ssl.enabled: true
+server.ssl.key: config/certs/tls.key
+server.ssl.certificate: config/certs/tls.crt 
+
+server.basePath: /api/kibana
+server.rewriteBasePath: true
+
+monitoring.ui.container.elasticsearch.enabled: false
+
+## X-Pack security credentials
+elasticsearch.username: elastic
+elasticsearch.password: changeme

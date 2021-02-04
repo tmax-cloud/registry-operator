@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opendistro-kibana
+  labels:
+    app: opendistro-kibana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opendistro-kibana
+  template:
+    metadata:
+      labels:
+        app: opendistro-kibana
+    spec:
+      containers:
+      - name: kibana
+        image: azssi/opendistro-kibana
+        # image: docker.elastic.co/kibana/kibana:7.10.0
+        env:
+          - name: ELASTICSEARCH_HOSTS
+            value: http://opendistro-els:9200
+        volumeMounts:
+        - name: config
+          mountPath: /usr/share/kibana/config/kibana.yml
+          subPath: kibana.yml
+        - name: tls
+          mountPath: /usr/share/kibana/config/certs
+        ports:
+        - containerPort: 5601
+      volumes:
+      - name: config
+        configMap:
+          name: opendistro-kibana-config
+      - name: tls
+        secret:
+          secretName: opendistro-tls-secret
+

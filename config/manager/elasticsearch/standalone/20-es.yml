@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: opendistro-els
+spec:
+  serviceName: opendistro-els
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opendistro-els
+  template:
+    metadata:
+      labels:
+        app: opendistro-els
+    spec:
+      containers:
+      - name: elasticsearch
+        image: azssi/opendistro-els
+        # image: docker.elastic.co/elasticsearch/elasticsearch:7.10.0
+        securityContext:
+          privileged: true
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo ${OPENDISTO_ARALM_EMAIL_SENDER_USERNAME} | sh ./bin/elasticsearch-keystore add --stdin --force opendistro.alerting.destination.email.notification.username
+          echo ${OPENDISTO_ARALM_EMAIL_SENDER_PASSWORD} | sh ./bin/elasticsearch-keystore add --stdin --force opendistro.alerting.destination.email.notification.password
+          /usr/local/bin/docker-entrypoint.sh eswrapper
+        ports:
+        - containerPort: 9200
+          name: http
+          protocol: TCP
+        - containerPort: 9300
+          name: transport
+          protocol: TCP
+        volumeMounts:
+        - name: config
+          mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
+          subPath: elasticsearch.yml
+        env:
+          - name: cluster.name
+            value: opendistro-els
+          - name: node.name
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: cluster.initial_master_nodes
+            value: "opendistro-els-0,"
+          - name: discovery.seed_hosts
+            value: "opendistro-els"
+          - name: ES_JAVA_OPTS
+            value: "-Xms2g -Xmx2g"
+          - name: ELASTIC_PASSWORD
+            value: changeme
+          - name: OPENDISTO_ARALM_EMAIL_SENDER_USERNAME
+            value: poptmaxcloud@gmail.com
+          - name: OPENDISTO_ARALM_EMAIL_SENDER_PASSWORD
+            value: 2019114!
+      initContainers:
+      - name: fix-permissions
+        image: busybox:1.32.0
+        command: ["sh", "-c", "chown -R 1000:1000 /usr/share/elasticsearch/data"]
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: data
+          mountPath: /usr/share/elasticsearch/data
+      - name: increase-vm-max-map
+        image: busybox:1.32.0
+        command: ["sysctl", "-w", "vm.max_map_count=262144"]
+        securityContext:
+          privileged: true
+      - name: increase-fd-ulimit
+        image: busybox:1.32.0
+        command: ["sh", "-c", "ulimit -n 65536"]
+        securityContext:
+          privileged: true
+      volumes:
+      - name: config
+        configMap:
+          name: opendistro-els-config
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+      annotations:
+        volume.beta.kubernetes.io/storage-class: csi-cephfs-sc
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: csi-cephfs-sc
+      resources:
+        requests:
+          storage: 5Gi

@@ -1,0 +1,23 @@
+resources:
+- 10-es-svc.yml
+- 20-es.yml
+- 30-kibana-svc.yml
+- 40-kibana.yml
+configMapGenerator:
+- name: opendistro-els-config
+  files:
+  - config/elasticsearch.yml
+- name: opendistro-kibana-config
+  files:
+  - config/kibana.yml
+secretGenerator:
+- name: opendistro-tls-secret
+  files:
+  - ssl/tls.key
+  - ssl/tls.crt
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    type: generated
+  annotations:
+    note: generated

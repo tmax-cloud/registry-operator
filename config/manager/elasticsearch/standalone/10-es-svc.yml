@@ -1,0 +1,15 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: opendistro-els
+  labels:
+    app: opendistro-els
+spec:
+  selector:
+    app: opendistro-els
+  ports:
+    - name: http
+      port: 9200
+    - name: transport
+      port: 9300
+  type: NodePort

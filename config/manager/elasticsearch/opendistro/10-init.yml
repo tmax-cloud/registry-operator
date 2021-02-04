@@ -1,0 +1,145 @@
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  labels:
+    app: efk-opendistro-es
+    chart: "opendistro-es-1.12.0"
+    release: "efk"
+    heritage: "Helm"
+  name: efk-opendistro-es-psp
+spec:
+  privileged: true
+  #requiredDropCapabilities:
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: 'RunAsAny'
+  seLinux:
+    rule: 'RunAsAny'
+  supplementalGroups:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  fsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  readOnlyRootFilesystem: false
+  allowedCapabilities:
+    - 'SYS_CHROOT'
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: efk-opendistro-es-es
+  namespace: efk
+  labels:
+    app: efk-opendistro-es
+    chart: "opendistro-es-1.12.0"
+    release: "efk"
+    heritage: "Helm"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: efk-opendistro-es-kibana
+  namespace: efk
+  labels:
+    app: efk-opendistro-es
+    chart: "opendistro-es-1.12.0"
+    release: "efk"
+    heritage: "Helm"
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: efk-opendistro-es-es
+  namespace: efk
+  labels:
+    app: efk-opendistro-es
+    chart: "opendistro-es-1.12.0"
+    release: "efk"
+    heritage: "Helm"
+rules:
+- apiGroups: ['extensions']
+  resources: ['podsecuritypolicies']
+  verbs:     ['use']
+  resourceNames:
+  - efk-opendistro-es-psp
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: efk-opendistro-es-kibana
+  namespace: efk
+  labels:
+    app: efk-opendistro-es
+    chart: "opendistro-es-1.12.0"
+    release: "efk"
+    heritage: "Helm"
+rules:
+- apiGroups: ['extensions']
+  resources: ['podsecuritypolicies']
+  verbs:     ['use']
+  resourceNames:
+  - efk-opendistro-es-psp
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: efk-opendistro-es-es-config
+  namespace: efk
+  labels:
+    app: efk-opendistro-es
+    chart: "opendistro-es-1.12.0"
+    release: "efk"
+    heritage: "Helm"
+type: Opaque
+data:
+  logging.yml: "YXBwZW5kZXI6CiAgY29uc29sZToKICAgIGxheW91dDoKICAgICAgY29udmVyc2lvblBhdHRlcm46ICdbJWR7SVNPODYwMX1dWyUtNXBdWyUtMjVjXSAlbSVuJwogICAgICB0eXBlOiBjb25zb2xlUGF0dGVybgogICAgdHlwZTogY29uc29sZQplcy5sb2dnZXIubGV2ZWw6IElORk8KbG9nZ2VyOgogIGFjdGlvbjogREVCVUcKICBjb20uYW1hem9uYXdzOiBXQVJOCnJvb3RMb2dnZXI6ICR7ZXMubG9nZ2VyLmxldmVsfSwgY29uc29sZQ=="
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  labels:
+    app: efk-opendistro-es
+    chart: "opendistro-es-1.12.0"
+    release: "efk"
+    heritage: "Helm"
+  name: efk-opendistro-es-elastic-rolebinding
+roleRef:
+  kind: Role
+  name: efk-opendistro-es-es
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: efk-opendistro-es-es
+  namespace: efk
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  labels:
+    app: efk-opendistro-es
+    chart: "opendistro-es-1.12.0"
+    release: "efk"
+    heritage: "Helm"
+  name: efk-opendistro-es-kibana-rolebinding
+roleRef:
+  kind: Role
+  name: efk-opendistro-es-kibana
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: efk-opendistro-es-kibana
+  namespace: efk

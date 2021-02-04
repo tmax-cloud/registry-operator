@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: efk-opendistro-es
+    chart: "opendistro-es-1.12.0"
+    release: "efk"
+    heritage: "Helm"
+    role: kibana
+  name: efk-opendistro-es-kibana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: efk-opendistro-es
+      release: "efk"
+      heritage: "Helm"
+      role: kibana
+  template:
+    metadata:
+      labels:
+        app: efk-opendistro-es
+        chart: "opendistro-es-1.12.0"
+        release: "efk"
+        heritage: "Helm"
+        role: kibana
+    spec:      
+      containers:
+      - name: efk-opendistro-es-kibana
+        image: docker.io/amazon/opendistro-for-elasticsearch-kibana:1.12.0
+        imagePullPolicy: "Always"
+        env:
+        - name: CLUSTER_NAME
+          value: elasticsearch
+        # If no custom configuration provided, default to internal DNS
+        - name: ELASTICSEARCH_HOSTS
+          value: https://efk-opendistro-es-client-service:9200
+        volumeMounts:
+        - name: config
+          mountPath: /usr/share/kibana/config/kibana.yml
+          subPath: 55-kibana.yml
+        ports:
+        - containerPort: 5601
+      serviceAccountName: efk-opendistro-es-kibana
+      volumes:
+      - name: config
+        configMap:
+          name: efk-opendistro-es-kibana-config
+      restartPolicy: Always
