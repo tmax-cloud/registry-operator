@@ -95,7 +95,7 @@ func (r *NotaryReconciler) handleAllSubresources(notary *regv1.Notary) error { /
 	patchNotary := notary.DeepCopy() // Target to Patch object
 
 	defer func() {
-		if err := r.patch(notary, patchNotary); err != nil {
+		if err := r.update(notary, patchNotary); err != nil {
 			subResourceLogger.Error(err, "failed to patch")
 		}
 	}()
@@ -124,29 +124,44 @@ func (r *NotaryReconciler) handleAllSubresources(notary *regv1.Notary) error { /
 	return nil
 }
 
-func (r *NotaryReconciler) patch(origin, target *regv1.Notary) error {
+func (r *NotaryReconciler) update(origin, target *regv1.Notary) error {
 	subResourceLogger := r.Log.WithValues("SubResource.Namespace", origin.Namespace, "SubResource.Name", origin.Name)
-	originObject := client.MergeFrom(origin) // Set original obeject
 
-	// Check whether patch is necessary or not
+	// Check whether update is necessary or not
 	if !reflect.DeepEqual(origin.Spec, target.Spec) {
-		subResourceLogger.Info("Patch notary")
-		if err := r.Patch(context.TODO(), target, originObject); err != nil {
-			subResourceLogger.Error(err, "Unknown error patching")
+		subResourceLogger.Info("Update notary")
+		if err := r.Update(context.TODO(), target); err != nil {
+			subResourceLogger.Error(err, "Unknown error updating")
 			return err
 		}
 	}
 
-	// Check whether patch is necessary or not about status
+	// Check whether updatew is necessary or not about status
+	r.exceptStatus(origin, target)
 	if !reflect.DeepEqual(origin.Status, target.Status) {
-		subResourceLogger.Info("Patch notary status")
-		if err := r.Status().Patch(context.TODO(), target, originObject); err != nil {
-			subResourceLogger.Error(err, "Unknown error patching status")
+		subResourceLogger.Info("Update notary status")
+		if err := r.Status().Update(context.TODO(), target); err != nil {
+			subResourceLogger.Error(err, "Unknown error updating status")
 			return err
 		}
 	}
 
 	return nil
+}
+
+// Exclude temporarily saved variables from comparison
+func (r *NotaryReconciler) exceptStatus(origin, target *regv1.Notary) {
+	origin.Status.ServerClusterIP = ""
+	target.Status.ServerClusterIP = ""
+
+	origin.Status.ServerLoadBalancerIP = ""
+	target.Status.ServerLoadBalancerIP = ""
+
+	origin.Status.SignerClusterIP = ""
+	target.Status.SignerClusterIP = ""
+
+	origin.Status.SignerLoadBalancerIP = ""
+	target.Status.SignerLoadBalancerIP = ""
 }
 
 func collectNotarySubController(serviceType regv1.NotaryServiceType) []notaryctl.NotarySubresource {

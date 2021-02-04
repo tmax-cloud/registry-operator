@@ -15,7 +15,7 @@ import (
 )
 
 // UpdateRegistryStatus ...
-// If registry status is patched, return true.
+// If registry status is updated, return true.
 func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) (bool, error) {
 	reqLogger := logf.Log.WithName("controller_registry").WithValues("Request.Namespace", reg.Namespace, "Request.Name", reg.Name)
 	falseTypes := []status.ConditionType{}
@@ -64,7 +64,7 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) (bool, error) {
 
 	reqLogger.Info("desiredStatus", "status", desiredStatus)
 
-	// Chcck if current status is desired status. If does not same, patch the status.
+	// Chcck if current status is desired status. If does not same, update the status.
 	reqLogger.Info("Check if current status is desired status.")
 	if reg.Status.Phase == string(desiredStatus) {
 		return false, nil
@@ -72,7 +72,6 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) (bool, error) {
 	reqLogger.Info("Current Status(" + reg.Status.Phase + ") -> Desired Status(" + string(desiredStatus) + ")")
 
 	var message, reason string
-	patch := client.MergeFrom(reg)
 	target := reg.DeepCopy()
 
 	switch desiredStatus {
@@ -93,9 +92,9 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) (bool, error) {
 	target.Status.PhaseChangedAt = metav1.Now()
 
 	// Patch the status to desired status.
-	reqLogger.Info("Status patch.")
-	if err := c.Status().Patch(context.TODO(), target, patch); err != nil {
-		reqLogger.Error(err, "failed to patch status")
+	reqLogger.Info("Status update.")
+	if err := c.Status().Update(context.TODO(), target); err != nil {
+		reqLogger.Error(err, "failed to update status")
 		return false, err
 	}
 
