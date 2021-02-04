@@ -81,6 +81,16 @@
 		kubectl create -f config/manager/clair.yaml
 		```
 
+7. Install Elasticsearch and Kibana for reporting and visualize the scan result.
+   1.  Move to folder and deploy it from Makefile
+       ```bash
+	   cd config/manager/elasticsearch/standalone && make dev
+	   ```
+	2. Edit elasticsearch URL of manager's configmap.
+	   ```bash
+	   kubectl edit cm manager-config # then modify elastic_search's link
+	   ```
+
 ### Test your installation
 * The way to verify that the registry operator works is to create a sample registry.
     ```bash
