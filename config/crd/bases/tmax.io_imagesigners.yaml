@@ -66,6 +66,8 @@ spec:
           description: ImageSignerStatus defines the observed state of ImageSigner
           properties:
             signerKeyState:
+              description: SignerKeyState is ehe status information about whether
+                signer key is created
               properties:
                 created:
                   description: Whether SignerKey is created

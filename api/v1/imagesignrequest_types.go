@@ -33,6 +33,7 @@ type ImageSignRequestSpec struct {
 	RegistrySecret `json:"registryLogin,omitempty"`
 }
 
+// RegistrySecret is a secret for registry
 type RegistrySecret struct {
 	// Registry's imagePullSecret for login
 	// If you don't have dockerconfigjson type's secret in this namespace,
@@ -50,6 +51,7 @@ type ImageSignRequestStatus struct {
 	*ImageSignResponse `json:"imageSignResponse,omitempty"`
 }
 
+// ResponseResult is ResponseResult type
 type ResponseResult string
 
 const (

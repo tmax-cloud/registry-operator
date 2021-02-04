@@ -3,6 +3,7 @@ package regctl
 import (
 	"context"
 
+	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -15,11 +16,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// RegistryPod contains things to handle pod resource
 type RegistryPod struct {
 	pod    *corev1.Pod
 	logger *utils.RegistryLogger
 }
 
+// Handle makes pod to be in the desired state
 func (r *RegistryPod) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	if err := r.get(c, reg); err != nil {
 		r.logger.Error(err, "Pod error")
@@ -39,6 +42,7 @@ func (r *RegistryPod) Handle(c client.Client, reg *regv1.Registry, patchReg *reg
 	return nil
 }
 
+// Ready checks that pod is ready
 func (r *RegistryPod) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
 	podCondition := &status.Condition{
@@ -131,7 +135,7 @@ func (r *RegistryPod) get(c client.Client, reg *regv1.Registry) error {
 	podList := &corev1.PodList{}
 	label := map[string]string{}
 	label["app"] = "registry"
-	label["apps"] = regv1.K8sPrefix + reg.Name
+	label["apps"] = schemes.SubresourceName(reg, schemes.SubTypeRegistryDeployment)
 
 	labelSelector := labels.SelectorFromSet(labels.Set(label))
 	listOps := &client.ListOptions{

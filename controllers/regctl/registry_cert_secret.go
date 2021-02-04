@@ -18,15 +18,14 @@ import (
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 )
 
-const SecretOpaqueTypeName = regv1.ConditionTypeSecretOpaque
-const SecretTLSTypeName = regv1.ConditionTypeSecretTls
-
+// RegistryCertSecret contains things to handle tls and opaque secret resource
 type RegistryCertSecret struct {
 	secretOpaque *corev1.Secret
 	secretTLS    *corev1.Secret
 	logger       *utils.RegistryLogger
 }
 
+// Handle makes secret to be in the desired state
 func (r *RegistryCertSecret) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	err := r.get(c, reg)
 	if err != nil && errors.IsNotFound(err) {
@@ -49,18 +48,19 @@ func (r *RegistryCertSecret) Handle(c client.Client, reg *regv1.Registry, patchR
 	return nil
 }
 
+// Ready checks that secret is ready
 func (r *RegistryCertSecret) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var opaqueErr error = nil
 	var tlsErr error = nil
 
 	opCondition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   SecretOpaqueTypeName,
+		Type:   regv1.ConditionTypeSecretOpaque,
 	}
 
 	tlsCondition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   SecretTLSTypeName,
+		Type:   regv1.ConditionTypeSecretTLS,
 	}
 
 	defer utils.SetCondition(opaqueErr, patchReg, opCondition)
@@ -93,6 +93,7 @@ func (r *RegistryCertSecret) Ready(c client.Client, reg *regv1.Registry, patchRe
 	return nil
 }
 
+// GetUserSecret returns username and password
 func (r *RegistryCertSecret) GetUserSecret(c client.Client, reg *regv1.Registry) (username, password string, err error) {
 	if opaqueErr := r.get(c, reg); opaqueErr != nil {
 		r.logger.Error(opaqueErr, "Get failed")
@@ -108,12 +109,12 @@ func (r *RegistryCertSecret) GetUserSecret(c client.Client, reg *regv1.Registry)
 func (r *RegistryCertSecret) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   SecretOpaqueTypeName,
+		Type:   regv1.ConditionTypeSecretOpaque,
 	}
 
 	tlsCondition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   SecretTLSTypeName,
+		Type:   regv1.ConditionTypeSecretTLS,
 	}
 
 	if err := controllerutil.SetControllerReference(reg, r.secretOpaque, scheme); err != nil {
@@ -173,12 +174,12 @@ func (r *RegistryCertSecret) patch(c client.Client, reg *regv1.Registry, patchRe
 func (r *RegistryCertSecret) delete(c client.Client, patchReg *regv1.Registry) error {
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   SecretOpaqueTypeName,
+		Type:   regv1.ConditionTypeSecretOpaque,
 	}
 
 	tlsCondition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   SecretTLSTypeName,
+		Type:   regv1.ConditionTypeSecretTLS,
 	}
 
 	if err := c.Delete(context.TODO(), r.secretOpaque); err != nil {

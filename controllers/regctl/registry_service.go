@@ -19,13 +19,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const ServiceTypeName = regv1.ConditionTypeService
-
+// RegistryService things to handle service resource
 type RegistryService struct {
 	svc    *corev1.Service
 	logger *utils.RegistryLogger
 }
 
+// Handle makes service to be in the desired state
 func (r *RegistryService) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	err := r.get(c, reg)
 	if err != nil && errors.IsNotFound(err) {
@@ -48,11 +48,12 @@ func (r *RegistryService) Handle(c client.Client, reg *regv1.Registry, patchReg 
 	return nil
 }
 
+// Ready checks that service is ready
 func (r *RegistryService) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   ServiceTypeName,
+		Type:   regv1.ConditionTypeService,
 	}
 	defer utils.SetCondition(err, patchReg, condition)
 
@@ -98,7 +99,7 @@ func (r *RegistryService) Ready(c client.Client, reg *regv1.Registry, patchReg *
 func (r *RegistryService) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   ServiceTypeName,
+		Type:   regv1.ConditionTypeService,
 	}
 
 	if err := controllerutil.SetControllerReference(reg, r.svc, scheme); err != nil {
@@ -140,7 +141,7 @@ func (r *RegistryService) patch(c client.Client, reg *regv1.Registry, patchReg *
 func (r *RegistryService) delete(c client.Client, patchReg *regv1.Registry) error {
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   ServiceTypeName,
+		Type:   regv1.ConditionTypeService,
 	}
 
 	if err := c.Delete(context.TODO(), r.svc); err != nil {

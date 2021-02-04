@@ -10,7 +10,7 @@ import (
 func Repository(reg *regv1.Registry, imageName string, tags []string) *regv1.Repository {
 	label := map[string]string{}
 	label["app"] = "registry"
-	label["apps"] = regv1.K8sPrefix + reg.Name
+	label["apps"] = SubresourceName(reg, SubTypeRegistryDeployment)
 	label["registry"] = reg.Name
 
 	versions := []regv1.ImageVersion{}

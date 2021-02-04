@@ -4,6 +4,7 @@ import (
 	"context"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/schemes"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -17,7 +18,7 @@ func getPod(c client.Client, reg *regv1.Registry) (*corev1.Pod, error) {
 	podList := &corev1.PodList{}
 	label := map[string]string{}
 	label["app"] = "registry"
-	label["apps"] = regv1.K8sPrefix + reg.Name
+	label["apps"] = schemes.SubresourceName(reg, schemes.SubTypeRegistryDeployment)
 
 	labelSelector := labels.SelectorFromSet(labels.Set(label))
 	listOps := &client.ListOptions{
@@ -39,6 +40,7 @@ func getPod(c client.Client, reg *regv1.Registry) (*corev1.Pod, error) {
 	return pod, nil
 }
 
+// PodName returns registry pod name
 func PodName(c client.Client, reg *regv1.Registry) (string, error) {
 	pod, err := getPod(c, reg)
 	if err != nil {
@@ -49,6 +51,7 @@ func PodName(c client.Client, reg *regv1.Registry) (string, error) {
 	return pod.Name, nil
 }
 
+// DeletePod deletes registry pod
 func DeletePod(c client.Client, reg *regv1.Registry) error {
 	pod, err := getPod(c, reg)
 	if err != nil {

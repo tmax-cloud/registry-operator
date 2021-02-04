@@ -19,15 +19,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const (
-	SecretDCJTypeName = regv1.ConditionTypeSecretDockerConfigJson
-)
-
+// RegistryDCJSecret contains things to handle docker config json secret resource
 type RegistryDCJSecret struct {
 	secretDCJ *corev1.Secret
 	logger    *utils.RegistryLogger
 }
 
+// Handle makes docker config json secret to be in the desired state
 func (r *RegistryDCJSecret) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	err := r.get(c, reg)
 	if err != nil {
@@ -48,11 +46,12 @@ func (r *RegistryDCJSecret) Handle(c client.Client, reg *regv1.Registry, patchRe
 	return nil
 }
 
+// Ready checks that docker config json secret is ready
 func (r *RegistryDCJSecret) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
 	condition := status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   SecretDCJTypeName,
+		Type:   regv1.ConditionTypeSecretDockerConfigJSON,
 	}
 
 	defer utils.SetCondition(err, patchReg, &condition)
@@ -78,7 +77,7 @@ func (r *RegistryDCJSecret) Ready(c client.Client, reg *regv1.Registry, patchReg
 func (r *RegistryDCJSecret) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	condition := status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   SecretDCJTypeName,
+		Type:   regv1.ConditionTypeSecretDockerConfigJSON,
 	}
 
 	if err := controllerutil.SetControllerReference(reg, r.secretDCJ, scheme); err != nil {
@@ -120,7 +119,7 @@ func (r *RegistryDCJSecret) patch(c client.Client, reg *regv1.Registry, patchReg
 func (r *RegistryDCJSecret) delete(c client.Client, patchReg *regv1.Registry) error {
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   SecretDCJTypeName,
+		Type:   regv1.ConditionTypeSecretDockerConfigJSON,
 	}
 
 	if err := c.Delete(context.TODO(), r.secretDCJ); err != nil {

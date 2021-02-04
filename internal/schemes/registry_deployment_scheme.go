@@ -64,14 +64,14 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment
 	if reg.Spec.PersistentVolumeClaim.Exist != nil {
 		pvcName = reg.Spec.PersistentVolumeClaim.Exist.PvcName
 	} else {
-		pvcName = regv1.K8sPrefix + reg.Name
+		pvcName = SubresourceName(reg, SubTypeRegistryPVC)
 	}
 
 	// Set config yaml
 	if len(reg.Spec.CustomConfigYml) != 0 {
 		configMapName = reg.Spec.CustomConfigYml
 	} else {
-		configMapName = regv1.K8sPrefix + reg.Name
+		configMapName = SubresourceName(reg, SubTypeRegistryConfigmap)
 	}
 
 	if _, err := certs.GetRootCert(reg.Namespace); err != nil {
@@ -225,7 +225,7 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment
 							Name: "tls",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: regv1.K8sPrefix + regv1.TLSPrefix + reg.Name,
+									SecretName: SubresourceName(reg, SubTypeRegistryTLSSecret),
 								},
 							},
 						},

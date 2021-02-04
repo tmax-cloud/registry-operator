@@ -18,13 +18,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const IngressTypeName = regv1.ConditionTypeIngress
-
+// RegistryIngress contains things to handle ingress resource
 type RegistryIngress struct {
 	ingress *v1beta1.Ingress
 	logger  *utils.RegistryLogger
 }
 
+// Handle makes ingress to be in the desired state
 func (r *RegistryIngress) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	if err := r.get(c, reg); err != nil {
 		r.logger.Error(err, "get failed in Handle")
@@ -49,11 +49,12 @@ func (r *RegistryIngress) Handle(c client.Client, reg *regv1.Registry, patchReg 
 	return nil
 }
 
+// Ready checks that ingress is ready
 func (r *RegistryIngress) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
 	condition := status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   IngressTypeName,
+		Type:   regv1.ConditionTypeIngress,
 	}
 
 	defer utils.SetCondition(err, patchReg, &condition)
@@ -109,7 +110,7 @@ func (r *RegistryIngress) Ready(c client.Client, reg *regv1.Registry, patchReg *
 func (r *RegistryIngress) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	condition := status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   IngressTypeName,
+		Type:   regv1.ConditionTypeIngress,
 	}
 
 	if err := controllerutil.SetControllerReference(reg, r.ingress, scheme); err != nil {
@@ -152,7 +153,7 @@ func (r *RegistryIngress) patch(c client.Client, reg *regv1.Registry, patchReg *
 func (r *RegistryIngress) delete(c client.Client, patchReg *regv1.Registry) error {
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   IngressTypeName,
+		Type:   regv1.ConditionTypeIngress,
 	}
 
 	if err := c.Delete(context.TODO(), r.ingress); err != nil {

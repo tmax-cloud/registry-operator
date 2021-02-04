@@ -21,12 +21,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// RegistryPVC things to handle pvc resource
 type RegistryPVC struct {
 	pvc    *corev1.PersistentVolumeClaim
 	logger *utils.RegistryLogger
 	scheme *runtime.Scheme
 }
 
+// Handle makes pvc to be in the desired state
 func (r *RegistryPVC) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	if err := r.get(c, reg); err != nil {
 		if errors.IsNotFound(err) {
@@ -54,6 +56,7 @@ func (r *RegistryPVC) Handle(c client.Client, reg *regv1.Registry, patchReg *reg
 	return nil
 }
 
+// Ready checks that pvc is ready
 func (r *RegistryPVC) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
 	condition := &status.Condition{

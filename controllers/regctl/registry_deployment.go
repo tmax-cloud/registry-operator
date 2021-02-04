@@ -34,7 +34,7 @@ const (
 	requestMemoryDiffKey = "requestMemory"
 )
 
-// RegistryDeployment handles deployment resource
+// RegistryDeployment contains things to handle deployment resource
 type RegistryDeployment struct {
 	KcCli  *keycloakctl.KeycloakClient
 	deploy *appsv1.Deployment

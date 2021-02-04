@@ -47,6 +47,7 @@ spec:
           properties:
             scanTargets:
               items:
+                description: ScanTarget is a target setting to scan images
                 properties:
                   authUrl:
                     description: 'Alternate URL for registry authentication (example:
@@ -108,6 +109,7 @@ spec:
               type: string
             results:
               additionalProperties:
+                description: ScanResult is result of scanning an image
                 properties:
                   fatal:
                     description: Scan fatal message
@@ -121,7 +123,10 @@ spec:
                     type: object
                   vulnerabilities:
                     additionalProperties:
+                      description: Vulnerabilities is a set of Vulnerability instances
                       items:
+                        description: Vulnerability is the information of the vulnerability
+                          found.
                         properties:
                           Description:
                             description: Description for severity

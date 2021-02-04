@@ -28,7 +28,7 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) bool {
 	for _, t := range checkTypes {
 		if reg.Status.Conditions.IsUnknownFor(t) {
 			reqLogger.Info("Initialize status fields")
-			InitRegistryStatus(c, reg)
+			initRegistryStatus(c, reg)
 
 			if reg.Status.Phase == string(regv1.StatusCreating) {
 				reqLogger.Info("status fields are abnormal. Initialize the registry status.")
@@ -116,7 +116,7 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) bool {
 	return true
 }
 
-func InitRegistryStatus(c client.Client, reg *regv1.Registry) {
+func initRegistryStatus(c client.Client, reg *regv1.Registry) {
 	reqLogger := logf.Log.WithName("controller_registry").WithValues("Request.Namespace", reg.Namespace, "Request.Name", reg.Name)
 
 	if reg.Status.Conditions == nil {
@@ -150,9 +150,9 @@ func getCheckTypes(reg *regv1.Registry) []status.ConditionType {
 		regv1.ConditionTypePod,
 		regv1.ConditionTypeContainer,
 		regv1.ConditionTypeService,
-		regv1.ConditionTypeSecretTls,
+		regv1.ConditionTypeSecretTLS,
 		regv1.ConditionTypeSecretOpaque,
-		regv1.ConditionTypeSecretDockerConfigJson,
+		regv1.ConditionTypeSecretDockerConfigJSON,
 		regv1.ConditionTypePvc,
 		regv1.ConditionTypeConfigMap,
 		regv1.ConditionTypeKeycloakRealm,
