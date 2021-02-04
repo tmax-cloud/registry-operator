@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: clair
+  labels:
+    app: clair
+spec:
+  selector:
+    app: clair
+  ports:
+  - name: api
+    protocol: TCP
+    port: 6060
+    nodePort: 30060
+  - name: health
+    protocol: TCP
+    port: 6061
+    nodePort: 30061
+  type: NodePort
+  
