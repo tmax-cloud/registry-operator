@@ -14,6 +14,7 @@
 |`spec.description`                           | No  | string            | Description for registry |
 |`spec.loginId`                               | Yes | string            | Login ID for registry |
 |`spec.loginPassword`                         | Yes | string            | Login password for registry |
+|`spec.readOnly`                              | No  | bool              | If ReadOnly is true, clients will not be allowed to write(push) to the registry. |
 |`spec.notary`                                | No  | object            | Settings for notary service |
 |`spec.customConfigYml`                       | No  | string            | The name of the configmap where the registry config.yml content |
 |`spec.registryDeployment`                    | No  | object            | Settings for registry's deployemnt |

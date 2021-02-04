@@ -26,6 +26,8 @@ You can see image list and delete images.
 
 ## How to delete image
 
+**Note**: You should ensure that the registry is in `read-only` mode. When deleting images, execute garbage collection. If you were to upload an image while garbage collection is running, there is the risk that the image’s layers are mistakenly deleted leading to a corrupted image. [refer](https://docs.docker.com/registry/garbage-collection/#more-details-about-garbage-collection)
+
 * Delete all images of the repository
   1) delete the repository resource
 
