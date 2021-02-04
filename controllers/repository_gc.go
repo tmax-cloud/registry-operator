@@ -44,11 +44,6 @@ func sweepImages(c client.Client, reg *regv1.Registry, repo *regv1.Repository) e
 		return err
 	}
 
-	logz.Info("restart_registry", "ns/name", reg.Namespace+"/"+reg.Name)
-	if err := regctl.DeletePod(c, reg); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -75,11 +70,6 @@ func sweepRegistryRepo(c client.Client, reg *regv1.Registry, repoName string) er
 
 	log.Info("garbage_collect")
 	if err := garbageCollect(c, reg); err != nil {
-		return err
-	}
-
-	log.Info("restart", "registry", reg.Namespace+"/"+reg.Name)
-	if err := regctl.DeletePod(c, reg); err != nil {
 		return err
 	}
 

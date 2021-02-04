@@ -25,6 +25,7 @@ import (
 )
 
 const (
+	readOnlyDiffKey      = "ReadOnly"
 	mountPathDiffKey     = "MountPath"
 	pvcNameDiffKey       = "PvcName"
 	imageDiffKey         = "Image"
@@ -104,6 +105,8 @@ func (r *RegistryDeployment) Ready(c client.Client, reg *regv1.Registry, patchRe
 		err = regv1.MakeRegistryError("NotReady")
 		return err
 	}
+
+	reg.Status.ReadOnly = reg.Spec.ReadOnly
 
 	r.logger.Info("Ready")
 	condition.Status = corev1.ConditionTrue
@@ -191,6 +194,36 @@ func (r *RegistryDeployment) patch(c client.Client, reg *regv1.Registry, patchRe
 
 	for _, d := range diff {
 		switch d.Key {
+		case readOnlyDiffKey:
+			switch d.Type {
+			case utils.Add:
+				deployContainer.Env = append(deployContainer.Env, corev1.EnvVar{
+					Name:  schemes.RegistryEnvKeyStorageMaintenance,
+					Value: schemes.RegistryEnvValueStorageMaintenance,
+				})
+
+			case utils.Replace:
+				for i, env := range deployContainer.Env {
+					if env.Name == schemes.RegistryEnvKeyStorageMaintenance {
+						deployContainer.Env[i].Value = schemes.RegistryEnvValueStorageMaintenance
+						break
+					}
+				}
+
+			case utils.Remove:
+				for i, env := range deployContainer.Env {
+					if env.Name == schemes.RegistryEnvKeyStorageMaintenance {
+						if i == len(deployContainer.Env)-1 {
+							deployContainer.Env = deployContainer.Env[:i]
+							break
+						}
+
+						deployContainer.Env = append(deployContainer.Env[:i], deployContainer.Env[i+1:]...)
+						break
+					}
+				}
+			}
+
 		case imageDiffKey:
 			deployContainer.Image = d.Value.(string)
 
@@ -288,6 +321,37 @@ func (r *RegistryDeployment) compare(reg *regv1.Registry) []utils.Diff {
 	if deployContainer == nil {
 		r.logger.Error(regv1.MakeRegistryError(regv1.ContainerNotFound), "registry container is nil")
 		return nil
+	}
+
+	// Diff ReadOnly
+	if reg.Spec.ReadOnly {
+		var env corev1.EnvVar
+		found := false
+		for _, env = range deployContainer.Env {
+			if env.Name == schemes.RegistryEnvKeyStorageMaintenance {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			diff = append(diff, utils.Diff{Type: utils.Add, Key: readOnlyDiffKey})
+		} else if env.Value != schemes.RegistryEnvValueStorageMaintenance {
+			diff = append(diff, utils.Diff{Type: utils.Replace, Key: readOnlyDiffKey, Value: schemes.RegistryEnvValueStorageMaintenance})
+		}
+
+	} else {
+		found := false
+		for _, env := range deployContainer.Env {
+			if env.Name == schemes.RegistryEnvKeyStorageMaintenance {
+				found = true
+				break
+			}
+		}
+
+		if found {
+			diff = append(diff, utils.Diff{Type: utils.Remove, Key: readOnlyDiffKey})
+		}
 	}
 
 	// Diff Image
