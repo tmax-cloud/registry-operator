@@ -67,14 +67,14 @@
 			systemctl restart crio
 			```
 
-6. Install clair for image scanning (option)
-	1) make secret file
+6. Install Clair for image scanning (option)
+	1) Move to resource directory and check clair config. 
 		```bash
-		kubectl create secret generic clairsecret --from-file=./config/manager/clair_config.yaml
+		cd config/manager/clair # then open the clair-config.yml and verify settings.
 		```
-	2) deploy clair server
+	2) Deploy server
 		```bash
-		kubectl create -f config/manager/clair.yaml
+		make dev
 		```
 
 ### Test your installation
