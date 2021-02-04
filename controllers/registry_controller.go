@@ -80,7 +80,10 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, err
 	}
 
-	if regctl.UpdateRegistryStatus(r.Client, reg) {
+	updated, err := regctl.UpdateRegistryStatus(r.Client, reg)
+	if err != nil {
+		return reconcile.Result{}, err
+	} else if updated {
 		return reconcile.Result{}, nil
 	}
 

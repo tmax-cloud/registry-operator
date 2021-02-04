@@ -60,6 +60,13 @@ func (r *NotaryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, err
 	}
 
+	updated, err := notaryctl.UpdateNotaryStatus(r.Client, notary)
+	if err != nil {
+		return reconcile.Result{}, err
+	} else if updated {
+		return reconcile.Result{}, nil
+	}
+
 	if err = r.handleAllSubresources(notary); err != nil {
 		r.Log.Error(err, "Subresource creation failed")
 		return reconcile.Result{}, err
