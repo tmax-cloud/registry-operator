@@ -1,13 +1,17 @@
 # Overview
-The registry-operator project is a service to launch private registries and to manage images in the registry on kubernetes. 
 
-## Contents
+The registry-operator project is a service to launch private registries and to manage images in the registry on kubernetes.
+
+## Quick Start Guide
+
 - [Installation](./docs/install.md)
-	- [Prerequisites](./docs/install.md#prerequisites)
-	- [Install procedure](./docs/install.md#install-procedure)
-	- [Test your installation](./docs/install.md#test-your-installation)
-	- [Tear down](./docs/install.md#tear-down)
-- [Environmental Variable Description](./docs/envs.md)
-- [About Developement](./docs/dev.md)
+- [Usage Of Resource](./docs/usage/README.md)
+
+## About Development
+
+- [About Development](./docs/dev.md)
 - [About Release](./docs/release.md)
-- [How to push Image](./docs/push.md)
+
+## Documentation
+
+- [How to push Image](./docs/README.md)

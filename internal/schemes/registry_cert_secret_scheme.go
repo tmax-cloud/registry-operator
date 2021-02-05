@@ -17,7 +17,7 @@ func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secr
 	data := map[string][]byte{}
 	tlsData := map[string][]byte{}
 
-	data["ID"] = []byte(reg.Spec.LoginId)
+	data["ID"] = []byte(reg.Spec.LoginID)
 	data["PASSWD"] = []byte(reg.Spec.LoginPassword)
 
 	cert, err := NewCertFactory(c).CreateCertPair(reg, certTypeRegistry)

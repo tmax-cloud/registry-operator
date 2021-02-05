@@ -17,7 +17,7 @@ type RegistrySpec struct {
 	// Description for registry
 	Description string `json:"description,omitempty"`
 	// Login ID for registry
-	LoginId string `json:"loginId"`
+	LoginID string `json:"loginId"`
 	// Login password for registry
 	LoginPassword string `json:"loginPassword"`
 	// If ReadOnly is true, clients will not be allowed to write(push) to the registry.
@@ -31,20 +31,22 @@ type RegistrySpec struct {
 	RegistryDeployment RegistryDeployment `json:"registryDeployment,omitempty"`
 	// Service type to expose registry
 	RegistryService RegistryService `json:"service"`
-	// Settings for registry pvc
+	// Settings for registry pvc. Either `Exist` or `Create` must be entered.
 	PersistentVolumeClaim RegistryPVC `json:"persistentVolumeClaim"`
 }
 
+// RegistryNotary is notary service configuration
 type RegistryNotary struct {
 	// Activate notary service to sign images
 	Enabled bool `json:"enabled"`
 	// Use Ingress or LoadBalancer
 	// +kubebuilder:validation:Enum=Ingress;LoadBalancer
 	ServiceType NotaryServiceType `json:"serviceType"`
-	// Settings for notary pvc
+	// Settings for notary pvc. Either `Exist` or `Create` must be entered.
 	PersistentVolumeClaim NotaryPVC `json:"persistentVolumeClaim"`
 }
 
+// RegistryDeployment is deployment settings of registry server
 type RegistryDeployment struct {
 	// Deployment's label
 	Labels map[string]string `json:"labels,omitempty"`
@@ -54,10 +56,11 @@ type RegistryDeployment struct {
 	Selector metav1.LabelSelector `json:"selector,omitempty"`
 	// Deployment's toleration configuration
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// Deployment's resource requirements
+	// Deployment's resource requirements (default: Both limits and requests are `cpu:100m` and `memory:512Mi`)
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
+// RegistryServiceType is type of registry service
 type RegistryServiceType string
 
 const (

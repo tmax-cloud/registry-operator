@@ -53,7 +53,8 @@
 |`spec.registryDeployment.labels`             | No  | map[string]string    | Deployment's label |
 |`spec.registryDeployment.nodeSelector`       | No  | map[string]string    | Registry pod's node selector |
 |`spec.registryDeployment.selector`           | No  | [metav1.LabelSelector](https://pkg.go.dev/k8s.io/apimachinery/pkg/apis/meta/v1#LabelSelector) | Deployment's label selector |
-|`spec.registryDeployment.tolerations`        | No  | [][corev1.Toleration](https://pkg.go.dev/k8s.io/api/core/v1?utm_source=godoc#Toleration)  | Deployment's toleration configuration |
+|`spec.registryDeployment.tolerations`        | No  | [][corev1.Toleration](https://pkg.go.dev/k8s.io/api/core/v1?utm_source=godoc#Toleration) | Deployment's toleration configuration |
+|`spec.registryDeployment.resources`          | No  | [corev1.ResourceRequirements](https://pkg.go.dev/k8s.io/api/core/v1#ResourceRequirements) | Deployment's resource requirements |
 
 ### spec.service fields
 

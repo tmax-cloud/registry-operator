@@ -41,7 +41,7 @@ func DCJSecret(reg *regv1.Registry) *corev1.Secret {
 		Auths: map[string]AuthValue{},
 	}
 	for _, domain := range domainList {
-		config.Auths[domain] = AuthValue{base64.StdEncoding.EncodeToString([]byte(reg.Spec.LoginId + ":" + reg.Spec.LoginPassword))}
+		config.Auths[domain] = AuthValue{base64.StdEncoding.EncodeToString([]byte(reg.Spec.LoginID + ":" + reg.Spec.LoginPassword))}
 	}
 
 	configBytes, _ := json.Marshal(config)

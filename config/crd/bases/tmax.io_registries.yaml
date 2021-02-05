@@ -82,7 +82,8 @@ spec:
                   description: Activate notary service to sign images
                   type: boolean
                 persistentVolumeClaim:
-                  description: Settings for notary pvc
+                  description: Settings for notary pvc. Either `Exist` or `Create`
+                    must be entered.
                   properties:
                     create:
                       description: Create new pvc
@@ -134,7 +135,8 @@ spec:
               - serviceType
               type: object
             persistentVolumeClaim:
-              description: Settings for registry pvc
+              description: Settings for registry pvc. Either `Exist` or `Create` must
+                be entered.
               properties:
                 create:
                   properties:
@@ -193,7 +195,8 @@ spec:
                   description: Registry pod's node selector
                   type: object
                 resources:
-                  description: Deployment's resource requirements
+                  description: 'Deployment''s resource requirements (default: Both
+                    limits and requests are `cpu:100m` and `memory:512Mi`)'
                   properties:
                     limits:
                       additionalProperties:

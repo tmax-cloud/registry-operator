@@ -14,6 +14,6 @@ example to create
 
 ## Result
 
-resource's results or states 
+resource's results or states
 
-## More... 
+## More
