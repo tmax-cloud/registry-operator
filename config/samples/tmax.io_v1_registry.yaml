@@ -8,6 +8,23 @@ spec:
   description: test
   loginId: tmax
   loginPassword: tmax123
+  registryDeployment:
+    #labels:
+    #  test: labeltest
+    #nodeSelector:
+    #  kubernetes.io/hostname: node1
+    #selector:
+    #  test: labeltest
+    #tolerations:
+    #- effect: NoSchedule
+    #  key: node-role.kubernetes.io/master
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 100m
+        memory: 512Mi
   notary:
     enabled: false
     serviceType: LoadBalancer

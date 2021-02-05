@@ -195,7 +195,8 @@ spec:
                   description: Registry pod's node selector
                   type: object
                 resources:
-                  description: Deployment's resource requirements
+                  description: 'Deployment''s resource requirements (default: Both
+                    limits and requests are `cpu:100m` and `memory:512Mi`)'
                   properties:
                     limits:
                       additionalProperties:
