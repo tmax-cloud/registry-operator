@@ -43,7 +43,7 @@ func printSyncedRegistry(syncedRegistry map[string]bool) {
 
 func syncAllRegistry(c client.Client, regList *regv1.RegistryList, syncedRegistry map[string]bool, scheme *runtime.Scheme) {
 	for _, reg := range regList.Items {
-		if syncedRegistry[reg.Name] {
+		if syncedRegistry[registryNamespacedName(reg.Namespace, reg.Name)] {
 			continue
 		}
 
@@ -54,12 +54,12 @@ func syncAllRegistry(c client.Client, regList *regv1.RegistryList, syncedRegistr
 			continue
 		}
 
-		if err := SyncRegistryImage(ra, c, &reg, scheme); err != nil {
+		if err := SyncRegistry(ra, c, &reg, scheme); err != nil {
 			logger.Error(err, "failed to sync registry")
 			continue
 		}
 
-		syncedRegistry[reg.Name] = true
+		syncedRegistry[registryNamespacedName(reg.Namespace, reg.Name)] = true
 	}
 }
 
@@ -73,6 +73,11 @@ func allSynced(syncedRegistry map[string]bool) bool {
 	return true
 }
 
+func registryNamespacedName(namespace, name string) string {
+	return fmt.Sprintf("%s/%s", namespace, name)
+}
+
+// SyncAllRegistry synchronizes all registries
 func SyncAllRegistry(c client.Client, scheme *runtime.Scheme) error {
 	const MaxRetryCount = 10
 	syncedRegistry := map[string]bool{}
@@ -90,7 +95,7 @@ func SyncAllRegistry(c client.Client, scheme *runtime.Scheme) error {
 	}
 
 	for _, reg := range regList.Items {
-		syncedRegistry[reg.Name] = false
+		syncedRegistry[registryNamespacedName(reg.Namespace, reg.Name)] = false
 	}
 
 	printSyncedRegistry(syncedRegistry)
@@ -107,7 +112,7 @@ func SyncAllRegistry(c client.Client, scheme *runtime.Scheme) error {
 	}
 
 	if !allSynced(syncedRegistry) {
-		return errors.New("failed to synchronize all registies")
+		return errors.New("failed to synchronize all registries")
 	}
 
 	return nil
@@ -132,7 +137,8 @@ func getCRRepositories(c client.Client, reg *regv1.Registry) (*regv1.RepositoryL
 	return reposCR, nil
 }
 
-func SyncRegistryImage(r *RegistryApi, c client.Client, reg *regv1.Registry, scheme *runtime.Scheme) error {
+// SyncRegistry synchronizes custom resource repository based on all repositories in registry server
+func SyncRegistry(r *RegistryApi, c client.Client, reg *regv1.Registry, scheme *runtime.Scheme) error {
 	crImages := []regv1.Repository{}
 	crImageNames := []string{}
 	syncLog := logger.WithValues("registry_name", reg.Name, "registry_ns", reg.Namespace)
