@@ -80,7 +80,10 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, err
 	}
 
-	if regctl.UpdateRegistryStatus(r.Client, reg) {
+	updated, err := regctl.UpdateRegistryStatus(r.Client, reg)
+	if err != nil {
+		return reconcile.Result{}, err
+	} else if updated {
 		return reconcile.Result{}, nil
 	}
 
@@ -113,7 +116,7 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 	patchReg := reg.DeepCopy() // Target to Patch object
 
 	defer func() {
-		if err := r.patch(reg, patchReg); err != nil {
+		if err := r.update(reg, patchReg); err != nil {
 			subResourceLogger.Error(err, "failed to patch")
 		}
 	}()
@@ -158,29 +161,37 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 	return nil
 }
 
-func (r *RegistryReconciler) patch(origin, target *regv1.Registry) error {
+func (r *RegistryReconciler) update(origin, target *regv1.Registry) error {
 	subResourceLogger := r.Log.WithValues("SubResource.Namespace", origin.Namespace, "SubResource.Name", origin.Name)
-	originObject := client.MergeFrom(origin) // Set original obeject
 
-	// Check whether patch is necessary or not
+	// Check whether update is necessary or not
 	if !reflect.DeepEqual(origin.Spec, target.Spec) {
-		subResourceLogger.Info("Patch registry")
-		if err := r.Patch(context.TODO(), target, originObject); err != nil {
-			subResourceLogger.Error(err, "Unknown error patching")
+		subResourceLogger.Info("Update registry")
+		if err := r.Update(context.TODO(), target); err != nil {
+			subResourceLogger.Error(err, "Unknown error updating")
 			return err
 		}
 	}
 
-	// Check whether patch is necessary or not about status
+	// Check whether update is necessary or not about status
+	r.exceptStatus(origin, target)
 	if !reflect.DeepEqual(origin.Status, target.Status) {
-		subResourceLogger.Info("Patch registry status")
-		if err := r.Status().Patch(context.TODO(), target, originObject); err != nil {
-			subResourceLogger.Error(err, "Unknown error patching status")
+		if err := r.Status().Update(context.TODO(), target); err != nil {
+			subResourceLogger.Error(err, "Unknown error updating status")
 			return err
 		}
 	}
 
 	return nil
+}
+
+// Exclude temporarily saved variables from comparison
+func (r *RegistryReconciler) exceptStatus(origin, target *regv1.Registry) {
+	origin.Status.ClusterIP = ""
+	target.Status.ClusterIP = ""
+
+	origin.Status.LoadBalancerIP = ""
+	target.Status.LoadBalancerIP = ""
 }
 
 func collectSubController(reg *regv1.Registry, kc *keycloakctl.KeycloakController) []regctl.RegistrySubresource {

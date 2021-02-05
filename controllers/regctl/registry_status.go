@@ -15,44 +15,30 @@ import (
 )
 
 // UpdateRegistryStatus ...
-// If registry status is patched, return true.
-func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) bool {
+// If registry status is updated, return true.
+func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) (bool, error) {
 	reqLogger := logf.Log.WithName("controller_registry").WithValues("Request.Namespace", reg.Namespace, "Request.Name", reg.Name)
 	falseTypes := []status.ConditionType{}
 	checkTypes := getCheckTypes(reg)
 
 	var desiredStatus regv1.Status
 
+	if len(reg.Status.Conditions) != len(checkTypes) {
+		if err := initRegistryStatus(c, reg); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
 	// Check if all subresources are true
 	reqLogger.Info("Check if status fields are normal.")
 	for _, t := range checkTypes {
 		if reg.Status.Conditions.IsUnknownFor(t) {
 			reqLogger.Info("Initialize status fields")
-			initRegistryStatus(c, reg)
-
-			if reg.Status.Phase == string(regv1.StatusCreating) {
-				reqLogger.Info("status fields are abnormal. Initialize the registry status.")
-				return false
+			if err := initRegistryStatus(c, reg); err != nil {
+				return false, err
 			}
-
-			desiredStatus = regv1.StatusCreating
-			patch := client.MergeFrom(reg)
-			target := reg.DeepCopy()
-			message := "Registry is creating. All resources in registry has not yet been created."
-			reason := "AllConditionsNotTrue"
-
-			target.Status.Message = message
-			target.Status.Reason = reason
-			target.Status.Phase = string(desiredStatus)
-			target.Status.PhaseChangedAt = metav1.Now()
-
-			reqLogger.Info("Current Status(" + reg.Status.Phase + ") -> Desired Status(" + string(desiredStatus) + ")")
-			// Patch the status to desired status.
-			if err := c.Status().Patch(context.TODO(), target, patch); err != nil {
-				reqLogger.Error(err, "failed to patch status")
-				return false
-			}
-			return true
+			return true, nil
 
 		} else if reg.Status.Conditions.IsFalseFor(t) {
 			falseTypes = append(falseTypes, t)
@@ -78,15 +64,14 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) bool {
 
 	reqLogger.Info("desiredStatus", "status", desiredStatus)
 
-	// Chcck if current status is desired status. If does not same, patch the status.
+	// Chcck if current status is desired status. If does not same, update the status.
 	reqLogger.Info("Check if current status is desired status.")
 	if reg.Status.Phase == string(desiredStatus) {
-		return false
+		return false, nil
 	}
 	reqLogger.Info("Current Status(" + reg.Status.Phase + ") -> Desired Status(" + string(desiredStatus) + ")")
 
 	var message, reason string
-	patch := client.MergeFrom(reg)
 	target := reg.DeepCopy()
 
 	switch desiredStatus {
@@ -107,16 +92,16 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) bool {
 	target.Status.PhaseChangedAt = metav1.Now()
 
 	// Patch the status to desired status.
-	reqLogger.Info("Status patch.")
-	if err := c.Status().Patch(context.TODO(), target, patch); err != nil {
-		reqLogger.Error(err, "failed to patch status")
-		return false
+	reqLogger.Info("Status update.")
+	if err := c.Status().Update(context.TODO(), target); err != nil {
+		reqLogger.Error(err, "failed to update status")
+		return false, err
 	}
 
-	return true
+	return true, nil
 }
 
-func initRegistryStatus(c client.Client, reg *regv1.Registry) {
+func initRegistryStatus(c client.Client, reg *regv1.Registry) error {
 	reqLogger := logf.Log.WithName("controller_registry").WithValues("Request.Namespace", reg.Namespace, "Request.Name", reg.Name)
 
 	if reg.Status.Conditions == nil {
@@ -126,10 +111,16 @@ func initRegistryStatus(c client.Client, reg *regv1.Registry) {
 	// Set Conditions
 	checkTypes := getCheckTypes(reg)
 	for _, t := range checkTypes {
-		reqLogger.Info("Check Type: " + string(t))
 		if reg.Status.Conditions.GetCondition(t) == nil {
+			reqLogger.Info("New Condition: " + string(t))
 			newCondition := status.Condition{Type: t, Status: corev1.ConditionFalse}
 			reg.Status.Conditions.SetCondition(newCondition)
+		}
+	}
+
+	for _, t := range reg.Status.Conditions {
+		if !contains(checkTypes, t.Type) {
+			reg.Status.Conditions.RemoveCondition(t.Type)
 		}
 	}
 
@@ -141,7 +132,10 @@ func initRegistryStatus(c client.Client, reg *regv1.Registry) {
 	err := c.Status().Update(context.TODO(), reg)
 	if err != nil {
 		reqLogger.Error(err, "cannot update status")
+		return err
 	}
+
+	return nil
 }
 
 func getCheckTypes(reg *regv1.Registry) []status.ConditionType {
@@ -169,6 +163,11 @@ func getCheckTypes(reg *regv1.Registry) []status.ConditionType {
 	return checkTypes
 }
 
-// func ConditionType(regSubres interface{}) status.ConditionType {
-// 	status.ConditionType(string)
-// }
+func contains(arr []status.ConditionType, ct status.ConditionType) bool {
+	for _, a := range arr {
+		if a == ct {
+			return true
+		}
+	}
+	return false
+}

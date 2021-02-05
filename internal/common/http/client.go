@@ -40,12 +40,9 @@ func NewHTTPClient(url, username, password string) *HttpClient {
 	caSecret, _ = certs.GetSystemKeycloakCert(nil)
 	if caSecret != nil {
 		caCert, _ = certs.CAData(caSecret)
-		logger.Info("append keycloak cert")
 		if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
 			logger.Info("failed to append keycloak ca cert", "ca", string(caCert))
 		}
-
-		logger.Info("append keycloak cert success")
 	}
 
 	c := &http.Client{
