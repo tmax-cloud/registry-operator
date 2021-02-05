@@ -29,12 +29,9 @@ func NewHTTPClient(url, username, password string) *HttpClient {
 	// add registry ca
 	caSecret, _ := certs.GetSystemRootCASecret(nil)
 	caCert, _ := certs.CAData(caSecret)
-	logger.Info("append registry cert")
 	if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
 		logger.Info("failed to append registry ca cert", "ca", string(caCert))
 	}
-
-	logger.Info("append registry cert success")
 
 	// add keycloak cert
 	caSecret, _ = certs.GetSystemKeycloakCert(nil)
