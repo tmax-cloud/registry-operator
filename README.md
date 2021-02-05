@@ -14,4 +14,4 @@ The registry-operator project is a service to launch private registries and to m
 
 ## Documentation
 
-- [How to push Image](./docs/README.md)
+- [Documentation](./docs/README.md)
