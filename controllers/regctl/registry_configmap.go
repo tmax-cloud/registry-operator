@@ -18,6 +18,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// NewRegistryConfigMap is
+func NewRegistryConfigMap() *RegistryConfigMap {
+	return &RegistryConfigMap{}
+}
+
 // RegistryConfigMap contains things to handle deployment resource
 type RegistryConfigMap struct {
 	cm     *corev1.ConfigMap

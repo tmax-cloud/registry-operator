@@ -18,11 +18,20 @@ import (
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 )
 
+// NewRegistryCertSecret is
+func NewRegistryCertSecret() *RegistryCertSecret {
+	return &RegistryCertSecret{
+		depSVC: NewRegistryService(),
+	}
+}
+
 // RegistryCertSecret contains things to handle tls and opaque secret resource
 type RegistryCertSecret struct {
 	secretOpaque *corev1.Secret
 	secretTLS    *corev1.Secret
 	logger       *utils.RegistryLogger
+
+	depSVC RegistryDependable
 }
 
 // Handle makes secret to be in the desired state

@@ -198,12 +198,12 @@ func collectSubController(reg *regv1.Registry, kc *keycloakctl.KeycloakControlle
 	collection := []regctl.RegistrySubresource{}
 
 	if reg.Spec.Notary.Enabled {
-		collection = append(collection, &regctl.RegistryNotary{KcCtl: kc})
+		collection = append(collection, regctl.NewRegistryNotary(kc))
 	}
 
 	kcCli := keycloakctl.NewKeycloakClient(reg.Spec.LoginID, reg.Spec.LoginPassword, kc.GetRealmName(), kc.GetDockerV2ClientName())
 	collection = append(collection, &regctl.RegistryPVC{}, &regctl.RegistryService{}, &regctl.RegistryCertSecret{},
-		&regctl.RegistryDCJSecret{}, &regctl.RegistryConfigMap{}, &regctl.RegistryDeployment{KcCli: kcCli}, &regctl.RegistryPod{})
+		&regctl.RegistryDCJSecret{}, &regctl.RegistryConfigMap{}, regctl.NewRegistryDeployment(reg, kcCli), &regctl.RegistryPod{})
 
 	if reg.Spec.RegistryService.ServiceType == "Ingress" {
 		collection = append(collection, &regctl.RegistryIngress{})

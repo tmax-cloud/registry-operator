@@ -18,6 +18,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// NewRegistryIngress is
+func NewRegistryIngress() *RegistryIngress {
+	return &RegistryIngress{}
+}
+
 // RegistryIngress contains things to handle ingress resource
 type RegistryIngress struct {
 	ingress *v1beta1.Ingress

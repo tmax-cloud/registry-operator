@@ -21,6 +21,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// NewRegistryPVC is
+func NewRegistryPVC() *RegistryPVC {
+	return &RegistryPVC{}
+}
+
 // RegistryPVC things to handle pvc resource
 type RegistryPVC struct {
 	pvc    *corev1.PersistentVolumeClaim

@@ -19,6 +19,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// NewRegistryService is
+func NewRegistryService() *RegistryService {
+	return &RegistryService{}
+}
+
 // RegistryService things to handle service resource
 type RegistryService struct {
 	svc    *corev1.Service

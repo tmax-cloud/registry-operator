@@ -19,10 +19,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// NewRegistryDCJSecret is
+func NewRegistryDCJSecret() *RegistryDCJSecret {
+	return &RegistryDCJSecret{
+		depSVC: NewRegistryService(),
+	}
+}
+
 // RegistryDCJSecret contains things to handle docker config json secret resource
 type RegistryDCJSecret struct {
 	secretDCJ *corev1.Secret
 	logger    *utils.RegistryLogger
+
+	depSVC RegistryDependable
 }
 
 // Handle makes docker config json secret to be in the desired state

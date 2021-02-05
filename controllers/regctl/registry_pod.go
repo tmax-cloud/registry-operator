@@ -16,10 +16,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// NewRegistryPod is
+func NewRegistryPod(reg *regv1.Registry) *RegistryPod {
+	return &RegistryPod{
+		depDeploy: NewRegistryDeployment(reg, nil),
+	}
+}
+
 // RegistryPod contains things to handle pod resource
 type RegistryPod struct {
 	pod    *corev1.Pod
 	logger *utils.RegistryLogger
+
+	depDeploy RegistryDependable
 }
 
 // Handle makes pod to be in the desired state

@@ -20,3 +20,8 @@ type RegistrySubresource interface {
 	delete(client.Client, *regv1.Registry) error
 	compare(*regv1.Registry) []utils.Diff
 }
+
+// RegistryDependable checks dependent subreousrce
+type RegistryDependable interface {
+	get(client.Client, *regv1.Registry) error
+}

@@ -35,15 +35,61 @@ const (
 	requestMemoryDiffKey = "requestMemory"
 )
 
+// NewRegistryDeployment is
+func NewRegistryDeployment(reg *regv1.Registry, kcCli *keycloakctl.KeycloakClient) RegistrySubresource {
+	return &RegistryDeployment{
+		kcCli:  kcCli,
+		logger: utils.NewRegistryLogger(RegistryDeployment{}, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryDeployment)),
+		depPVC: NewRegistryPVC(),
+		depTLS: NewRegistryCertSecret(),
+		depCM:  NewRegistryConfigMap(),
+	}
+}
+
 // RegistryDeployment contains things to handle deployment resource
 type RegistryDeployment struct {
-	KcCli  *keycloakctl.KeycloakClient
+	kcCli  *keycloakctl.KeycloakClient
 	deploy *appsv1.Deployment
 	logger *utils.RegistryLogger
+
+	depPVC, depTLS, depCM RegistryDependable
+}
+
+func (r *RegistryDeployment) checkDeps(c client.Client, reg *regv1.Registry) error {
+	if err := r.depPVC.get(c, reg); err != nil {
+		if errors.IsNotFound(err) {
+			r.logger.Error(err, fmt.Sprintf("%s pvc is not created yet", schemes.SubresourceName(reg, schemes.SubTypeRegistryPVC)))
+			return err
+		}
+		r.logger.Error(err, "failed to get pvc")
+	}
+
+	if err := r.depTLS.get(c, reg); err != nil {
+		if errors.IsNotFound(err) {
+			r.logger.Error(err, fmt.Sprintf("%s tls secret is not created yet", schemes.SubresourceName(reg, schemes.SubTypeRegistryTLSSecret)))
+			return err
+		}
+		r.logger.Error(err, "failed to get tls secret")
+	}
+
+	if err := r.depCM.get(c, reg); err != nil {
+		if errors.IsNotFound(err) {
+			r.logger.Error(err, fmt.Sprintf("%s configmap is not created yet", schemes.SubresourceName(reg, schemes.SubTypeRegistryConfigmap)))
+			return err
+		}
+		r.logger.Error(err, "failed to get configmap")
+	}
+
+	return nil
 }
 
 // Handle makes deployment to be in the desired state
 func (r *RegistryDeployment) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+	if err := r.checkDeps(c, reg); err != nil {
+		r.logger.Error(err, "dependency is not ready")
+		return err
+	}
+
 	if err := r.get(c, reg); err != nil {
 		if errors.IsNotFound(err) {
 			if err := r.create(c, reg, patchReg, scheme); err != nil {
@@ -146,15 +192,14 @@ func (r *RegistryDeployment) create(c client.Client, reg *regv1.Registry, patchR
 func (r *RegistryDeployment) getAuthConfig() *regv1.AuthConfig {
 	KeycloakServer := config.Config.GetString(config.ConfigKeycloakService)
 	auth := &regv1.AuthConfig{}
-	auth.Realm = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCli.GetRealm(), "protocol", "docker-v2", "auth")
-	auth.Service = r.KcCli.GetService()
-	auth.Issuer = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCli.GetRealm())
+	auth.Realm = KeycloakServer + "/" + path.Join("auth", "realms", r.kcCli.GetRealm(), "protocol", "docker-v2", "auth")
+	auth.Service = r.kcCli.GetService()
+	auth.Issuer = KeycloakServer + "/" + path.Join("auth", "realms", r.kcCli.GetRealm())
 
 	return auth
 }
 
 func (r *RegistryDeployment) get(c client.Client, reg *regv1.Registry) error {
-	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryDeployment))
 	deploy, err := schemes.Deployment(reg, r.getAuthConfig())
 	if err != nil {
 		r.logger.Error(err, "Get regsitry deployment scheme is failed")
