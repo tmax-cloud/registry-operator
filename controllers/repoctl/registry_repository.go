@@ -40,6 +40,22 @@ func (r *RegistryRepository) Create(c client.Client, reg *regv1.Registry, imageN
 	return nil
 }
 
+func (r *RegistryRepository) ExtCreate(c client.Client, reg *regv1.ExternalRegistry, imageName string, tags []string, scheme *runtime.Scheme) error {
+	repo := schemes.ExtRepository(reg, imageName, tags)
+	if err := controllerutil.SetControllerReference(reg, repo, scheme); err != nil {
+		logger.Error(err, "Controller reference failed")
+		return err
+	}
+
+	if err := c.Create(context.TODO(), repo); err != nil {
+		logger.Error(err, "Create failed")
+		return err
+	}
+
+	logger.Info("Created", "ExternalRegistry", reg.Name, "Repository", repo.Name, "Namespace", reg.Namespace)
+	return nil
+}
+
 func (r *RegistryRepository) Get(c client.Client, reg *regv1.Registry, imageName string) (*regv1.Repository, error) {
 	repo := &regv1.Repository{}
 
@@ -104,5 +120,16 @@ func (r *RegistryRepository) Delete(c client.Client, reg *regv1.Registry, imageN
 	}
 
 	logger.Info("Deleted", "Registry", reg.Name, "Repository", repo.Name, "Namespace", reg.Namespace)
+	return nil
+}
+
+func (r *RegistryRepository) ExtDelete(c client.Client, reg *regv1.ExternalRegistry, imageName string, scheme *runtime.Scheme) error {
+	repo := schemes.ExtRepository(reg, imageName, nil)
+	if err := c.Delete(context.TODO(), repo); err != nil {
+		logger.Error(err, "Delete failed")
+		return err
+	}
+
+	logger.Info("Deleted", "ExternalRegistry", reg.Name, "Repository", repo.Name, "Namespace", reg.Namespace)
 	return nil
 }

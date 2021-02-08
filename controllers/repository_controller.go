@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/schemes"
 )
 
 // RepositoryReconciler reconciles a Repository object
@@ -45,10 +46,14 @@ func (r *RepositoryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	_ = context.Background()
 	_ = r.Log.WithValues("repository", req.NamespacedName)
 
+	// If this repository is external registry's repository, do not handle deleting images
+	if strings.HasPrefix(req.Name, schemes.ExternalRegistryPrefix) {
+		return reconcile.Result{}, nil
+	}
+
 	// Fetch the Repository instance
 	repo := &regv1.Repository{}
-	err := r.Get(context.TODO(), req.NamespacedName, repo)
-	if err != nil {
+	if err := r.Get(context.TODO(), req.NamespacedName, repo); err != nil {
 		if errors.IsNotFound(err) {
 			reg, err := getRegistryByRequest(r.Client, req)
 			if err != nil {
@@ -62,7 +67,7 @@ func (r *RepositoryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 
 			if err := sweepRegistryRepo(r.Client, reg, repoName); err != nil {
 				r.Log.Error(err, "")
-				return reconcile.Result{}, err
+				return reconcile.Result{}, nil
 			}
 
 			return reconcile.Result{}, nil
@@ -74,7 +79,7 @@ func (r *RepositoryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	reg, err := getRegistryByRequest(r.Client, req)
 	if err != nil {
 		r.Log.Error(err, "")
-		return reconcile.Result{}, err
+		return reconcile.Result{}, nil
 	}
 
 	if err := sweepImages(r.Client, reg, repo); err != nil {
@@ -104,6 +109,7 @@ func getRegistryByRequest(c client.Client, request reconcile.Request) (*regv1.Re
 	return registry, nil
 }
 
+// registry name must not contain dot(`.`) character
 func splitRepoCRName(crName string) (repoName, regName string) {
 	parts := strings.Split(crName, ".")
 

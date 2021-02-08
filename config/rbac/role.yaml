@@ -175,6 +175,26 @@ rules:
 - apiGroups:
   - tmax.io
   resources:
+  - externalregistries
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - tmax.io
+  resources:
+  - externalregistries/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - tmax.io
+  resources:
   - imagescanrequests
   verbs:
   - create

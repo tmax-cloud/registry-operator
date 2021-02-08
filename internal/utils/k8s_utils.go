@@ -123,6 +123,36 @@ type dockerConfigJson struct {
 	Auths dockerConfig `json:"auths"`
 }
 
+// GetSecret returns secret if found
+func GetSecret(name, namespace string) (*corev1.Secret, error) {
+	c, err := client.New(config.GetConfigOrDie(), client.Options{})
+	if err != nil {
+		return nil, err
+	}
+	secret := &corev1.Secret{}
+	if err := c.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, secret); err != nil {
+		return nil, err
+	}
+
+	return secret, nil
+}
+
+// GetCAData returns ca
+func GetCAData(secretName, namespace string) ([]byte, error) {
+	var ca []byte
+	certSecret, err := GetSecret(secretName, namespace)
+	if err != nil {
+		logger.Error(err, "failed to get secret")
+		return ca, err
+	}
+	ca = certSecret.Data["ca.crt"]
+	if len(ca) == 0 {
+		ca = certSecret.Data["tls.crt"]
+	}
+	return ca, nil
+}
+
+// ParseBasicAuth returns `username:password` as string
 func ParseBasicAuth(sec *corev1.Secret, host string) (string, error) {
 	if sec == nil {
 		return "", fmt.Errorf("cannot get secret")
@@ -140,7 +170,10 @@ func ParseBasicAuth(sec *corev1.Secret, host string) (string, error) {
 		return "", err
 	}
 
+	host = strings.TrimPrefix(host, "https://")
+	host = strings.TrimPrefix(host, "http://")
 	hosts := []string{host}
+
 	if host == "docker.io" {
 		hosts = append(hosts, "index.docker.io/v1/")
 		hosts = append(hosts, "index.docker.io/v1")
@@ -153,6 +186,7 @@ func ParseBasicAuth(sec *corev1.Secret, host string) (string, error) {
 		hosts[i] = setDefaultPort(hosts[i])
 	}
 
+	logger.Info("parse imagepullsecret", "auths", fmt.Sprintf("%+v", cfg.Auths), "hosts", fmt.Sprintf("%v", hosts))
 	for k, v := range cfg.Auths {
 		k = strings.TrimPrefix(k, "https://")
 		k = strings.TrimPrefix(k, "http://")
@@ -190,4 +224,40 @@ func setDefaultPort(url string) string {
 	}
 
 	return url
+}
+
+// GetBasicAuth returns `username:password` as string from imagePullSecghret
+func GetBasicAuth(imagePullSecret, namespace, registryURL string) (string, error) {
+	secret, err := GetSecret(imagePullSecret, namespace)
+	if err != nil {
+		logger.Error(err, "failed to get image pull secret")
+		return "", err
+	}
+
+	basic, err := ParseBasicAuth(secret, registryURL)
+	if err != nil {
+		logger.Error(err, "failed to parse basic auth")
+		return "", err
+	}
+
+	return basic, nil
+}
+
+// DecodeBasicAuth decode and splits username and password from basic auth string
+func DecodeBasicAuth(basic string) (username, password string) {
+	dec, err := base64.StdEncoding.DecodeString(basic)
+	if err != nil {
+		logger.Error(err, "failed to decode string by base64")
+		return
+	}
+
+	basic = string(dec)
+	idx := strings.Index(basic, ":")
+	if idx < 0 {
+		return
+	}
+
+	username = basic[:idx]
+	password = basic[idx+1:]
+	return
 }

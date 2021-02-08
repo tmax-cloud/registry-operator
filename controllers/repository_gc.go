@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Delete versions with delete value true in repository
 func sweepImages(c client.Client, reg *regv1.Registry, repo *regv1.Repository) error {
 	repoName := repo.Spec.Name
 	logz := log.WithValues("repository_namespace", repo.Namespace, "repository_name", repoName)
@@ -47,6 +48,7 @@ func sweepImages(c client.Client, reg *regv1.Registry, repo *regv1.Repository) e
 	return nil
 }
 
+// Delete all tags and gc
 func sweepRegistryRepo(c client.Client, reg *regv1.Registry, repoName string) error {
 	ra := regApi.NewRegistryApi(reg)
 	if ra == nil {
@@ -78,6 +80,7 @@ func sweepRegistryRepo(c client.Client, reg *regv1.Registry, repoName string) er
 	return nil
 }
 
+// Delete all tags
 func deleteImagesInRepo(c client.Client, reg *regv1.Registry, repoName string, tags []string) ([]string, error) {
 	ra := regApi.NewRegistryApi(reg)
 	if ra == nil {

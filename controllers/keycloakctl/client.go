@@ -26,7 +26,7 @@ func NewKeycloakClient(username, password, realm, service string) *KeycloakClien
 	return &KeycloakClient{
 		realm:      realm,
 		service:    service,
-		HttpClient: cmhttp.NewHTTPClient(KeycloakServer, username, password),
+		HttpClient: cmhttp.NewHTTPClient(KeycloakServer, username, password, nil, false),
 		logger:     logger,
 	}
 }
