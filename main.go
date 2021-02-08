@@ -34,6 +34,7 @@ import (
 
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/common/operatorlog"
+	"github.com/tmax-cloud/registry-operator/pkg/scheduler"
 	regApi "github.com/tmax-cloud/registry-operator/registry"
 
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -144,6 +145,16 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ImageScanRequest")
 		os.Exit(1)
 	}
+	if err = (&controllers.RegistryJobReconciler{
+		Client:    mgr.GetClient(),
+		Log:       ctrl.Log.WithName("controllers").WithName("RegistryJob"),
+		Scheme:    mgr.GetScheme(),
+		Scheduler: scheduler.New(mgr.GetClient(), mgr.GetScheme()),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "RegistryJob")
+		os.Exit(1)
+	}
+	controllers.StartRegistryCronJobController(mgr.GetClient(), ctrl.Log.WithName("controllers").WithName("RegistryCronJob"), mgr.GetScheme())
 	// +kubebuilder:scaffold:builder
 
 	// API Server

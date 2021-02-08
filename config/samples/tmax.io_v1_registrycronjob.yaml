@@ -1,0 +1,11 @@
+apiVersion: tmax.io/v1
+kind: RegistryCronJob
+metadata:
+  name: rcj-sync-harbor-1
+spec:
+  schedule: "*/1 * * * *"
+  jobSpec:
+    ttl: -1
+    syncRepository:
+      externalRegistry:
+        name: harbor-1
