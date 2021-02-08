@@ -1,0 +1,10 @@
+apiVersion: tmax.io/v1
+kind: RegistryJob
+metadata:
+  name: job-sync-harbor-1
+  namespace: default
+spec:
+  ttl: 0
+  syncRepository:
+    externalRegistry:
+      name: harbor-1

@@ -275,6 +275,46 @@ rules:
 - apiGroups:
   - tmax.io
   resources:
+  - registrycronjobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - tmax.io
+  resources:
+  - registrycronjobs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - tmax.io
+  resources:
+  - registryjobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - tmax.io
+  resources:
+  - registryjobs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - tmax.io
+  resources:
   - repositories
   verbs:
   - create
