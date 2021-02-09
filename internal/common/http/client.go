@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net/http"
+	"strings"
 
 	"github.com/go-logr/logr"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -20,6 +21,10 @@ type HttpClient struct {
 }
 
 func NewHTTPClient(url, username, password string, ca []byte, insecure bool) *HttpClient {
+	if !strings.HasPrefix(url, "https://") && !strings.HasPrefix(url, "http://") {
+		url = "https://" + url
+	}
+
 	if insecure {
 		c := &http.Client{
 			Transport: &http.Transport{

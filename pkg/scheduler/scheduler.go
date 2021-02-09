@@ -3,14 +3,19 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"time"
+
 	v1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/common/http"
+	"github.com/tmax-cloud/registry-operator/internal/utils"
+	"github.com/tmax-cloud/registry-operator/pkg/registry/ext/factory"
 	"github.com/tmax-cloud/registry-operator/pkg/scheduler/pool"
 	"github.com/tmax-cloud/registry-operator/pkg/structs"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"time"
 )
 
 // Scheduler runs functions for RegistryJob
@@ -108,17 +113,56 @@ func (s *Scheduler) executeJob(job *v1.RegistryJob) {
 
 	// Sync jobs
 	if job.Spec.SyncRepository != nil && job.Spec.SyncRepository.ExternalRegistry.Name != "" {
-		// TODO - Do sync
-		// if err := registry.Sync(); err != nil {
-		//   state = v1.RegistryJobStateFailed
-		//   msg = err.Error()
-		// }
+		// get external registry
+		exreg := &v1.ExternalRegistry{}
+		exregNamespacedName := types.NamespacedName{Name: job.Spec.SyncRepository.ExternalRegistry.Name, Namespace: job.Namespace}
+		if err := s.k8sClient.Get(context.TODO(), exregNamespacedName, exreg); err != nil {
+			log.Error(err, "")
+		}
+
+		username, password := "", ""
+		if exreg.Spec.ImagePullSecret != "" {
+			basic, err := utils.GetBasicAuth(exreg.Spec.ImagePullSecret, exreg.Namespace, exreg.Spec.RegistryURL)
+			if err != nil {
+				log.Error(err, "failed to get basic auth")
+			}
+
+			username, password = utils.DecodeBasicAuth(basic)
+		}
+
+		var ca []byte
+		if exreg.Spec.CertificateSecret != "" {
+			data, err := utils.GetCAData(exreg.Spec.CertificateSecret, exreg.Namespace)
+			if err != nil {
+				log.Error(err, "failed to get ca data")
+			}
+			ca = data
+		}
+
+		syncFactory := factory.NewSyncRegistryFactory(
+			s.k8sClient,
+			exregNamespacedName,
+			s.scheme,
+			http.NewHTTPClient(
+				exreg.Spec.RegistryURL,
+				username, password,
+				ca,
+				exreg.Spec.Insecure,
+			),
+		)
+
+		syncClient := syncFactory.Create(exreg.Spec.RegistryType)
+		if err := syncClient.Synchronize(); err != nil {
+			log.Error(err, "failed to synchronize external registry")
+			state = v1.RegistryJobStateFailed
+			msg = err.Error()
+		}
+
 		log.Info("==========================================")
 		log.Info(job.Name)
 		log.Info(job.Spec.SyncRepository.ExternalRegistry.Name)
 		log.Info("==========================================")
 		time.Sleep(10 * time.Second)
-		// End TODO
 	}
 
 	// Set as complete

@@ -17,15 +17,11 @@ import (
 )
 
 // NewClient is api client of harbor v2 registry
-func NewClient(c client.Client, namespacedName types.NamespacedName, scheme *runtime.Scheme, url, username, password string, ca []byte, insecure bool) *Client {
-	if !strings.HasPrefix(url, "https://") && !strings.HasPrefix(url, "http://") {
-		url = "https://" + url
-	}
-
+func NewClient(c client.Client, namespacedName types.NamespacedName, scheme *runtime.Scheme, httpClient *cmhttp.HttpClient) *Client {
 	return &Client{
 		Name:       namespacedName.Name,
 		Namespace:  namespacedName.Namespace,
-		HttpClient: cmhttp.NewHTTPClient(url, username, password, ca, insecure),
+		HttpClient: httpClient,
 		kClient:    c,
 		scheme:     scheme,
 	}

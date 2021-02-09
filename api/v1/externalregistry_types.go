@@ -24,11 +24,25 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 const (
+	// RegistryTypeHarborV2 is harbor v2 registry type
 	RegistryTypeHarborV2 RegistryType = "HarborV2"
-	RegistryTypeDocker   RegistryType = "Docker"
+	// RegistryTypeDocker   RegistryType = "Docker"
 )
 
+// RegistryType is a type of external registry
 type RegistryType string
+
+// ExternalRegistryStatusType is status type of external registry
+type ExternalRegistryStatusType string
+
+const (
+	// ExternalRegistryScheduling is
+	ExternalRegistryScheduling ExternalRegistryStatusType = "Scheduling"
+	// ExternalRegistryScheduled is
+	ExternalRegistryScheduled ExternalRegistryStatusType = "Scheduled"
+	// ExternalRegistryError is
+	ExternalRegistryError ExternalRegistryStatusType = "Error"
+)
 
 // ExternalRegistrySpec defines the desired state of ExternalRegistry
 type ExternalRegistrySpec struct {
@@ -43,12 +57,18 @@ type ExternalRegistrySpec struct {
 	Insecure bool `json:"insecure,omitempty"`
 	// Login id and password secret object for registry
 	ImagePullSecret string `json:"imagePullSecret"`
-	// Sync period
-	SyncPeriod int `json:"syncPeriod,omitempty"`
+	// Schedule is a cron spec for periodic sync
+	// If you want to synchronize repository every 5 minute, enter "*/5 * * * *".
+	// Cron spec ref: https://ko.wikipedia.org/wiki/Cron
+	Schedule string `json:"schedule,omitempty"`
 }
 
 // ExternalRegistryStatus defines the observed state of ExternalRegistry
 type ExternalRegistryStatus struct {
+	// State is a status of external registry
+	State ExternalRegistryStatusType `json:"state,omitempty"`
+	// StateChangedAt is the time when state was changed
+	StateChangedAt metav1.Time `json:"stateChangedAt,omitempty"`
 }
 
 // +kubebuilder:object:root=true

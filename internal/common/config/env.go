@@ -35,4 +35,6 @@ const (
 	ConfigNotarySignerImagePullSecret = "notary.signer.image_pull_secret"
 	// ConfigNotaryDBImagePullSecret is the key to get notary.db.image_pull_secret config
 	ConfigNotaryDBImagePullSecret = "notary.db.image_pull_secret"
+	// ConfigExternalRegistrySyncPeriod is the key to get external_registry.sync_period config
+	ConfigExternalRegistrySyncPeriod = "external_registry.sync_period"
 )

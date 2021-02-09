@@ -9,6 +9,8 @@ resources:
 - bases/tmax.io_repositories.yaml
 - bases/tmax.io_signerkeys.yaml
 - bases/tmax.io_imagescanrequests.yaml
+- bases/tmax.io_registrycronjobs.yaml
+- bases/tmax.io_registryjobs.yaml
 - bases/tmax.io_externalregistries.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 

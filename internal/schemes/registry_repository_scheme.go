@@ -7,10 +7,6 @@ import (
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 )
 
-const (
-	ExternalRegistryPrefix = "ext-"
-)
-
 func Repository(reg *regv1.Registry, imageName string, tags []string) *regv1.Repository {
 	label := map[string]string{}
 	label["app"] = "registry"

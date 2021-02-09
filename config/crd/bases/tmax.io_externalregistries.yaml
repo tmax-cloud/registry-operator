@@ -63,9 +63,11 @@ spec:
             registryUrl:
               description: 'Registry URL (example: docker.io)'
               type: string
-            syncPeriod:
-              description: Sync period
-              type: integer
+            schedule:
+              description: 'Schedule is a cron spec for periodic sync If you want
+                to synchronize repository every 5 minute, enter "*/5 * * * *". Cron
+                spec ref: https://ko.wikipedia.org/wiki/Cron'
+              type: string
           required:
           - imagePullSecret
           - registryType
@@ -73,6 +75,14 @@ spec:
           type: object
         status:
           description: ExternalRegistryStatus defines the observed state of ExternalRegistry
+          properties:
+            state:
+              description: State is a status of external registry
+              type: string
+            stateChangedAt:
+              description: StateChangedAt is the time when state was changed
+              format: date-time
+              type: string
           type: object
       type: object
   version: v1
