@@ -154,3 +154,8 @@ type RegistryList struct {
 func init() {
 	SchemeBuilder.Register(&Registry{}, &RegistryList{}, &Repository{}, &RepositoryList{})
 }
+
+type Authorizer struct {
+	Username string
+	Password string
+}

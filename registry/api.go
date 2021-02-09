@@ -14,15 +14,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type Repositories struct {
-	Repositories []string `json:"repositories"`
-}
-
-type Repository struct {
-	Name string   `json:"name"`
-	Tags []string `json:"tags"`
-}
-
 type RegistryApi struct {
 	*cmhttp.HttpClient
 	kcCli *keycloakctl.KeycloakClient
@@ -37,7 +28,7 @@ func NewRegistryApi(reg *regv1.Registry) *RegistryApi {
 		return nil
 	}
 
-	ra.HttpClient = cmhttp.NewHTTPClient(regURL, reg.Spec.LoginID, reg.Spec.LoginPassword)
+	ra.HttpClient = cmhttp.NewHTTPClient(regURL, reg.Spec.LoginID, reg.Spec.LoginPassword, nil, false)
 	kcCtl := keycloakctl.NewKeycloakController(reg.Namespace, reg.Name)
 	ra.kcCli = keycloakctl.NewKeycloakClient(reg.Spec.LoginID, reg.Spec.LoginPassword, kcCtl.GetRealmName(), kcCtl.GetDockerV2ClientName())
 
@@ -52,7 +43,7 @@ func registryUrl(reg *regv1.Registry) string {
 	return reg.Status.ServerURL
 }
 
-func (r *RegistryApi) Catalog() *Repositories {
+func (r *RegistryApi) Catalog() *regv1.APIRepositories {
 	logger.Info("call", "api", r.URL+"/v2/_catalog")
 	req, err := http.NewRequest(http.MethodGet, r.URL+"/v2/_catalog", nil)
 	if err != nil {
@@ -79,10 +70,10 @@ func (r *RegistryApi) Catalog() *Repositories {
 		logger.Error(err, "")
 		return nil
 	}
-	logger.Info("contents", "repositories", string(body))
+	// logger.Info("contents", "repositories", string(body))
 
-	rawRepos := &Repositories{}
-	repos := &Repositories{}
+	rawRepos := &regv1.APIRepositories{}
+	repos := &regv1.APIRepositories{}
 
 	if err := json.Unmarshal(body, rawRepos); err != nil {
 		logger.Error(err, "failed to unmarshal registry's repository")
@@ -99,8 +90,8 @@ func (r *RegistryApi) Catalog() *Repositories {
 	return repos
 }
 
-func (r *RegistryApi) Tags(imageName string) *Repository {
-	repo := &Repository{}
+func (r *RegistryApi) Tags(imageName string) *regv1.APIRepository {
+	repo := &regv1.APIRepository{}
 	logger.Info("call", "api", r.URL+"/v2/"+imageName+"/tags/list")
 	req, err := http.NewRequest(http.MethodGet, r.URL+"/v2/"+imageName+"/tags/list", nil)
 	if err != nil {
@@ -127,7 +118,7 @@ func (r *RegistryApi) Tags(imageName string) *Repository {
 		logger.Error(err, "")
 		return nil
 	}
-	logger.Info("contents", "tags", string(body))
+	// logger.Info("contents", "tags", string(body))
 	if err := json.Unmarshal(body, repo); err != nil {
 		logger.Error(err, "")
 		return nil

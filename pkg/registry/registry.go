@@ -297,7 +297,7 @@ func (r *RegistryAPI) Catalog() *Repositories {
 		logger.Error(err, "")
 		return nil
 	}
-	logger.Info("contents", "repositories", string(body))
+	// logger.Info("contents", "repositories", string(body))
 
 	rawRepos := &Repositories{}
 	repos := &Repositories{}
@@ -346,7 +346,7 @@ func (r *RegistryAPI) Tags(imageName string) *Repository {
 		logger.Error(err, "")
 		return nil
 	}
-	logger.Info("contents", "tags", string(body))
+	// logger.Info("contents", "tags", string(body))
 	if err := json.Unmarshal(body, repo); err != nil {
 		logger.Error(err, "")
 		return nil

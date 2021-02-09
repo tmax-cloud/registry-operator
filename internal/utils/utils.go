@@ -12,6 +12,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+var logger = log.Log.WithName("utils-log")
+
 // Use for GetRegistryLogger
 func funcName() string {
 	pc := make([]uintptr, 15)
@@ -105,6 +107,10 @@ func ParseImageName(imageName string) string {
 }
 
 func Contains(arr []string, str string) bool {
+	if arr == nil {
+		return false
+	}
+
 	for _, a := range arr {
 		if a == str {
 			return true

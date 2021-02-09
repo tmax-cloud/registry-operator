@@ -17,9 +17,10 @@ import (
 type SubresourceType int
 
 const (
-	NotaryServerPrefix = "server-"
-	NotarySignerPrefix = "signer-"
-	NotaryDBPrefix     = "db-"
+	NotaryServerPrefix     = "server-"
+	NotarySignerPrefix     = "signer-"
+	NotaryDBPrefix         = "db-"
+	ExternalRegistryPrefix = "ext-"
 )
 
 const (
@@ -43,6 +44,8 @@ const (
 	SubTypeRegistryDeployment
 	SubTypeRegistryConfigmap
 	SubTypeRegistryIngress
+
+	SubTypeExternalRegistryCronJob
 )
 
 // SubresourceName returns Notary's or Registry's subresource name
@@ -76,6 +79,12 @@ func SubresourceName(subresource interface{}, subresourceType SubresourceType) s
 
 		case SubTypeRegistryDCJSecret:
 			return regv1.K8sPrefix + regv1.K8sRegistryPrefix + res.Name
+		}
+
+	case *regv1.ExternalRegistry:
+		switch subresourceType {
+		case SubTypeExternalRegistryCronJob:
+			return regv1.K8sPrefix + ExternalRegistryPrefix + res.Name
 		}
 	}
 

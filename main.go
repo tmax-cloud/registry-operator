@@ -155,6 +155,15 @@ func main() {
 		os.Exit(1)
 	}
 	controllers.StartRegistryCronJobController(mgr.GetClient(), ctrl.Log.WithName("controllers").WithName("RegistryCronJob"), mgr.GetScheme())
+	if err = (&controllers.ExternalRegistryReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("ExternalRegistry"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ExternalRegistry")
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	// API Server

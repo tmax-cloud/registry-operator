@@ -1,6 +1,9 @@
 package utils
 
-import "strings"
+import (
+	"encoding/base64"
+	"strings"
+)
 
 const (
 	SCHEME_HTTP_PREFIX  = "http://"
@@ -24,4 +27,9 @@ func AddQueryParams(url string, params map[string][]string) string {
 	}
 
 	return url
+}
+
+// HTTPEncodeBasicAuth encodes basic auth string by base64
+func HTTPEncodeBasicAuth(username, password string) string {
+	return base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 }

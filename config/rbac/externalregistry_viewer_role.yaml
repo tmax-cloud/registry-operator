@@ -1,0 +1,20 @@
+# permissions for end users to view externalregistries.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: externalregistry-viewer-role
+rules:
+- apiGroups:
+  - tmax.io
+  resources:
+  - externalregistries
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - tmax.io
+  resources:
+  - externalregistries/status
+  verbs:
+  - get

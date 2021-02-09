@@ -21,6 +21,8 @@ const (
 	defaultImageNotaryServer = "tmaxcloudck/notary_server:0.6.2-rc1"
 	defaultImageNotarySigner = "tmaxcloudck/notary_signer:0.6.2-rc1"
 	defaultImageNotaryDB     = "tmaxcloudck/notary_mysql:0.6.2-rc1"
+
+	defaultExternalRegistrySyncPeriod = "*/5 * * * *"
 )
 
 func init() {
@@ -72,6 +74,8 @@ func InitEnv() {
 	Config.SetDefault(ConfigNotaryServerImage, defaultImageNotaryServer)
 	Config.SetDefault(ConfigNotarySignerImage, defaultImageNotarySigner)
 	Config.SetDefault(ConfigNotaryDBImage, defaultImageNotaryDB)
+
+	Config.SetDefault(ConfigExternalRegistrySyncPeriod, defaultExternalRegistrySyncPeriod)
 }
 
 // ReadInConfig is read config file

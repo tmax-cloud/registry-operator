@@ -25,12 +25,9 @@ import (
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	regApi "github.com/tmax-cloud/registry-operator/pkg/registry"
 	clairReg "github.com/tmax-cloud/registry-operator/pkg/scan/clair"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -118,20 +115,6 @@ func imageUrl(registryUrl, image string) string {
 	return path.Join(registryUrl, image)
 }
 
-func getCAData(secretName, namespace string) ([]byte, error) {
-	var ca []byte
-	certSecret, err := getSecret(secretName, namespace)
-	if err != nil {
-		logger.Error(err, "failed to get secret")
-		return ca, err
-	}
-	ca = certSecret.Data["ca.crt"]
-	if len(ca) == 0 {
-		ca = certSecret.Data["tls.crt"]
-	}
-	return ca, nil
-}
-
 func GetRegistryImages(c client.Client, registryURL, basicAuth, imageNamePattern, certSecret, namespace string) []string {
 	images := []string{}
 	var ca []byte
@@ -140,7 +123,7 @@ func GetRegistryImages(c client.Client, registryURL, basicAuth, imageNamePattern
 	if certSecret != "" {
 		var err error
 
-		ca, err = getCAData(certSecret, namespace)
+		ca, err = utils.GetCAData(certSecret, namespace)
 		if err != nil {
 			logger.Error(err, "failed to get ca")
 			return images
@@ -168,22 +151,6 @@ func GetRegistryImages(c client.Client, registryURL, basicAuth, imageNamePattern
 	return images
 }
 
-func getBasicAuth(imagePullSecret, namespace, registryURL string) (string, error) {
-	secret, err := getSecret(imagePullSecret, namespace)
-	if err != nil {
-		logger.Error(err, "failed to get image pull secret")
-		return "", err
-	}
-
-	basic, err := utils.ParseBasicAuth(secret, registryURL)
-	if err != nil {
-		logger.Error(err, "failed to parse basic auth")
-		return "", err
-	}
-
-	return basic, nil
-}
-
 func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map[string]map[string]*reg.VulnerabilityReport, error) {
 	reports := map[string]map[string]*reg.VulnerabilityReport{}
 
@@ -204,7 +171,7 @@ func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map
 			if strings.Contains(targetImage, "*") || strings.Contains(targetImage, "?") {
 				var basicAuth string
 				if target.ImagePullSecret != "" {
-					basic, err := getBasicAuth(target.ImagePullSecret, instance.Namespace, target.RegistryURL)
+					basic, err := utils.GetBasicAuth(target.ImagePullSecret, instance.Namespace, target.RegistryURL)
 					if err != nil {
 						logger.Error(err, fmt.Sprintf("failed to get basic auth from imagepullsecret: %s", target.ImagePullSecret))
 						return reports, err
@@ -266,19 +233,6 @@ func GetVulnerability(c client.Client, instance *tmaxiov1.ImageScanRequest) (map
 	return reports, nil
 }
 
-func getSecret(name, namespace string) (*corev1.Secret, error) {
-	c, err := client.New(config.GetConfigOrDie(), client.Options{})
-	if err != nil {
-		return nil, err
-	}
-	secret := &corev1.Secret{}
-	if err := c.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, secret); err != nil {
-		return nil, err
-	}
-
-	return secret, nil
-}
-
 func createRegistryClient(target *tmaxiov1.ScanTarget, domain, namespace string) (*registry.Registry, error) {
 	var ca []byte
 	username, password := "", ""
@@ -291,7 +245,7 @@ func createRegistryClient(target *tmaxiov1.ScanTarget, domain, namespace string)
 
 	// parse imagepullsecret
 	if len(target.ImagePullSecret) > 0 {
-		basic, err := getBasicAuth(target.ImagePullSecret, namespace, target.RegistryURL)
+		basic, err := utils.GetBasicAuth(target.ImagePullSecret, namespace, target.RegistryURL)
 		if err != nil {
 			logger.Error(err, fmt.Sprintf("failed to get basic auth from imagepullsecret: %s", target.ImagePullSecret))
 			return nil, err
@@ -313,7 +267,7 @@ func createRegistryClient(target *tmaxiov1.ScanTarget, domain, namespace string)
 	if target.CertificateSecret != "" {
 		var err error
 
-		ca, err = getCAData(target.CertificateSecret, namespace)
+		ca, err = utils.GetCAData(target.CertificateSecret, namespace)
 		if err != nil {
 			logger.Error(err, "failed to get ca data")
 			return nil, err

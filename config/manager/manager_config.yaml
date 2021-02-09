@@ -28,3 +28,5 @@ harbor:
     ingress: tmax-harbor-ingress
   notary:
     ingress: tmax-harbor-ingress-notary
+external_registry:
+  sync_period: "*/5 * * * *"

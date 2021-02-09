@@ -1,0 +1,11 @@
+apiVersion: tmax.io/v1
+kind: ExternalRegistry
+metadata:
+  name: externalregistry-sample
+  namespace: reg-test
+spec:
+  registryType: "HarborV2"
+  registryUrl: "https://core.harbor.220.90.208.239.nip.io"
+  imagePullSecret: "harbor-image-pull-secret"
+  certificateSecret: 
+  #syncPeriod: 1

@@ -70,7 +70,7 @@ func NewKeycloakController(namespace, name string) *KeycloakController {
 		client:     client,
 		logger:     logger,
 		token:      token.AccessToken,
-		httpClient: cmhttp.NewHTTPClient(KeycloakServer, keycloakUser, keycloakPwd),
+		httpClient: cmhttp.NewHTTPClient(KeycloakServer, keycloakUser, keycloakPwd, nil, false),
 	}
 }
 
