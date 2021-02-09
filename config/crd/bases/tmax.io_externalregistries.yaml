@@ -69,7 +69,6 @@ spec:
                 spec ref: https://ko.wikipedia.org/wiki/Cron'
               type: string
           required:
-          - imagePullSecret
           - registryType
           - registryUrl
           type: object

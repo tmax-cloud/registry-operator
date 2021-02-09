@@ -157,12 +157,6 @@ func (s *Scheduler) executeJob(job *v1.RegistryJob) {
 			state = v1.RegistryJobStateFailed
 			msg = err.Error()
 		}
-
-		log.Info("==========================================")
-		log.Info(job.Name)
-		log.Info(job.Spec.SyncRepository.ExternalRegistry.Name)
-		log.Info("==========================================")
-		time.Sleep(10 * time.Second)
 	}
 
 	// Set as complete

@@ -56,7 +56,7 @@ type ExternalRegistrySpec struct {
 	// Do not verify tls certificates
 	Insecure bool `json:"insecure,omitempty"`
 	// Login id and password secret object for registry
-	ImagePullSecret string `json:"imagePullSecret"`
+	ImagePullSecret string `json:"imagePullSecret,omitempty"`
 	// Schedule is a cron spec for periodic sync
 	// If you want to synchronize repository every 5 minute, enter "*/5 * * * *".
 	// Cron spec ref: https://ko.wikipedia.org/wiki/Cron
