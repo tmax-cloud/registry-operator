@@ -33,7 +33,7 @@ func ExternalRegistryCronJob(exreg *regv1.ExternalRegistry) *regv1.RegistryCronJ
 						Name: exreg.Name,
 					},
 				},
-				TTL: -1,
+				TTL: 180,
 			},
 			Schedule: schedule,
 		},

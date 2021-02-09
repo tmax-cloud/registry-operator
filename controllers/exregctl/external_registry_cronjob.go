@@ -37,11 +37,8 @@ func (r *RegistryCronJob) Handle(c client.Client, exreg *regv1.ExternalRegistry,
 
 // Ready is to check if the external registry cron job is ready
 func (r *RegistryCronJob) Ready(c client.Client, exreg *regv1.ExternalRegistry, patchExreg *regv1.ExternalRegistry, useGet bool) error {
-	var err error = nil
-
 	if useGet {
-		err = r.get(c, exreg)
-		if err != nil {
+		if err := r.get(c, exreg); err != nil {
 			r.logger.Error(err, "get external registry cron job error")
 			return err
 		}
@@ -55,7 +52,7 @@ func (r *RegistryCronJob) Ready(c client.Client, exreg *regv1.ExternalRegistry, 
 		}
 	} else if len(diff) > 0 {
 		r.logger.Info("NotReady")
-		err = regv1.MakeRegistryError("NotReady")
+		err := regv1.MakeRegistryError("NotReady")
 		return err
 	}
 
@@ -65,15 +62,13 @@ func (r *RegistryCronJob) Ready(c client.Client, exreg *regv1.ExternalRegistry, 
 }
 
 func (r *RegistryCronJob) create(c client.Client, exreg *regv1.ExternalRegistry, patchExreg *regv1.ExternalRegistry, scheme *runtime.Scheme) error {
-	var err error = nil
-
-	if err = controllerutil.SetControllerReference(exreg, r.cron, scheme); err != nil {
+	if err := controllerutil.SetControllerReference(exreg, r.cron, scheme); err != nil {
 		r.logger.Error(err, "SetOwnerReference Failed")
 		return err
 	}
 
 	r.logger.Info("Create external registry cron job")
-	if err = c.Create(context.TODO(), r.cron); err != nil {
+	if err := c.Create(context.TODO(), r.cron); err != nil {
 		r.logger.Error(err, "Creating external registry cron job is failed.")
 		return err
 	}
