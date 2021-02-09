@@ -88,6 +88,85 @@ paths:
               schema:
                 example:
                   message: "error message"
+  /apis/registry.tmax.io/v1/namespaces/{namespace}/ext-scans/{name}:
+    post:
+      tags:
+        - Request
+      summary: Request external registry'ss image scanning
+      description: Request image scanning for specific registries/repositories/images. You can use '*' as a wildcard
+      parameters:
+        - in: "path"
+          name: namespace
+          description: namespace of image/repository/registry
+          required: true
+          schema:
+            type: "string"
+        - in: "path"
+          name: name
+          description: name to be used as ImageScanRequest resource name
+          required: true
+          schema:
+            type: "string"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Request'
+            examples:
+              multiRegistries:
+                summary: Multiple Registries
+                value:
+                  registries:
+                    - name: cicd-test
+                      repositories:
+                        - name: '*'
+                    - name: cicd-test2
+                      repositories:
+                        - name: '*'
+              multiRepositories:
+                summary: Multiple Repositories
+                value:
+                  registries:
+                    - name: cicd-test
+                      repositories:
+                        - name: 'cicd-test.test'
+                          versions:
+                            - "*"
+                        - name: 'cicd-test.test2'
+                          versions:
+                            - "*"
+              multiTags:
+                summary: Multiple Tags
+                value:
+                  registries:
+                    - name: cicd-test
+                      repositories:
+                        - name: 'cicd-test.test'
+                          versions:
+                            - "v1"
+                            - "v2"
+      responses:
+        '201':
+          description: Image scan requested
+          content:
+            application/json:
+              schema:
+                example:
+                  imageScanRequestName: "{name}-<randomID>"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                example:
+                  message: "error message"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                example:
+                  message: "error message"
   /apis/registry.tmax.io/v1/namespaces/{namespace}/repositories/{name}/imagescanresults:
     get:
       tags:
