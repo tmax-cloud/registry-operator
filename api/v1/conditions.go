@@ -2,17 +2,7 @@ package v1
 
 import "github.com/operator-framework/operator-lib/status"
 
-// Status is registry status type
-type Status string
-
 const (
-	// StatusNotReady is a status that registry is not ready
-	StatusNotReady = Status("NotReady")
-	// StatusRunning is a status taht registry is running
-	StatusRunning = Status("Running")
-	// StatusCreating is a status that registry subresources are being created
-	StatusCreating = Status("Creating")
-
 	/* Registry conditions */
 
 	// ConditionTypeDeployment is a condition that deployment exists
@@ -62,4 +52,9 @@ const (
 	ConditionTypeNotarySignerSecret = status.ConditionType("NotarySignerSecretExist")
 	// ConditionTypeNotarySignerService is a condition that notary signer service exists
 	ConditionTypeNotarySignerService = status.ConditionType("NotarySignerServiceExist")
+
+	/* ExternalRegistry conditions */
+
+	// ConditionTypeExRegistryCronJob is a condition that cronjob exists
+	ConditionTypeExRegistryCronJobExist = status.ConditionType("ExRegistryCronJobExist")
 )

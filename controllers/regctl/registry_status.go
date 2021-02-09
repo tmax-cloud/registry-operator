@@ -2,6 +2,7 @@ package regctl
 
 import (
 	"context"
+	"fmt"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 
@@ -17,13 +18,13 @@ import (
 // UpdateRegistryStatus ...
 // If registry status is updated, return true.
 func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) (bool, error) {
-	reqLogger := logf.Log.WithName("controller_registry").WithValues("Request.Namespace", reg.Namespace, "Request.Name", reg.Name)
+	reqLogger := logf.Log.WithName("regctl_status").WithValues("Request.Namespace", reg.Namespace, "Request.Name", reg.Name)
 	falseTypes := []status.ConditionType{}
 	checkTypes := getCheckTypes(reg)
 
 	var desiredStatus regv1.Status
 
-	if len(reg.Status.Conditions) != len(checkTypes) {
+	if len(reg.Status.Conditions) != len(checkTypes) || reg.Status.Phase == "" {
 		if err := initRegistryStatus(c, reg); err != nil {
 			return false, err
 		}
@@ -39,7 +40,6 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) (bool, error) {
 				return false, err
 			}
 			return true, nil
-
 		} else if reg.Status.Conditions.IsFalseFor(t) {
 			falseTypes = append(falseTypes, t)
 		}
@@ -69,7 +69,7 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) (bool, error) {
 	if reg.Status.Phase == string(desiredStatus) {
 		return false, nil
 	}
-	reqLogger.Info("Current Status(" + reg.Status.Phase + ") -> Desired Status(" + string(desiredStatus) + ")")
+	reqLogger.Info(fmt.Sprintf("Current Status(%s) -> Desired Status(%s)", reg.Status.Phase, string(desiredStatus)))
 
 	var message, reason string
 	target := reg.DeepCopy()
@@ -102,7 +102,7 @@ func UpdateRegistryStatus(c client.Client, reg *regv1.Registry) (bool, error) {
 }
 
 func initRegistryStatus(c client.Client, reg *regv1.Registry) error {
-	reqLogger := logf.Log.WithName("controller_registry").WithValues("Request.Namespace", reg.Namespace, "Request.Name", reg.Name)
+	reqLogger := logf.Log.WithName("regctl_status").WithValues("Request.Namespace", reg.Namespace, "Request.Name", reg.Name)
 
 	if reg.Status.Conditions == nil {
 		reg.Status.Conditions = status.NewConditions()

@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"github.com/operator-framework/operator-lib/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -36,10 +37,10 @@ type RegistryType string
 type ExternalRegistryStatusType string
 
 const (
-	// ExternalRegistryScheduling is
-	ExternalRegistryScheduling ExternalRegistryStatusType = "Scheduling"
-	// ExternalRegistryScheduled is
-	ExternalRegistryScheduled ExternalRegistryStatusType = "Scheduled"
+	// ExternalRegistryPending is
+	ExternalRegistryPending ExternalRegistryStatusType = "Pending"
+	// ExternalRegistryReady is
+	ExternalRegistryReady ExternalRegistryStatusType = "Ready"
 	// ExternalRegistryError is
 	ExternalRegistryError ExternalRegistryStatusType = "Error"
 )
@@ -65,6 +66,8 @@ type ExternalRegistrySpec struct {
 
 // ExternalRegistryStatus defines the observed state of ExternalRegistry
 type ExternalRegistryStatus struct {
+	// Conditions are status of subresources
+	Conditions status.Conditions `json:"conditions,omitempty"`
 	// State is a status of external registry
 	State ExternalRegistryStatusType `json:"state,omitempty"`
 	// StateChangedAt is the time when state was changed
