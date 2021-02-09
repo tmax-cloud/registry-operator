@@ -208,8 +208,6 @@ func newExtImageScanReq(name, ns string, reqBody *scan.Request) (*v1.ImageScanRe
 			return nil, err
 		}
 
-		imagePullSecret := regObj.Spec.ImagePullSecret
-
 		var repoUrls []string
 		for _, repo := range reg.Repositories {
 			repoName := repo.Name
@@ -243,11 +241,12 @@ func newExtImageScanReq(name, ns string, reqBody *scan.Request) (*v1.ImageScanRe
 		}
 
 		targets = append(targets, v1.ScanTarget{
-			Images:          repoUrls,
-			ImagePullSecret: imagePullSecret,
-			RegistryURL:     strings.TrimPrefix(regObj.Spec.RegistryURL, "https://"),
-			ElasticSearch:   true,
-			Insecure:        true,
+			Images:            repoUrls,
+			ImagePullSecret:   regObj.Spec.ImagePullSecret,
+			CertificateSecret: regObj.Spec.CertificateSecret,
+			RegistryURL:       strings.TrimPrefix(regObj.Spec.RegistryURL, "https://"),
+			ElasticSearch:     true,
+			Insecure:          regObj.Spec.Insecure,
 		})
 	}
 
