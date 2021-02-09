@@ -38,7 +38,6 @@ type Client struct {
 // SetAuth sets Authorization header
 func (c *Client) SetAuth(req *http.Request) {
 	req.Header.Add("Authorization", "Basic "+utils.HTTPEncodeBasicAuth(c.Login.Username, c.Login.Password))
-	ext.Logger.Info("Set Basic: " + utils.HTTPEncodeBasicAuth(c.Login.Username, c.Login.Password))
 }
 
 // ListRepositories get repository list from registry server
@@ -50,7 +49,9 @@ func (c *Client) ListRepositories() *regv1.APIRepositories {
 		return nil
 	}
 
-	c.SetAuth(req)
+	if c.Login.Username != "" && c.Login.Password != "" {
+		c.SetAuth(req)
+	}
 
 	res, err := c.Client.Do(req)
 	if err != nil {

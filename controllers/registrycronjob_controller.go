@@ -19,6 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/robfig/cron"
 	v1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -28,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"time"
 )
 
 // RegistryCronJobController reconciles a RegistryJob object
@@ -54,6 +55,7 @@ func StartRegistryCronJobController(c client.Client, log logr.Logger, scheme *ru
 
 // +kubebuilder:rbac:groups=tmax.io,resources=registrycronjobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=tmax.io,resources=registrycronjobs/status,verbs=get;update;patch
+
 func (r *RegistryCronJobController) syncAll() {
 	list := &v1.RegistryCronJobList{}
 	if err := r.Client.List(context.Background(), list); err != nil {
