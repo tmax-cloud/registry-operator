@@ -46,6 +46,7 @@ const (
 	SubTypeRegistryIngress
 
 	SubTypeExternalRegistryCronJob
+	SubTypeExternalRegistryJob
 )
 
 // SubresourceName returns Notary's or Registry's subresource name
@@ -85,6 +86,8 @@ func SubresourceName(subresource interface{}, subresourceType SubresourceType) s
 		switch subresourceType {
 		case SubTypeExternalRegistryCronJob:
 			return regv1.K8sPrefix + ExternalRegistryPrefix + res.Name
+		case SubTypeExternalRegistryJob:
+			return regv1.K8sPrefix + ExternalRegistryPrefix + res.Name + "-" + utils.RandomString(10)
 		}
 	}
 

@@ -6,6 +6,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Status is registry status type
+type Status string
+
+const (
+	// StatusNotReady is a status that registry is not ready
+	StatusNotReady = Status("NotReady")
+	// StatusRunning is a status taht registry is running
+	StatusRunning = Status("Running")
+	// StatusCreating is a status that registry subresources are being created
+	StatusCreating = Status("Creating")
+)
+
 // RegistrySpec defines the desired state of Registry
 type RegistrySpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster

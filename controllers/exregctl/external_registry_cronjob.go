@@ -3,9 +3,11 @@ package exregctl
 import (
 	"context"
 
+	"github.com/operator-framework/operator-lib/status"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,8 +39,16 @@ func (r *RegistryCronJob) Handle(c client.Client, exreg *regv1.ExternalRegistry,
 
 // Ready is to check if the external registry cron job is ready
 func (r *RegistryCronJob) Ready(c client.Client, exreg *regv1.ExternalRegistry, patchExreg *regv1.ExternalRegistry, useGet bool) error {
+	var err error = nil
+	condition := &status.Condition{
+		Status: corev1.ConditionFalse,
+		Type:   regv1.ConditionTypeExRegistryCronJobExist,
+	}
+
+	defer utils.SetCondition(err, patchExreg, condition)
+
 	if useGet {
-		if err := r.get(c, exreg); err != nil {
+		if err = r.get(c, exreg); err != nil {
 			r.logger.Error(err, "get external registry cron job error")
 			return err
 		}
@@ -47,17 +57,17 @@ func (r *RegistryCronJob) Ready(c client.Client, exreg *regv1.ExternalRegistry, 
 	diff := r.compare(exreg)
 	if diff == nil {
 		r.logger.Error(nil, "Invalid cron job!!!")
-		if err := r.delete(c, patchExreg); err != nil {
+		if err = r.delete(c, patchExreg); err != nil {
 			return err
 		}
 	} else if len(diff) > 0 {
 		r.logger.Info("NotReady")
-		err := regv1.MakeRegistryError("NotReady")
+		err = regv1.MakeRegistryError("NotReady")
 		return err
 	}
 
 	r.logger.Info("Ready")
-	patchExreg.Status.State = regv1.ExternalRegistryScheduled
+	condition.Status = corev1.ConditionTrue
 	return nil
 }
 

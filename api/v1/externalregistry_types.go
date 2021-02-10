@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"github.com/operator-framework/operator-lib/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -36,12 +37,12 @@ type RegistryType string
 type ExternalRegistryStatusType string
 
 const (
-	// ExternalRegistryScheduling is
-	ExternalRegistryScheduling ExternalRegistryStatusType = "Scheduling"
-	// ExternalRegistryScheduled is
-	ExternalRegistryScheduled ExternalRegistryStatusType = "Scheduled"
-	// ExternalRegistryError is
-	ExternalRegistryError ExternalRegistryStatusType = "Error"
+	// ExternalRegistryPending is
+	ExternalRegistryPending ExternalRegistryStatusType = "Pending"
+	// ExternalRegistryReady is
+	ExternalRegistryReady ExternalRegistryStatusType = "Ready"
+	// ExternalRegistryNotReady is
+	ExternalRegistryNotReady ExternalRegistryStatusType = "NotReady"
 )
 
 // ExternalRegistrySpec defines the desired state of ExternalRegistry
@@ -65,6 +66,8 @@ type ExternalRegistrySpec struct {
 
 // ExternalRegistryStatus defines the observed state of ExternalRegistry
 type ExternalRegistryStatus struct {
+	// Conditions are status of subresources
+	Conditions status.Conditions `json:"conditions,omitempty"`
 	// State is a status of external registry
 	State ExternalRegistryStatusType `json:"state,omitempty"`
 	// StateChangedAt is the time when state was changed
@@ -75,7 +78,9 @@ type ExternalRegistryStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=externalregistries,scope=Namespaced,shortName=exreg
 // +kubebuilder:printcolumn:name="REGISTRY_URL",type=string,JSONPath=`.spec.registryUrl`
-// +kubebuilder:printcolumn:name="IMAGE_PULL_SECRET",type=string,JSONPath=`.spec.imagePullSecret`
+// +kubebuilder:printcolumn:name="REGISTRY_TYPE",type=string,JSONPath=`.spec.registryType`
+// +kubebuilder:printcolumn:name="STATUS",type=string,JSONPath=`.status.state`
+// +kubebuilder:printcolumn:name="AGE",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // ExternalRegistry is the Schema for the externalregistries API
 type ExternalRegistry struct {

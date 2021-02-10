@@ -14,7 +14,7 @@ import (
 )
 
 func UpdateNotaryStatus(c client.Client, not *regv1.Notary) (bool, error) {
-	reqLogger := logf.Log.WithName("controller_notary").WithValues("Request.Namespace", not.Namespace, "Request.Name", not.Name)
+	reqLogger := logf.Log.WithName("notaryctl_status").WithValues("Request.Namespace", not.Namespace, "Request.Name", not.Name)
 	falseTypes := []status.ConditionType{}
 	checkTypes := getCheckTypes(not)
 
@@ -46,7 +46,7 @@ func UpdateNotaryStatus(c client.Client, not *regv1.Notary) (bool, error) {
 }
 
 func initNotaryStatus(c client.Client, not *regv1.Notary) error {
-	reqLogger := logf.Log.WithName("controller_registry").WithValues("Request.Namespace", not.Namespace, "Request.Name", not.Name)
+	reqLogger := logf.Log.WithName("notaryctl_status").WithValues("Request.Namespace", not.Namespace, "Request.Name", not.Name)
 
 	if not.Status.Conditions == nil {
 		not.Status.Conditions = status.NewConditions()
