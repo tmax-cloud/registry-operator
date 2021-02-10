@@ -12,9 +12,15 @@ spec:
   - JSONPath: .spec.registryUrl
     name: REGISTRY_URL
     type: string
-  - JSONPath: .spec.imagePullSecret
-    name: IMAGE_PULL_SECRET
+  - JSONPath: .spec.registryType
+    name: REGISTRY_TYPE
     type: string
+  - JSONPath: .status.state
+    name: STATUS
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: AGE
+    type: date
   group: tmax.io
   names:
     kind: ExternalRegistry

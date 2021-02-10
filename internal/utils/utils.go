@@ -34,6 +34,7 @@ func GetRegistryLogger(subresource interface{}, resNamespace, resName string) lo
 	return log.Log.WithValues(typeName+".Namespace", resNamespace, typeName+".Name", resName, typeName+".Api", funcName)
 }
 
+// SetCondition sets a condition of patch status
 func SetCondition(error error, patch interface{}, condition *status.Condition) {
 	if error != nil {
 		condition.Message = error.Error()

@@ -78,7 +78,9 @@ type ExternalRegistryStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=externalregistries,scope=Namespaced,shortName=exreg
 // +kubebuilder:printcolumn:name="REGISTRY_URL",type=string,JSONPath=`.spec.registryUrl`
-// +kubebuilder:printcolumn:name="IMAGE_PULL_SECRET",type=string,JSONPath=`.spec.imagePullSecret`
+// +kubebuilder:printcolumn:name="REGISTRY_TYPE",type=string,JSONPath=`.spec.registryType`
+// +kubebuilder:printcolumn:name="STATUS",type=string,JSONPath=`.status.state`
+// +kubebuilder:printcolumn:name="AGE",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // ExternalRegistry is the Schema for the externalregistries API
 type ExternalRegistry struct {
