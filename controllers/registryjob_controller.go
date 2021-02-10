@@ -22,8 +22,11 @@ import (
 	"github.com/tmax-cloud/registry-operator/pkg/scheduler"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 )
@@ -154,9 +157,49 @@ func (r *RegistryJobReconciler) patchStatus(instance, original *tmaxiov1.Registr
 	}
 }
 
+// collectTTLAll collects RegistryJobs who are older than TTL
+func (r *RegistryJobReconciler) collectTTLAll() {
+	list := &tmaxiov1.RegistryJobList{}
+	if err := r.Client.List(context.Background(), list); err != nil {
+		if _, ok := err.(*cache.ErrCacheNotStarted); !ok {
+			log.Error(err, "")
+		}
+		return
+	}
+
+	// Sync all RCJs
+	for _, cj := range list.Items {
+		if err := r.collectTTL(&cj); err != nil {
+			log.Error(err, "")
+		}
+	}
+}
+
+// collectTTL deletes RegistryJob if it's older than its' TTL
+func (r *RegistryJobReconciler) collectTTL(j *tmaxiov1.RegistryJob) error {
+	if j.Status.CompletionTime == nil || j.Spec.TTL <= 0 {
+		return nil
+	}
+
+	// If now is after completion+ttl, delete it
+	if time.Now().After(j.Status.CompletionTime.Time.Add(time.Duration(j.Spec.TTL) * time.Second)) {
+		if err := r.Client.Delete(context.Background(), j); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // SetupWithManager sets up the reconciler
 func (r *RegistryJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		For(&tmaxiov1.RegistryJob{}).
 		Complete(r)
+
+	// Start TTL collector
+	stopChan := make(chan struct{})
+	go wait.Until(r.collectTTLAll, 10, stopChan)
+
+	return err
 }
