@@ -82,6 +82,8 @@
 
 ## Example
 
+**Note**: Please check that `reg-test` namespace exists before you create the test example below. If not exists, you must create [reg-test namespace](../../config/samples/namespace.yaml).
+
 Reference: [Test Example](../../config/samples/tmax.io_v1_registry.yaml)
 
 ## Result

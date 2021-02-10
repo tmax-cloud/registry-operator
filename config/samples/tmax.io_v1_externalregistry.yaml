@@ -5,7 +5,8 @@ metadata:
   namespace: reg-test
 spec:
   registryType: "HarborV2"
-  registryUrl: "https://core.harbor.220.90.208.239.nip.io"
+  registryUrl: "core.harbor.220.90.208.239.nip.io"
   imagePullSecret: "harbor-image-pull-secret"
-  certificateSecret: 
-  #syncPeriod: 1
+  certificateSecret: "harbor-ca"
+  insecure: false
+  schedule: "*/5 * * * *"
