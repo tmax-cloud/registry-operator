@@ -55,6 +55,8 @@ const (
 
 	/* ExternalRegistry conditions */
 
+	// ConditionTypeExRegistryInitialized is a condition that external registry is initialized
+	ConditionTypeExRegistryInitialized = status.ConditionType("ExRegistryInitialized")
 	// ConditionTypeExRegistryCronJob is a condition that cronjob exists
 	ConditionTypeExRegistryCronJobExist = status.ConditionType("ExRegistryCronJobExist")
 )

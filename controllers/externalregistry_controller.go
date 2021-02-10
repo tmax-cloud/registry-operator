@@ -70,6 +70,7 @@ func (r *ExternalRegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 func (r *ExternalRegistryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&regv1.ExternalRegistry{}).
+		Owns(&regv1.RegistryCronJob{}).
 		Complete(r)
 }
 
@@ -133,7 +134,7 @@ func (r *ExternalRegistryReconciler) update(origin, target *regv1.ExternalRegist
 func collectExRegSubController(exreg *regv1.ExternalRegistry) []exregctl.ExternalRegistrySubresource {
 	collection := []exregctl.ExternalRegistrySubresource{}
 
-	collection = append(collection, &exregctl.RegistryCronJob{})
+	collection = append(collection, &exregctl.RegistryCronJob{}, &exregctl.RegistryJob{})
 
 	return collection
 }

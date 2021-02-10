@@ -41,8 +41,8 @@ const (
 	ExternalRegistryPending ExternalRegistryStatusType = "Pending"
 	// ExternalRegistryReady is
 	ExternalRegistryReady ExternalRegistryStatusType = "Ready"
-	// ExternalRegistryError is
-	ExternalRegistryError ExternalRegistryStatusType = "Error"
+	// ExternalRegistryNotReady is
+	ExternalRegistryNotReady ExternalRegistryStatusType = "NotReady"
 )
 
 // ExternalRegistrySpec defines the desired state of ExternalRegistry

@@ -47,7 +47,7 @@ func UpdateRegistryStatus(c client.Client, exreg *regv1.ExternalRegistry) (bool,
 	desiredStatus := regv1.ExternalRegistryReady
 
 	if len(falseTypes) > 0 {
-		desiredStatus = regv1.ExternalRegistryError
+		desiredStatus = regv1.ExternalRegistryNotReady
 	}
 
 	reqLogger.Info("desiredStatus", "status", desiredStatus)
@@ -111,6 +111,7 @@ func initRegistryStatus(c client.Client, exreg *regv1.ExternalRegistry) error {
 func getCheckTypes(exreg *regv1.ExternalRegistry) []status.ConditionType {
 	checkTypes := []status.ConditionType{
 		regv1.ConditionTypeExRegistryCronJobExist,
+		regv1.ConditionTypeExRegistryInitialized,
 	}
 
 	return checkTypes
