@@ -7,3 +7,4 @@
 - [Repository](./repository.md)
 - [RegistryJob](./registryjob.md)
 - [RegistryCronJob](./registrycronjob.md)
+- [ExternalRegistry](./externalregistry.md)
