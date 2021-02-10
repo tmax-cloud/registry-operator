@@ -2,7 +2,6 @@ package schemes
 
 import (
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -13,11 +12,6 @@ func ExternalRegistryJob(exreg *regv1.ExternalRegistry) *regv1.RegistryJob {
 	resName := SubresourceName(exreg, SubTypeExternalRegistryJob)
 	labels["app"] = "external-registry-job"
 	labels["apps"] = resName
-
-	schedule := exreg.Spec.Schedule
-	if schedule == "" {
-		schedule = config.Config.GetString(config.ConfigExternalRegistrySyncPeriod)
-	}
 
 	return &regv1.RegistryJob{
 		ObjectMeta: v1.ObjectMeta{
