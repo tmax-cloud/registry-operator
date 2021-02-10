@@ -44,7 +44,7 @@ type RegistryJobSpec struct {
 	// If 0, it is deleted immediately
 	// If -1, it is not deleted
 	// If ttl > 0, it is deleted after ttl seconds
-	TTL int `json:"ttl"` // TODO - collector after TTL
+	TTL int `json:"ttl"`
 
 	// Priority is an integer value, greater or equal to 0
 	Priority int `json:"priority,omitempty"`
