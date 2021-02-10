@@ -43,6 +43,8 @@ func SetCondition(error error, patch interface{}, condition *status.Condition) {
 		p.Status.Conditions.SetCondition(*condition)
 	case *regv1.Notary:
 		p.Status.Conditions.SetCondition(*condition)
+	case *regv1.ExternalRegistry:
+		p.Status.Conditions.SetCondition(*condition)
 	}
 }
 
