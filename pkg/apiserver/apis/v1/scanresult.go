@@ -268,7 +268,7 @@ func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultRespons
 
 	imagePullSecretData, ok := imagePullSecret.Data[schemes.DockerConfigJson]
 	if !ok {
-		return nil, errors.NewInternalError(gerr.New(fmt.Sprintf("Failed to get dockerconfig from ImagePullSecret")))
+		return nil, errors.NewInternalError(gerr.New("Failed to get dockerconfig from ImagePullSecret"))
 	}
 
 	dockerConfig := &schemes.DockerConfig{}
@@ -302,16 +302,16 @@ func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultRespons
 	if certSecret.Type == corev1.SecretTypeTLS {
 		tlsCertData, ok = certSecret.Data[corev1.TLSCertKey]
 		if !ok {
-			return nil, errors.NewInternalError(gerr.New(fmt.Sprintf("Failed to get TLS Certificate from CertificateSecret")))
+			return nil, errors.NewInternalError(gerr.New("Failed to get TLS Certificate from CertificateSecret"))
 		}
 	} else if certSecret.Type == corev1.SecretTypeOpaque {
 		// FIXME: if cert's key name is random.
 		tlsCertData, ok = certSecret.Data["ca.crt"]
 		if !ok {
-			return nil, errors.NewInternalError(gerr.New(fmt.Sprintf("Failed to get TLS Certificate from CertificateSecret")))
+			return nil, errors.NewInternalError(gerr.New("Failed to get TLS Certificate from CertificateSecret"))
 		}
 	} else {
-		return nil, errors.NewInternalError(gerr.New(fmt.Sprintf("Failed to get TLS Certificate from CertificateSecret")))
+		return nil, errors.NewInternalError(gerr.New("Failed to get TLS Certificate from CertificateSecret"))
 	}
 
 	imageURL := strings.Join([]string{registryHostname, repo.Spec.Name}, "/")
