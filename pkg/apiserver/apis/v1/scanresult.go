@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	gerr "errors"
-
 	"github.com/genuinetools/reg/clair"
 	"github.com/genuinetools/reg/registry"
 	"github.com/genuinetools/reg/repoutils"
@@ -263,23 +261,23 @@ func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultRespons
 	imagePullSecret := &corev1.Secret{}
 	if err := k8sClient.Get(ctx, types.NamespacedName{Name: reg.Spec.ImagePullSecret, Namespace: namespace}, imagePullSecret); err != nil {
 		log.Info(err.Error())
-		return nil, errors.NewInternalError(gerr.New(fmt.Sprintf("Failed to get ImagePullSecret(%s)", reg.Spec.ImagePullSecret)))
+		return nil, errors.NewInternalError(fmt.Errorf("Failed to get ImagePullSecret(%s)", reg.Spec.ImagePullSecret))
 	}
 
 	imagePullSecretData, ok := imagePullSecret.Data[schemes.DockerConfigJson]
 	if !ok {
-		return nil, errors.NewInternalError(gerr.New("Failed to get dockerconfig from ImagePullSecret"))
+		return nil, errors.NewInternalError(fmt.Errorf("Failed to get dockerconfig from ImagePullSecret"))
 	}
 
 	dockerConfig := &schemes.DockerConfig{}
 	if err := json.Unmarshal(imagePullSecretData, dockerConfig); err != nil {
-		return nil, errors.NewInternalError(gerr.New(fmt.Sprintf("Failed to unmarshal ImagePullSecret(%s)'s dockerconfig", reg.Spec.ImagePullSecret)))
+		return nil, errors.NewInternalError(fmt.Errorf("Failed to unmarshal ImagePullSecret(%s)'s dockerconfig", reg.Spec.ImagePullSecret))
 	}
 
 	registryHostname := strings.TrimPrefix(reg.Spec.RegistryURL, "https://")
 	dockerConfigAuths, ok := dockerConfig.Auths[registryHostname]
 	if !ok {
-		return nil, errors.NewInternalError(gerr.New(fmt.Sprintf("Failed to get dockerconfig[%s].auths", registryHostname)))
+		return nil, errors.NewInternalError(fmt.Errorf("Failed to get dockerconfig[%s].auths", registryHostname))
 	}
 	basicAuthCredential := dockerConfigAuths.Auth
 	decoded, err := base64.StdEncoding.DecodeString(basicAuthCredential)
@@ -295,23 +293,23 @@ func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultRespons
 
 	certSecret := &corev1.Secret{}
 	if err := k8sClient.Get(ctx, types.NamespacedName{Name: reg.Spec.CertificateSecret, Namespace: namespace}, certSecret); err != nil {
-		return nil, errors.NewInternalError(gerr.New(fmt.Sprintf("Failed to get dockerconfig[%s].auths", reg.Spec.RegistryURL)))
+		return nil, errors.NewInternalError(fmt.Errorf("Failed to get dockerconfig[%s].auths", reg.Spec.RegistryURL))
 	}
 
 	var tlsCertData []byte
 	if certSecret.Type == corev1.SecretTypeTLS {
 		tlsCertData, ok = certSecret.Data[corev1.TLSCertKey]
 		if !ok {
-			return nil, errors.NewInternalError(gerr.New("Failed to get TLS Certificate from CertificateSecret"))
+			return nil, errors.NewInternalError(fmt.Errorf("Failed to get TLS Certificate from CertificateSecret"))
 		}
 	} else if certSecret.Type == corev1.SecretTypeOpaque {
 		// FIXME: if cert's key name is random.
 		tlsCertData, ok = certSecret.Data["ca.crt"]
 		if !ok {
-			return nil, errors.NewInternalError(gerr.New("Failed to get TLS Certificate from CertificateSecret"))
+			return nil, errors.NewInternalError(fmt.Errorf("Failed to get TLS Certificate from CertificateSecret"))
 		}
 	} else {
-		return nil, errors.NewInternalError(gerr.New("Failed to get TLS Certificate from CertificateSecret"))
+		return nil, errors.NewInternalError(fmt.Errorf("Failed to get TLS Certificate from CertificateSecret"))
 	}
 
 	imageURL := strings.Join([]string{registryHostname, repo.Spec.Name}, "/")
