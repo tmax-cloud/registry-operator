@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
-	controller "github.com/tmax-cloud/registry-operator/pkg/controllers"
+	"github.com/tmax-cloud/registry-operator/controllers/signctl"
 )
 
 // ImageSignerReconciler reconciles a ImageSigner object
@@ -75,7 +75,7 @@ func (r *ImageSignerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 	}
 
 	// if signer key is not exist, create root key
-	signCtl := controller.NewSigningController(r.Client, r.Scheme, signer, "", "")
+	signCtl := signctl.NewSigningController(r.Client, r.Scheme, signer, "", "")
 
 	rootKey, err := signCtl.CreateRootKey(signer, r.Scheme)
 	if err != nil {

@@ -1,4 +1,4 @@
-package controller
+package signctl
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	apiv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
-	"github.com/tmax-cloud/registry-operator/pkg/registry"
 	"github.com/tmax-cloud/registry-operator/pkg/trust"
 	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -29,7 +28,7 @@ func NewSigningController(c client.Client, scheme *runtime.Scheme, signer *apiv1
 	return &SigningController{
 		client:      c,
 		ImageSigner: signer,
-		Regctl:      registry.NewRegCtl(c, registryName, registryNamespace),
+		Regctl:      NewRegCtl(c, registryName, registryNamespace),
 		Scheme:      scheme,
 	}
 }
@@ -37,7 +36,7 @@ func NewSigningController(c client.Client, scheme *runtime.Scheme, signer *apiv1
 type SigningController struct {
 	client      client.Client
 	ImageSigner *apiv1.ImageSigner
-	Regctl      *registry.RegCtl
+	Regctl      *RegCtl
 	Scheme      *runtime.Scheme
 }
 

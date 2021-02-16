@@ -24,6 +24,7 @@ import (
 	exv1beta1 "k8s.io/api/extensions/v1beta1"
 
 	"github.com/tmax-cloud/registry-operator/controllers/repoctl"
+	"github.com/tmax-cloud/registry-operator/controllers/signctl"
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 
@@ -38,7 +39,6 @@ import (
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
-	controller "github.com/tmax-cloud/registry-operator/pkg/controllers"
 	"github.com/tmax-cloud/registry-operator/pkg/trust"
 )
 
@@ -204,7 +204,7 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		}
 
 		// Initialize Sign controller
-		signCtl := controller.NewSigningController(r.Client, r.Scheme, signer, targetReg.Name, targetReg.Namespace)
+		signCtl := signctl.NewSigningController(r.Client, r.Scheme, signer, targetReg.Name, targetReg.Namespace)
 		img.ServerUrl = signCtl.Regctl.GetEndpoint()
 		img.NotaryServerUrl = signCtl.Regctl.GetNotaryEndpoint()
 
@@ -231,7 +231,7 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 
 	// Sign image
 	log.Info("sign image")
-	signCtl := controller.NewSigningController(r.Client, r.Scheme, signer, "", "")
+	signCtl := signctl.NewSigningController(r.Client, r.Scheme, signer, "", "")
 	if err := signCtl.SignImage(signerKey, img, ca); err != nil {
 		log.Error(err, "sign image")
 		makeResponse(signReq, false, err.Error(), "")
