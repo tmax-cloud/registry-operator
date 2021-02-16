@@ -20,7 +20,7 @@ spec:
         - /manager
         args:
         - --enable-leader-election
-        image: tmaxcloudck/registry-operator:v0.2.1
+        image: tmaxcloudck/registry-operator:v0.2.2
         name: manager
         imagePullPolicy: Always
         env:
