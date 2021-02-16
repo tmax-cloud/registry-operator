@@ -10,7 +10,7 @@
 1. On your local machine, get released source to install.
 
     ```bash
-    export VERSION=v0.2.1
+    export VERSION=v0.2.2
     mkdir registry-operator-$VERSION
     wget -c https://github.com/tmax-cloud/registry-operator/archive/$VERSION.tar.gz -O - |tar -xz -C registry-operator-$VERSION --strip-components=1
     export WORKDIR=$(pwd)/registry-operator-$VERSION
