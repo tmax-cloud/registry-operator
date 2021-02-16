@@ -195,6 +195,10 @@ func main() {
 		setupLog.Error(err, "failed to synchronize all registries")
 	}
 
+	if err := regApi.SyncAllRepoSigner(mgr.GetClient(), mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "failed to synchronize all repository signers")
+	}
+
 	// Wait until webserver and manager is over
 	wg.Wait()
 }
