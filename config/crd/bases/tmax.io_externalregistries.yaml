@@ -62,7 +62,7 @@ spec:
               description: Do not verify tls certificates
               type: boolean
             registryType:
-              description: Registry type like Harbor
+              description: Registry type like HarborV2
               enum:
               - HarborV2
               type: string

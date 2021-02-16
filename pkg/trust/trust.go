@@ -31,14 +31,45 @@ import (
 
 var log = ctrl.Log.WithName("trust")
 
-type notaryRepo struct {
-	notaryPath string
-	repo       client.Repository
-	image      *Image
-	passPhrase tmaxiov1.TrustPass
+func NewReadOnly(image *Image, path string) (ReadOnly, error) {
+	n := &notaryRepo{
+		notaryPath: path,
+	}
+
+	token, err := image.GetToken(TokenTypeNotary)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate Transport
+	rt := &RegistryTransport{
+		Base: &http.Transport{ // Base is DefaultTransport, added TLSClientConfig
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
+		},
+		Token: token,
+	}
+
+	// Initialize Notary repository
+	repo, err := client.NewFileCachedRepository(n.notaryPath, data.GUN(image.GetImageNameWithHost()), image.NotaryServerUrl, rt, n.passRetriever(), trustpinning.TrustPinConfig{})
+	if err != nil {
+		return nil, err
+	}
+	n.repo = repo
+
+	return n, nil
 }
 
-func New(image *Image, passPhrase tmaxiov1.TrustPass, path string, ca []byte, rootKey apiv1.TrustKey, targetKey *apiv1.TrustKey) (*notaryRepo, error) {
+func New(image *Image, passPhrase tmaxiov1.TrustPass, path string, ca []byte, rootKey apiv1.TrustKey, targetKey *apiv1.TrustKey) (NotaryRepository, error) {
 	if image == nil {
 		return nil, fmt.Errorf("image cannot be nil")
 	}
@@ -117,7 +148,7 @@ func New(image *Image, passPhrase tmaxiov1.TrustPass, path string, ca []byte, ro
 	return n, nil
 }
 
-func NewDummy(path string) (*notaryRepo, error) {
+func NewDummy(path string) (Writable, error) {
 	n := &notaryRepo{
 		notaryPath: path,
 		passPhrase: apiv1.TrustPass{},
@@ -156,6 +187,13 @@ func getKeyStores(baseDir string, retriever notary.PassRetriever) ([]trustmanage
 		return nil, fmt.Errorf("failed to create private key store in directory: %s", baseDir)
 	}
 	return []trustmanager.KeyStore{fileKeyStore}, nil
+}
+
+type notaryRepo struct {
+	notaryPath string
+	repo       client.Repository
+	image      *Image
+	passPhrase tmaxiov1.TrustPass
 }
 
 func (n *notaryRepo) GetPassphrase(id string) (string, error) {
@@ -300,4 +338,75 @@ func (n *notaryRepo) passRetriever() notary.PassRetriever {
 		}
 		return phrase, attempts > 1, nil
 	}
+}
+
+func (n *notaryRepo) GetSignedMetadata(tag string) (*trustRepo, error) {
+	allSignedTargets, err := n.repo.GetAllTargetMetadataByName(tag)
+	if err != nil {
+		log.Error(err, "failed to get all target metadata")
+		return &trustRepo{}, err
+	}
+
+	signatureRows := matchReleasedSignatures(allSignedTargets)
+
+	// get the administrative roles
+	adminRolesWithSigs, err := n.repo.ListRoles()
+	if err != nil {
+		return &trustRepo{}, fmt.Errorf("No signers for %s", n.image.NotaryServerUrl)
+	}
+
+	// get delegation roles with the canonical key IDs
+	delegationRoles, err := n.repo.GetDelegationRoles()
+	if err != nil {
+		log.Error(err, "no delegation roles found, or error fetching them for %s", n.image.NotaryServerUrl)
+	}
+
+	// process the signatures to include repo admin if signed by the base targets role
+	for idx, sig := range signatureRows {
+		if len(sig.Signers) == 0 {
+			signatureRows[idx].Signers = append(sig.Signers, releasedRoleName)
+		}
+	}
+
+	signerList, adminList := []trustSigner{}, []trustSigner{}
+
+	signerRoleToKeyIDs := getDelegationRoleToKeyMap(delegationRoles)
+
+	for signerName, signerKeys := range signerRoleToKeyIDs {
+		signerKeyList := []trustKey{}
+		for _, keyID := range signerKeys {
+			signerKeyList = append(signerKeyList, trustKey{ID: keyID})
+		}
+		signerList = append(signerList, trustSigner{signerName, signerKeyList})
+	}
+	sort.Slice(signerList, func(i, j int) bool { return signerList[i].Name > signerList[j].Name })
+
+	for _, adminRole := range adminRolesWithSigs {
+		switch adminRole.Name {
+		case data.CanonicalRootRole:
+			rootKeys := []trustKey{}
+			for _, keyID := range adminRole.KeyIDs {
+				rootKeys = append(rootKeys, trustKey{ID: keyID})
+			}
+			adminList = append(adminList, trustSigner{"Root", rootKeys})
+		case data.CanonicalTargetsRole:
+			targetKeys := []trustKey{}
+			for _, keyID := range adminRole.KeyIDs {
+				targetKeys = append(targetKeys, trustKey{ID: keyID})
+			}
+			adminList = append(adminList, trustSigner{"Repository", targetKeys})
+		}
+	}
+	sort.Slice(adminList, func(i, j int) bool { return adminList[i].Name > adminList[j].Name })
+
+	return &trustRepo{
+		Name:               n.repo.GetGUN().String(),
+		SignedTags:         signatureRows,
+		Signers:            signerList,
+		AdministrativeKeys: adminList,
+	}, nil
+}
+
+func (n *notaryRepo) DeleteSign() {
+	// TODO
 }
