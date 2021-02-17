@@ -8,10 +8,12 @@ import (
 	"net/url"
 	"path"
 
+	"github.com/docker/distribution"
+	"github.com/docker/distribution/manifest/schema2"
 	reg "github.com/genuinetools/reg/clair"
 	"github.com/opencontainers/go-digest"
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
-	"github.com/tmax-cloud/registry-operator/pkg/trust"
+	"github.com/tmax-cloud/registry-operator/pkg/image"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -43,7 +45,7 @@ type ClairResponse struct {
 	Layer reg.Layer `json:"Layer"`
 }
 
-func GetScanResult(img *trust.Image) (ResultResponse, error) {
+func GetScanResult(img *image.Image) (ResultResponse, error) {
 	if img == nil {
 		return nil, fmt.Errorf("img cannot be nil")
 	}
@@ -56,7 +58,7 @@ func GetScanResult(img *trust.Image) (ResultResponse, error) {
 	}
 
 	// Get clair result for each layer
-	filteredLayer, err := filterEmptyLayers(manifest.Layers)
+	filteredLayer, err := filterEmptyLayers(manifest.Schema.(schema2.Manifest).Layers)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +68,7 @@ func GetScanResult(img *trust.Image) (ResultResponse, error) {
 	}
 
 	// Fetch image's vulnerabilities (only fetch the top layer)
-	vul, err := fetchClairResult(filteredLayer[0].Digest)
+	vul, err := fetchClairResult(filteredLayer[0].Digest.String())
 	if err != nil {
 		log.Error(err, "")
 		return nil, err
@@ -128,11 +130,11 @@ func fetchClairResult(layerId string) (*ClairResponse, error) {
 	return layer, nil
 }
 
-func filterEmptyLayers(layers []trust.ImageManifestLayer) ([]trust.ImageManifestLayer, error) {
-	var results []trust.ImageManifestLayer
+func filterEmptyLayers(layers []distribution.Descriptor) ([]distribution.Descriptor, error) {
+	var results []distribution.Descriptor
 
 	for _, l := range layers {
-		d, err := digest.Parse(l.Digest)
+		d, err := digest.Parse(l.Digest.String())
 		if err != nil {
 			return nil, err
 		}

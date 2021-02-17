@@ -1,14 +1,15 @@
 package scan
 
 import (
-	"github.com/gorilla/mux"
-	"github.com/tmax-cloud/registry-operator/pkg/trust"
 	"net/http"
 	"os"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"testing"
 	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/tmax-cloud/registry-operator/pkg/image"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestGetScanResult(t *testing.T) {
@@ -27,7 +28,7 @@ func TestGetScanResult(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	img, err := trust.NewImage(imgUrl, regUrl, "", "", nil)
+	img, err := image.NewImage(imgUrl, regUrl, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/tmax-cloud/registry-operator/controllers/repoctl"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
+	"github.com/tmax-cloud/registry-operator/pkg/image"
 	"github.com/tmax-cloud/registry-operator/pkg/trust"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -282,8 +283,8 @@ func SyncAllRepoSigner(c client.Client, scheme *runtime.Scheme) error {
 			originRepo := repo.DeepCopy()
 
 			for i, tag := range repo.Spec.Versions {
-				image := fmt.Sprintf("%s:%s", gun, tag.Version)
-				img, err := trust.NewImage(image, reg.Status.ServerURL, reg.Status.NotaryURL, "", nil)
+				imageName := fmt.Sprintf("%s:%s", gun, tag.Version)
+				img, err := image.NewImage(imageName, reg.Status.ServerURL, "", nil)
 				if err != nil {
 					logger.Error(err, "")
 					continue
@@ -296,7 +297,7 @@ func SyncAllRepoSigner(c client.Client, scheme *runtime.Scheme) error {
 				}
 				img.BasicAuth = basicAuth
 
-				not, err := trust.NewReadOnly(img, fmt.Sprintf("/tmp/notary/%s", utils.RandomString(10)))
+				not, err := trust.NewReadOnly(img, reg.Status.NotaryURL, fmt.Sprintf("/tmp/notary/%s", utils.RandomString(10)))
 				if err != nil {
 					logger.Error(err, "failed to create notary client")
 					continue

@@ -27,6 +27,7 @@ import (
 	"github.com/tmax-cloud/registry-operator/controllers/signctl"
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
+	"github.com/tmax-cloud/registry-operator/pkg/image"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -39,7 +40,6 @@ import (
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/pkg/trust"
 )
 
 const (
@@ -135,7 +135,7 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	}
 
 	// Start signing procedure
-	img, err := trust.NewImage(signReq.Spec.Image, "", "", "", ca)
+	img, err := image.NewImage(signReq.Spec.Image, "", "", ca)
 	if err != nil {
 		log.Error(err, "")
 		makeResponse(signReq, false, err.Error(), "")
@@ -163,6 +163,8 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	if err := r.Client.Get(context.Background(), types.NamespacedName{Name: harborCoreIngress, Namespace: harborNamespace}, regIng); err != nil {
 		log.Error(err, "")
 	}
+
+	notaryURL := ""
 	if regIng.ResourceVersion != "" && len(regIng.Spec.Rules) == 1 && img.Host == regIng.Spec.Rules[0].Host {
 		isHarbor = true
 
@@ -183,13 +185,13 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		if len(regIng.Spec.TLS) == 0 {
 			coreScheme = "http"
 		}
-		img.ServerUrl = fmt.Sprintf("%s://%s", coreScheme, regIng.Spec.Rules[0].Host)
+		img.ServerURL = fmt.Sprintf("%s://%s", coreScheme, regIng.Spec.Rules[0].Host)
 
 		notScheme := "https"
 		if len(notIng.Spec.TLS) == 0 {
 			notScheme = "http"
 		}
-		img.NotaryServerUrl = fmt.Sprintf("%s://%s", notScheme, notIng.Spec.Rules[0].Host)
+		notaryURL = fmt.Sprintf("%s://%s", notScheme, notIng.Spec.Rules[0].Host)
 	}
 
 	var targetReg *regv1.Registry
@@ -205,15 +207,15 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 
 		// Initialize Sign controller
 		signCtl := signctl.NewSigningController(r.Client, r.Scheme, signer, targetReg.Name, targetReg.Namespace)
-		img.ServerUrl = signCtl.Regctl.GetEndpoint()
-		img.NotaryServerUrl = signCtl.Regctl.GetNotaryEndpoint()
+		img.ServerURL = signCtl.Regctl.GetEndpoint()
+		notaryURL = signCtl.Regctl.GetNotaryEndpoint()
 
 		// Verify if registry is valid now
-		if len(img.ServerUrl) == 0 {
+		if len(img.ServerURL) == 0 {
 			makeResponse(signReq, false, "RegistryMisconfigured", "serverUrl is not set for the registry")
 			return ctrl.Result{}, nil
 		}
-		if len(img.NotaryServerUrl) == 0 {
+		if len(notaryURL) == 0 {
 			makeResponse(signReq, false, "RegistryMisconfigured", "notaryUrl is not set for the registry, maybe notary is disabled for the registry")
 			return ctrl.Result{}, nil
 		}
@@ -232,7 +234,7 @@ func (r *ImageSignRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	// Sign image
 	log.Info("sign image")
 	signCtl := signctl.NewSigningController(r.Client, r.Scheme, signer, "", "")
-	if err := signCtl.SignImage(signerKey, img, ca); err != nil {
+	if err := signCtl.SignImage(signerKey, img, notaryURL, ca); err != nil {
 		log.Error(err, "sign image")
 		makeResponse(signReq, false, err.Error(), "")
 		return ctrl.Result{}, nil
