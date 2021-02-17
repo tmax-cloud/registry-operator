@@ -56,10 +56,8 @@ func (w *ScanWorker) Start() {
 	}
 
 	go func() {
-		select {
-		case <-w.stopCh:
-			close(w.workqueue)
-		}
+		<-w.stopCh
+		close(w.workqueue)
 	}()
 }
 
