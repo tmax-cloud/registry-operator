@@ -55,8 +55,14 @@ var (
 	worker *scanctl.ScanWorker
 )
 
+const (
+	requestQueueSize = 100
+	nWorkers         = 5
+)
+
 func init() {
-	worker = scanctl.NewScanWorker(1, 1)
+	// TODO: Load value from operator config
+	worker = scanctl.NewScanWorker(requestQueueSize, nWorkers)
 	worker.Start()
 }
 
