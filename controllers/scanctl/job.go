@@ -17,14 +17,16 @@ type ScanJob struct {
 	images         []string
 	maxAllowedVuls int
 	result         map[string]*clair.VulnerabilityReport
+	SendReport     bool
 }
 
-func NewScanJob(r *registry.Registry, c *clair.Clair, images []string, nAllowVuls int) *ScanJob {
+func NewScanJob(r *registry.Registry, c *clair.Clair, images []string, nAllowVuls int, sendReport bool) *ScanJob {
 	return &ScanJob{
 		r:              r,
 		c:              c,
 		images:         images,
 		maxAllowedVuls: nAllowVuls,
+		SendReport:     sendReport,
 	}
 }
 

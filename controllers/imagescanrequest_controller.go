@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/genuinetools/reg/clair"
 	"github.com/genuinetools/reg/registry"
@@ -112,9 +113,9 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 			return fmt.Errorf("Empty registry URL")
 		}
 
-		// if !e.ForceNonSSL && strings.HasPrefix(config.ServerAddress, "http:") {
-		// 	return fmt.Errorf("attempted to use insecure protocol! Use force-non-ssl option to force")
-		// }
+		if !e.ForceNonSSL && strings.HasPrefix(e.RegistryURL, "http:") {
+			return fmt.Errorf("attempted to use insecure protocol! Use force-non-ssl option to force")
+		}
 
 		if e.FixableThreshold < 0 {
 			return fmt.Errorf("fixable threshold must be a positive integer")
@@ -123,6 +124,7 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 		if len(e.ImagePullSecret) < 1 {
 			return fmt.Errorf("Empty ImagePullSecret")
 		}
+
 		if !e.Insecure && len(e.CertificateSecret) < 1 {
 			return fmt.Errorf("Empty TLS Secret")
 		}
@@ -220,7 +222,7 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 			return err
 		}
 
-		job := scanctl.NewScanJob(r, cr, e.Images, e.FixableThreshold)
+		job := scanctl.NewScanJob(r, cr, e.Images, e.FixableThreshold, e.ElasticSearch)
 		jobs = append(jobs, job)
 	}
 
@@ -245,7 +247,9 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 						Image:  imageName,
 						Result: scanResult,
 					}
-					es.SendReport(instance.Namespace, &report)
+					if job.SendReport {
+						es.SendReport(instance.Namespace, &report)
+					}
 				}
 			}
 
