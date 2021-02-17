@@ -100,7 +100,7 @@ func (r *ImageScanRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 
 	if err != nil {
 		logger.Error(err, "")
-		r.updateStatus(instance, tmaxiov1.ScanRequestError, err.Error(), nil)
+		_ = r.updateStatus(instance, tmaxiov1.ScanRequestError, err.Error(), nil)
 	}
 
 	return ctrl.Result{}, nil
@@ -231,7 +231,7 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 
 	task := scanctl.NewScanTask(jobs,
 		func(st *scanctl.ScanTask) {
-			r.updateStatus(instance, tmaxiov1.ScanRequestProcessing, "", nil)
+			_ = r.updateStatus(instance, tmaxiov1.ScanRequestProcessing, "", nil)
 		}, func(st *scanctl.ScanTask) {
 			result := map[string]tmaxiov1.ScanResult{}
 			for _, job := range st.Jobs() {
@@ -250,15 +250,14 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 					}
 				}
 			}
-
-			r.updateStatus(instance, tmaxiov1.ScanRequestSuccess, "success", result)
-
+			_ = r.updateStatus(instance, tmaxiov1.ScanRequestSuccess, "success", result)
 		}, func(err error) {
-			r.updateStatus(instance, tmaxiov1.ScanRequestFail, err.Error(), nil)
+			_ = r.updateStatus(instance, tmaxiov1.ScanRequestFail, err.Error(), nil)
 		})
 
 	worker.Submit(task)
-	r.updateStatus(instance, tmaxiov1.ScanRequestRecepted, "", nil)
+	_ = r.updateStatus(instance, tmaxiov1.ScanRequestRecepted, "", nil)
+
 	return nil
 }
 
