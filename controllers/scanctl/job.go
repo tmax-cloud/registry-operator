@@ -2,6 +2,7 @@ package scanctl
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -9,29 +10,40 @@ import (
 	"github.com/genuinetools/reg/registry"
 )
 
+// 1:1 ImageScanRequest.ScanTarget
 type ScanJob struct {
-	r      *registry.Registry
-	c      *clair.Clair
-	images []string
+	r              *registry.Registry
+	c              *clair.Clair
+	images         []string
+	maxAllowedVuls int
+	result         map[string]*clair.VulnerabilityReport
 }
 
-func NewScanJob(r *registry.Registry, c *clair.Clair, images []string) *ScanJob {
+func NewScanJob(r *registry.Registry, c *clair.Clair, images []string, nAllowVuls int) *ScanJob {
 	return &ScanJob{
-		r:      r,
-		c:      c,
-		images: images,
+		r:              r,
+		c:              c,
+		images:         images,
+		maxAllowedVuls: nAllowVuls,
 	}
 }
 
-func (j *ScanJob) Run() error {
+func (j *ScanJob) Result() map[string]*clair.VulnerabilityReport {
+	return j.result
+}
 
-	reports := make(map[string]*clair.VulnerabilityReport, len(j.images))
+func (j *ScanJob) MaxVuls() int {
+	return j.maxAllowedVuls
+}
+
+func (j *ScanJob) Run() error {
 
 	repos, err := j.r.Catalog(context.TODO(), "")
 	if err != nil {
 		return err
 	}
 
+	fmt.Printf("**** [ScanJob]: repogitories: %s\n", repos)
 	targets := []string{}
 
 	for _, pattern := range j.images {
@@ -48,24 +60,28 @@ func (j *ScanJob) Run() error {
 		}
 	}
 
+	fmt.Printf("**** [ScanJob]: Matching targets: %s\n", targets)
+	reports := make(map[string]*clair.VulnerabilityReport, len(j.images))
 	for _, imageName := range targets {
-
 		imageFullname := strings.Join([]string{j.r.Domain, imageName}, "/")
-
 		image, err := registry.ParseImage(imageFullname)
 		if err != nil {
 			return err
 		}
 
+		fmt.Printf("**** [ScanJob]: Start scan: %s\n", imageFullname)
 		ctx := context.TODO()
 		report, err := j.c.Vulnerabilities(ctx, j.r, image.Path, image.Reference())
 		if err != nil {
 			return err
 		}
 
+		fmt.Printf("**** [ScanJob]: Finished scan: %s\n", imageFullname)
 		reports[imageFullname] = &report
 	}
 
+	fmt.Printf("**** [ScanJob]: Send Result\n")
+	j.result = reports
 	return nil
 }
 

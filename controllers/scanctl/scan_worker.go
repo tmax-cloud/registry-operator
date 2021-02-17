@@ -6,47 +6,59 @@ import (
 )
 
 type ScanWorker struct {
-	workqueue  chan []*ScanJob
-	queueSize  int
-	nWorkers   int
-	wait       *sync.WaitGroup
-	stopCh     chan bool
-	onComplete func(interface{})
+	workqueue chan *ScanTask
+	queueSize int
+	nWorkers  int
+	wait      *sync.WaitGroup
+	stopCh    chan bool
 }
 
 func NewScanWorker(queueSize, nWorkers int) *ScanWorker {
 	return &ScanWorker{
-		workqueue:  make(chan []*ScanJob, queueSize),
-		queueSize:  queueSize,
-		nWorkers:   nWorkers,
-		wait:       &sync.WaitGroup{},
-		stopCh:     make(chan bool, 1),
-		onComplete: func(interface{}) { fmt.Println("**** Job Done ****") }, // Test
+		workqueue: make(chan *ScanTask, queueSize),
+		queueSize: queueSize,
+		nWorkers:  nWorkers,
+		wait:      &sync.WaitGroup{},
+		stopCh:    make(chan bool, 1),
 	}
 }
 
-func (s *ScanWorker) Submit(o []*ScanJob) *ScanWorker {
-	s.workqueue <- o
-	return s
+func (w *ScanWorker) Submit(o *ScanTask) *ScanWorker {
+	w.workqueue <- o
+	return w
 }
 
-func (s *ScanWorker) Start() {
-	for i := 0; i < s.nWorkers; i++ {
-		s.wait.Add(1)
+func (w *ScanWorker) Start() {
+	for i := 0; i < w.nWorkers; i++ {
+		w.wait.Add(1)
 
 		go func() {
-			defer s.wait.Done()
+			defer w.wait.Done()
 			for {
 				select {
-				case jobs, isOpened := <-s.workqueue:
+				case task, isOpened := <-w.workqueue:
 					if !isOpened {
-						fmt.Println("terminate")
+						fmt.Printf("** [ScanWorker]: Terminate\n")
 						return
 					}
-					if err := s.doScan(jobs); err != nil {
-						fmt.Printf("*** Scan(%s) failed")
+
+					fmt.Printf("** [ScanWorker]: Start Task\n")
+					task.OnStart(task)
+
+					var err error
+					for _, job := range task.Jobs() {
+						if err = job.Run(); err != nil {
+							break
+						}
 					}
-					s.onComplete(jobs)
+					if err != nil {
+						fmt.Printf("** [ScanWorker]: Fail Task\n")
+						task.OnFail(err)
+						break
+					}
+
+					fmt.Printf("** [ScanWorker]: Finish Task\n")
+					task.OnSuccess(task)
 				}
 			}
 		}()
@@ -54,21 +66,12 @@ func (s *ScanWorker) Start() {
 
 	go func() {
 		select {
-		case <-s.stopCh:
-			close(s.workqueue)
+		case <-w.stopCh:
+			close(w.workqueue)
 		}
 	}()
 }
 
-func (s *ScanWorker) Stop() {
-	s.stopCh <- true
-}
-
-func (s *ScanWorker) doScan(jobs []*ScanJob) error {
-	for _, job := range jobs {
-		if err := job.Run(); err != nil {
-			return err
-		}
-	}
-	return nil
+func (w *ScanWorker) Stop() {
+	w.stopCh <- true
 }
