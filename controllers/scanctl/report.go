@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -11,15 +12,14 @@ import (
 )
 
 type ReportClient struct {
-	url string
-
-	client *http.Client
+	serverUrl string
+	client    *http.Client
 }
 
 func NewReportClient(url string, transport *http.Transport) *ReportClient {
 
 	return &ReportClient{
-		url: url,
+		serverUrl: url,
 		client: &http.Client{
 			Transport: transport,
 		},
@@ -28,9 +28,10 @@ func NewReportClient(url string, transport *http.Transport) *ReportClient {
 
 func (c *ReportClient) SendReport(namespace string, report *tmaxiov1.ImageScanRequestESReport) error {
 
-	index := "/image-scanning-" + namespace
+	index := "image-scanning-" + namespace
 	doc := strings.ReplaceAll(report.Image, "/", "_")
-	endpoint := fmt.Sprintf("%s/%s/_doc/%s", c.url, index, doc)
+	endpoint := fmt.Sprintf("%s/%s/_doc/%s", c.serverUrl, index, doc)
+
 	dat, err := json.Marshal(report)
 	if err != nil {
 		return err
@@ -40,6 +41,12 @@ func (c *ReportClient) SendReport(namespace string, report *tmaxiov1.ImageScanRe
 	if err != nil {
 		return err
 	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("********* [ElasticSearch]: response: %d/ %s\n", response.StatusCode, (body))
 	defer response.Body.Close()
 	return err
 }

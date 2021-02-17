@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/genuinetools/reg/clair"
 	"github.com/genuinetools/reg/registry"
@@ -98,6 +99,7 @@ func (r *ImageScanRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	}
 
 	if err != nil {
+		logger.Error(err, "")
 		r.updateStatus(instance, tmaxiov1.ScanRequestError, err.Error(), nil)
 	}
 
@@ -109,38 +111,26 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 	// validation phase
 	// TODO: Move this to validation webhook
 	for _, e := range instance.Spec.ScanTargets {
-		if len(e.RegistryURL) < 1 {
-			return fmt.Errorf("Empty registry URL")
-		}
-
-		if !e.ForceNonSSL && strings.HasPrefix(e.RegistryURL, "http:") {
-			return fmt.Errorf("attempted to use insecure protocol! Use force-non-ssl option to force")
+		if !e.Insecure && !strings.HasPrefix(e.RegistryURL, "https:") {
+			return fmt.Errorf("Invalid url. Add prefix 'https' to registry URL")
 		}
 
 		if e.FixableThreshold < 0 {
 			return fmt.Errorf("fixable threshold must be a positive integer")
 		}
+	}
 
-		if len(e.ImagePullSecret) < 1 {
-			return fmt.Errorf("Empty ImagePullSecret")
-		}
+	// XXX: Move this to global scope if operator only comuunicate with a single clair server
+	// -> then how to regenerate object when on manager.config changed?
 
-		if !e.Insecure && len(e.CertificateSecret) < 1 {
-			return fmt.Errorf("Empty TLS Secret")
-		}
-
-		ctx := context.TODO()
-		imagePullSecret := &corev1.Secret{}
-		if err := r.Client.Get(ctx, types.NamespacedName{Name: e.ImagePullSecret, Namespace: instance.Namespace}, imagePullSecret); err != nil {
-			return fmt.Errorf("ImagePullSecret not found: %s\n", e.ImagePullSecret)
-		}
-
-		if !e.Insecure {
-			tlsSecret := &corev1.Secret{}
-			if err := r.Client.Get(ctx, types.NamespacedName{Name: e.CertificateSecret, Namespace: instance.Namespace}, tlsSecret); err != nil {
-				return fmt.Errorf("TLS Secret not found: %s\n", e.CertificateSecret)
-			}
-		}
+	// FIXME: Load clair connection settings from operator
+	clairCli, err := clair.New(config.Config.GetString(config.ConfigClairURL), clair.Opt{
+		Debug:    false,
+		Timeout:  time.Second,
+		Insecure: true,
+	})
+	if err != nil {
+		return err
 	}
 
 	// preprocess phase
@@ -148,54 +138,63 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 	for _, e := range instance.Spec.ScanTargets {
 		ctx := context.TODO()
 
-		secret := &corev1.Secret{}
-		if err := r.Client.Get(ctx, types.NamespacedName{Name: e.ImagePullSecret, Namespace: instance.Namespace}, secret); err != nil {
-			return fmt.Errorf("ImagePullSecret not found: %s\n", e.ImagePullSecret)
-		}
-
-		imagePullSecret, err := secrethelper.NewImagePullSecret(secret)
-		if err != nil {
-			return err
-		}
-
-		registryURL, err := url.Parse(e.RegistryURL)
-		if err != nil {
-			return err
-		}
-
-		registryHost := registryURL.Hostname()
-		login, err := imagePullSecret.GetHostCredential(registryHost)
-		if err != nil {
-			return err
-		}
-		username := login.Username
-		password := string(login.Password)
-
-		// FIXME: insecure 허용 시 예외처리
+		// FIXME: Is here the right place to get keyclock cert?
 		tlsSecret := &corev1.Secret{}
-		if err := r.Client.Get(ctx, types.NamespacedName{Name: e.CertificateSecret, Namespace: instance.Namespace}, tlsSecret); err != nil {
-			return fmt.Errorf("TLS Secret not found: %s\n", e.CertificateSecret)
+		if err := r.Client.Get(ctx, types.NamespacedName{Name: tmaxiov1.KeycloakCASecretName, Namespace: config.Config.GetString("operator.namespace")}, tlsSecret); err != nil {
+			return fmt.Errorf("TLS Secret not found: %s\n", tmaxiov1.KeycloakCASecretName)
 		}
-
 		tlsCertData, err := secrethelper.GetCert(tlsSecret, certs.RootCACert)
 		if err != nil {
 			return err
 		}
 
-		// FIXME: Is here the right place to get keyclock cert?
-		if err := r.Client.Get(ctx, types.NamespacedName{Name: tmaxiov1.KeycloakCASecretName, Namespace: config.Config.GetString("operator.namespace")}, tlsSecret); err != nil {
-			return fmt.Errorf("TLS Secret not found: %s\n", tmaxiov1.KeycloakCASecretName)
+		if len(e.CertificateSecret) > 0 {
+			if err := r.Client.Get(ctx, types.NamespacedName{Name: e.CertificateSecret, Namespace: instance.Namespace}, tlsSecret); err != nil {
+				return fmt.Errorf("TLS Secret not found: %s\n", e.CertificateSecret)
+			}
+
+			privateCertData, err := secrethelper.GetCert(tlsSecret, certs.RootCACert)
+			if err != nil {
+				return err
+			}
+
+			tlsCertData = append(tlsCertData, privateCertData...)
 		}
 
-		keyclockCertData, err := secrethelper.GetCert(tlsSecret, certs.RootCACert)
-		if err != nil {
-			return err
+		username := ""
+		password := ""
+		regUrl := "https://registry-1.docker.io"
+
+		if len(e.RegistryURL) > 0 && e.RegistryURL != "docker.io" {
+			regUrl = e.RegistryURL
+		} else if len(e.AuthURL) > 0 {
+			regUrl = e.AuthURL
 		}
 
-		tlsCertData = append(tlsCertData, keyclockCertData...)
+		if len(e.ImagePullSecret) > 0 {
+			secret := &corev1.Secret{}
+			if err := r.Client.Get(ctx, types.NamespacedName{Name: e.ImagePullSecret, Namespace: instance.Namespace}, secret); err != nil {
+				return fmt.Errorf("ImagePullSecret not found: %s\n", e.ImagePullSecret)
+			}
+
+			imagePullSecret, err := secrethelper.NewImagePullSecret(secret)
+			if err != nil {
+				return err
+			}
+			u, err := url.Parse(regUrl)
+			if err != nil {
+				return err
+			}
+			login, err := imagePullSecret.GetHostCredential(u.Hostname())
+			if err != nil {
+				return err
+			}
+			username = login.Username
+			password = string(login.Password)
+		}
 
 		// get auth config
-		authCfg, err := repoutils.GetAuthConfig(username, password, e.RegistryURL)
+		authCfg, err := repoutils.GetAuthConfig(username, password, regUrl)
 		if err != nil {
 			return err
 		}
@@ -212,21 +211,12 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 			return err
 		}
 
-		clairAddress := config.Config.GetString(config.ConfigClairURL)
-		cr, err := clair.New(clairAddress, clair.Opt{
-			Debug:    e.Debug,
-			Timeout:  e.TimeOut,
-			Insecure: e.Insecure,
-		})
-		if err != nil {
-			return err
-		}
-
-		job := scanctl.NewScanJob(r, cr, e.Images, e.FixableThreshold, e.ElasticSearch)
+		job := scanctl.NewScanJob(r, clairCli, e.Images, e.FixableThreshold, e.ElasticSearch)
 		jobs = append(jobs, job)
 	}
 
-	es := scanctl.NewReportClient(config.ConfigElasticSearchURL,
+	// TODO:
+	es := scanctl.NewReportClient(config.Config.GetString(config.ConfigElasticSearchURL),
 		&http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
@@ -248,7 +238,8 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 						Result: scanResult,
 					}
 					if job.SendReport {
-						es.SendReport(instance.Namespace, &report)
+						err := es.SendReport(instance.Namespace, &report)
+						fmt.Printf("[ICRController]:", err)
 					}
 				}
 			}
@@ -259,11 +250,8 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 			r.updateStatus(instance, tmaxiov1.ScanRequestFail, err.Error(), nil)
 		})
 
-	fmt.Println("[ICRController]: Submit jobs")
 	worker.Submit(task)
-
 	r.updateStatus(instance, tmaxiov1.ScanRequestRecepted, "", nil)
-
 	return nil
 }
 
@@ -295,7 +283,8 @@ func convertReport(reports *clair.VulnerabilityReport, threshold int) (ret tmaxi
 	fatal := []string{}
 	vuls := map[string]tmaxiov1.Vulnerabilities{}
 
-	minimumBadVuls := 10
+	// FIXME: Load maxBadVuls value from manager.config
+	maxBadVuls := 10
 	nBadVuls := 0
 
 	for _, n := range ServerityNames {
@@ -332,7 +321,7 @@ func convertReport(reports *clair.VulnerabilityReport, threshold int) (ret tmaxi
 		fatal = append(fatal, fmt.Sprintf("%d fixable vulnerabilities found", len(fixable)))
 	}
 
-	if nBadVuls > minimumBadVuls {
+	if nBadVuls > maxBadVuls {
 		fatal = append(fatal, fmt.Sprintf("%d bad vulnerabilities found", nBadVuls))
 	}
 
