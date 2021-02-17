@@ -16,7 +16,7 @@ const (
 )
 
 type DockerConfigJson struct {
-	Auths map[string]DockerLoginCredential `json: "auths"`
+	Auths map[string]DockerLoginCredential `json:"auths"`
 }
 
 type DockerLoginCredential map[string]string

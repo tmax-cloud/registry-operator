@@ -34,24 +34,23 @@ func (w *ScanWorker) Start() {
 		go func() {
 			defer w.wait.Done()
 			for {
-				select {
-				case task, isOpened := <-w.workqueue:
-					if !isOpened {
-						return
-					}
-					task.OnStart(task)
-					var err error
-					for _, job := range task.Jobs() {
-						if err = job.Run(); err != nil {
-							break
-						}
-					}
-					if err != nil {
-						task.OnFail(err)
+				task, isOpened := <-w.workqueue
+				if !isOpened {
+					return
+				}
+
+				task.OnStart(task)
+				var err error
+				for _, job := range task.Jobs() {
+					if err = job.Run(); err != nil {
 						break
 					}
-					task.OnSuccess(task)
 				}
+				if err != nil {
+					task.OnFail(err)
+					break
+				}
+				task.OnSuccess(task)
 			}
 		}()
 	}
