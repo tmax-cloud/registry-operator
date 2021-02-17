@@ -74,7 +74,7 @@ func Registry(c client.Client, registry, namespace string, scheme *runtime.Schem
 // ExternalRegistry synchronizes external registry repository list
 func ExternalRegistry(c client.Client, registry, namespace string, scheme *runtime.Scheme, repos *regv1.APIRepositoryList) error {
 	syncLog := logger.WithValues("registry_name", registry, "registry_ns", namespace)
-	crImages, crImageNames, err := crImages(c, registry, namespace)
+	crImages, crImageNames, err := crExImages(c, registry, namespace)
 	if err != nil {
 		syncLog.Error(err, "failed to get cr")
 		return err
@@ -129,6 +129,25 @@ func getCRRepositories(c client.Client, registry, namespace string) (*regv1.Repo
 	reposCR := &regv1.RepositoryList{}
 
 	label := map[string]string{}
+	label["registry"] = registry
+	labelSelector := labels.SelectorFromSet(labels.Set(label))
+	listOps := &client.ListOptions{
+		Namespace:     namespace,
+		LabelSelector: labelSelector,
+	}
+
+	if err := c.List(context.TODO(), reposCR, listOps); err != nil {
+		logger.Error(err, "failed to list repository")
+		return nil, err
+	}
+
+	return reposCR, nil
+}
+
+func getExCRRepositories(c client.Client, registry, namespace string) (*regv1.RepositoryList, error) {
+	reposCR := &regv1.RepositoryList{}
+
+	label := map[string]string{}
 	label["ext-registry"] = registry
 	labelSelector := labels.SelectorFromSet(labels.Set(label))
 	listOps := &client.ListOptions{
@@ -150,6 +169,26 @@ func crImages(c client.Client, registry, namespace string) ([]regv1.Repository, 
 	syncLog := logger.WithValues("registry_name", registry, "registry_ns", namespace)
 
 	reposCR, err := getCRRepositories(c, registry, namespace)
+	if err != nil {
+		syncLog.Error(err, "failed to get cr repositories")
+		return crImages, crImageNames, err
+	}
+
+	for _, image := range reposCR.Items {
+		syncLog.Info("CR Repository", "Name", image.Spec.Name)
+		crImages = append(crImages, image)
+		crImageNames = append(crImageNames, image.Spec.Name)
+	}
+
+	return crImages, crImageNames, err
+}
+
+func crExImages(c client.Client, registry, namespace string) ([]regv1.Repository, []string, error) {
+	crImages := []regv1.Repository{}
+	crImageNames := []string{}
+	syncLog := logger.WithValues("registry_name", registry, "registry_ns", namespace)
+
+	reposCR, err := getExCRRepositories(c, registry, namespace)
 	if err != nil {
 		syncLog.Error(err, "failed to get cr repositories")
 		return crImages, crImageNames, err

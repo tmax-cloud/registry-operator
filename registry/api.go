@@ -91,37 +91,38 @@ func (r *RegistryApi) Catalog() *regv1.APIRepositories {
 }
 
 func (r *RegistryApi) Tags(imageName string) *regv1.APIRepository {
-	repo := &regv1.APIRepository{}
+	repo := &regv1.APIRepository{Name: imageName}
+
 	logger.Info("call", "api", r.URL+"/v2/"+imageName+"/tags/list")
 	req, err := http.NewRequest(http.MethodGet, r.URL+"/v2/"+imageName+"/tags/list", nil)
 	if err != nil {
 		logger.Error(err, "")
-		return nil
+		return repo
 	}
 
 	scopes := []string{strings.Join([]string{"repository", imageName, "pull"}, ":")}
 	token, err := r.kcCli.GetToken(scopes)
 	if err != nil {
 		logger.Error(err, "")
-		return nil
+		return repo
 	}
 	req.Header.Add("Authorization", "Bearer "+token)
 
 	res, err := r.Client.Do(req)
 	if err != nil {
 		logger.Error(err, "")
-		return nil
+		return repo
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		logger.Error(err, "")
-		return nil
+		return repo
 	}
 	// logger.Info("contents", "tags", string(body))
 	if err := json.Unmarshal(body, repo); err != nil {
 		logger.Error(err, "")
-		return nil
+		return repo
 	}
 
 	return repo

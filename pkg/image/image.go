@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"path"
+	"strings"
 
 	"github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth/challenge"
@@ -28,6 +29,7 @@ type Image struct {
 	Name string
 	Tag  string
 
+	// username:password string encrypted by base64
 	BasicAuth string
 	Token     auth.Token
 
@@ -84,7 +86,13 @@ func NewImage(uri, registryServer, basicAuth string, ca []byte) (*Image, error) 
 	return r, nil
 }
 
-func (r *Image) SetImage(uri string) error {
+// SetImage sets image from "imageName:tag" or imageName form argument
+func (r *Image) SetImage(image string) error {
+	uri := r.ServerURL
+	uri = strings.TrimPrefix(uri, "http://")
+	uri = strings.TrimPrefix(uri, "https://")
+	uri = path.Join(uri, image)
+
 	// Parse image url
 	img, err := ParseNamed(uri)
 	if err != nil {
