@@ -2,7 +2,6 @@ package scanctl
 
 import (
 	"context"
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -40,12 +39,12 @@ func (j *ScanJob) MaxVuls() int {
 
 func (j *ScanJob) Run() error {
 
+	// FIXME: Not possible in the case of docker.io
 	repos, err := j.r.Catalog(context.TODO(), "")
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("**** [ScanJob]: repogitories: %s\n", repos)
 	targets := []string{}
 
 	for _, pattern := range j.images {
@@ -62,7 +61,6 @@ func (j *ScanJob) Run() error {
 		}
 	}
 
-	fmt.Printf("**** [ScanJob]: Matching targets: %s\n", targets)
 	reports := make(map[string]*clair.VulnerabilityReport, len(j.images))
 	for _, imageName := range targets {
 		imageFullname := strings.Join([]string{j.r.Domain, imageName}, "/")
@@ -71,18 +69,15 @@ func (j *ScanJob) Run() error {
 			return err
 		}
 
-		fmt.Printf("**** [ScanJob]: Start scan: %s\n", imageFullname)
 		ctx := context.TODO()
 		report, err := j.c.Vulnerabilities(ctx, j.r, image.Path, image.Reference())
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("**** [ScanJob]: Finished scan: %s\n", imageFullname)
 		reports[imageFullname] = &report
 	}
 
-	fmt.Printf("**** [ScanJob]: Send Result\n")
 	j.result = reports
 	return nil
 }

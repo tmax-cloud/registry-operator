@@ -1,7 +1,6 @@
 package scanctl
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -38,13 +37,9 @@ func (w *ScanWorker) Start() {
 				select {
 				case task, isOpened := <-w.workqueue:
 					if !isOpened {
-						fmt.Printf("** [ScanWorker]: Terminate\n")
 						return
 					}
-
-					fmt.Printf("** [ScanWorker]: Start Task\n")
 					task.OnStart(task)
-
 					var err error
 					for _, job := range task.Jobs() {
 						if err = job.Run(); err != nil {
@@ -52,12 +47,9 @@ func (w *ScanWorker) Start() {
 						}
 					}
 					if err != nil {
-						fmt.Printf("** [ScanWorker]: Fail Task\n")
 						task.OnFail(err)
 						break
 					}
-
-					fmt.Printf("** [ScanWorker]: Finish Task\n")
 					task.OnSuccess(task)
 				}
 			}

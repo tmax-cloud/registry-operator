@@ -84,17 +84,17 @@ func (r *ImageScanRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	case "":
 		err = r.doRecept(instance)
 	case tmaxiov1.ScanRequestRecepted:
-		logger.Info("!!!!!!!!!!!!!!! Already recepted request...")
+		logger.Info("Already recepted request...")
 		// XXX: Cancel job?
 		// return ctrl.Result{Requeue: true}, nil
 	case tmaxiov1.ScanRequestProcessing:
-		logger.Info("!!!!!!!!!!!!!!! Already in procssing...")
+		logger.Info("Already in procssing...")
 		// return ctrl.Result{Requeue: true}, nil
 	case tmaxiov1.ScanRequestSuccess:
-		logger.Info("!!!!!!!!!!!!!!! Already Success request")
+		logger.Info("Already Success request")
 		// err = r.doRecept(instance)
 	case tmaxiov1.ScanRequestFail:
-		logger.Info("!!!!!!!!!!!!!!! Already Failed request")
+		logger.Info("Already Failed request")
 		// err = r.doRecept(instance)
 	}
 
@@ -149,6 +149,7 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 		}
 
 		if len(e.CertificateSecret) > 0 {
+			tlsSecret := &corev1.Secret{}
 			if err := r.Client.Get(ctx, types.NamespacedName{Name: e.CertificateSecret, Namespace: instance.Namespace}, tlsSecret); err != nil {
 				return fmt.Errorf("TLS Secret not found: %s\n", e.CertificateSecret)
 			}
@@ -158,11 +159,13 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 				return err
 			}
 
+			tlsCertData = append(tlsCertData, []byte("\n")...)
 			tlsCertData = append(tlsCertData, privateCertData...)
 		}
 
 		username := ""
 		password := ""
+		// XXX: Is it right to handle default docker.io when empty registry url?
 		regUrl := "https://registry-1.docker.io"
 
 		if len(e.RegistryURL) > 0 && e.RegistryURL != "docker.io" {
@@ -181,10 +184,12 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 			if err != nil {
 				return err
 			}
+
 			u, err := url.Parse(regUrl)
 			if err != nil {
 				return err
 			}
+
 			login, err := imagePullSecret.GetHostCredential(u.Hostname())
 			if err != nil {
 				return err
@@ -215,7 +220,7 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 		jobs = append(jobs, job)
 	}
 
-	// TODO:
+	// TODO: Load config value from operator config
 	es := scanctl.NewReportClient(config.Config.GetString(config.ConfigElasticSearchURL),
 		&http.Transport{
 			TLSClientConfig: &tls.Config{
@@ -239,7 +244,9 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 					}
 					if job.SendReport {
 						err := es.SendReport(instance.Namespace, &report)
-						fmt.Printf("[ICRController]:", err)
+						if err != nil {
+							log.Error(err, "Failed to send report.")
+						}
 					}
 				}
 			}
