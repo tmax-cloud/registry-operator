@@ -9,7 +9,7 @@ import (
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/controllers/repoctl"
-	"github.com/tmax-cloud/registry-operator/internal/utils"
+	"github.com/tmax-cloud/registry-operator/internal/schemes"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,7 +64,8 @@ func createImage(event regv1.RegistryEvent) {
 	repository := &regv1.Repository{}
 	repositoryName := event.Target.Repository
 	newImageTag := event.Target.Tag
-	repositoryCRName := utils.ParseImageName(repositoryName) + "." + reg.Name
+	repositoryCRName := schemes.RepositoryName(repositoryName, reg.Name)
+
 	err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: repositoryCRName, Namespace: reg.Namespace}, repository)
 	if err != nil {
 		if errors.IsNotFound(err) {
