@@ -2,6 +2,7 @@ package scan
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -53,12 +54,17 @@ func GetScanResult(img *image.Image) (ResultResponse, error) {
 	// Get layers list
 	manifest, err := img.GetManifest()
 	if err != nil {
-		log.Error(err, "")
+		log.Error(err, "failed to get manifest")
 		return nil, err
 	}
 
+	// TODO: support schema v1 manifest
+	if img.ManifestVersion(manifest) == 1 {
+		return nil, errors.New("not supported schema version 1 manifest yet")
+	}
+
 	// Get clair result for each layer
-	filteredLayer, err := filterEmptyLayers(manifest.Schema.(schema2.Manifest).Layers)
+	filteredLayer, err := filterEmptyLayers(manifest.Schema.(*schema2.Manifest).Layers)
 	if err != nil {
 		return nil, err
 	}
