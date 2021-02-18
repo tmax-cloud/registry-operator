@@ -1,4 +1,4 @@
-package registry
+package manager
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/tmax-cloud/registry-operator/internal/common/certs"
-	"github.com/tmax-cloud/registry-operator/internal/common/http"
+	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	"github.com/tmax-cloud/registry-operator/pkg/image"
@@ -20,12 +20,14 @@ import (
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	corev1 "k8s.io/api/core/v1"
 
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var logger = log.Log.WithName("registry-manager")
 
 func getRegistryList(c client.Client) (*regv1.RegistryList, error) {
 	regList := &regv1.RegistryList{}
@@ -55,12 +57,6 @@ func syncAllRegistry(c client.Client, regList *regv1.RegistryList, syncedRegistr
 		}
 
 		logger.Info("synchronize registry", "name", reg.Name, "namespace", reg.Namespace)
-		ra := NewRegistryApi(&reg)
-		if ra == nil {
-			logger.Error(fmt.Errorf("couldn't get registry api caller"), "failed to registry api caller")
-			continue
-		}
-
 		if err := SyncRegistry(c, &reg, scheme); err != nil {
 			logger.Error(err, "failed to sync registry")
 			continue
@@ -125,25 +121,6 @@ func SyncAllRegistry(c client.Client, scheme *runtime.Scheme) error {
 	return nil
 }
 
-func getCRRepositories(c client.Client, reg *regv1.Registry) (*regv1.RepositoryList, error) {
-	reposCR := &regv1.RepositoryList{}
-
-	label := map[string]string{}
-	label["registry"] = reg.Name
-	labelSelector := labels.SelectorFromSet(labels.Set(label))
-	listOps := &client.ListOptions{
-		Namespace:     reg.Namespace,
-		LabelSelector: labelSelector,
-	}
-
-	if err := c.List(context.TODO(), reposCR, listOps); err != nil {
-		logger.Error(err, "failed to list repository")
-		return nil, err
-	}
-
-	return reposCR, nil
-}
-
 // SyncRegistry synchronizes custom resource repository based on all repositories in registry server
 func SyncRegistry(c client.Client, reg *regv1.Registry, scheme *runtime.Scheme) error {
 	imagePullSecret := schemes.SubresourceName(reg, schemes.SubTypeRegistryDCJSecret)
@@ -171,7 +148,7 @@ func SyncRegistry(c client.Client, reg *regv1.Registry, scheme *runtime.Scheme) 
 		c,
 		types.NamespacedName{Name: reg.Name, Namespace: reg.Namespace},
 		scheme,
-		http.NewHTTPClient(
+		cmhttp.NewHTTPClient(
 			reg.Status.ServerURL,
 			username, password,
 			ca,

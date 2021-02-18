@@ -59,6 +59,10 @@ func NewImage(uri, registryServer, basicAuth string, ca []byte) (*Image, error) 
 	if registryServer == "" {
 		r.ServerURL = DefaultServer
 	} else {
+		// set protocol scheme
+		if !strings.HasPrefix(registryServer, "http://") && !strings.HasPrefix(registryServer, "https://") {
+			registryServer = "https://" + registryServer
+		}
 		r.ServerURL = registryServer
 	}
 
@@ -96,6 +100,7 @@ func (r *Image) SetImage(image string) error {
 	// Parse image url
 	img, err := ParseNamed(uri)
 	if err != nil {
+		Logger.Error(err, "failed to parse uri", "uri", uri)
 		return err
 	}
 	img = WithDefaultTag(img)

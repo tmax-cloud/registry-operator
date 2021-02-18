@@ -112,7 +112,8 @@ func (r *Image) manifest(schemaVersion int) (*ImageManifest, error) {
 	}, nil
 }
 
-func (r *Image) GetImageManifest() (*ImageManifest, error) {
+// GetManifest gets manifests of image in the registry
+func (r *Image) GetManifest() (*ImageManifest, error) {
 	mf2, err := r.manifest(2)
 	ok := true
 	if err != nil {
@@ -134,6 +135,7 @@ func (r *Image) GetImageManifest() (*ImageManifest, error) {
 	return mf1, nil
 }
 
+// ManifestVersion returns manifest schema version 1 or 2. If invalid manifest, return -1
 func (r *Image) ManifestVersion(manifest *ImageManifest) int {
 	switch manifest.Schema.(type) {
 	case *schema2.Manifest:
@@ -145,6 +147,7 @@ func (r *Image) ManifestVersion(manifest *ImageManifest) int {
 	return -1
 }
 
+// DeleteManifest deletes manifest in the registry
 func (r *Image) DeleteManifest(manifest *ImageManifest) error {
 	u, err := url.Parse(r.ServerURL)
 	if err != nil {

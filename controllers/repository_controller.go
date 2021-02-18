@@ -65,7 +65,7 @@ func (r *RepositoryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 			repoName, _ := splitRepoCRName(req.Name)
 			r.Log.Info("repository", "name", repoName)
 
-			if err := sweepRegistryRepo(r.Client, reg, repoName); err != nil {
+			if err := sweepRegistryRepo(r.Client, reg, r.Scheme, repoName); err != nil {
 				r.Log.Error(err, "")
 				return reconcile.Result{}, nil
 			}
@@ -82,7 +82,7 @@ func (r *RepositoryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		return reconcile.Result{}, nil
 	}
 
-	if err := sweepImages(r.Client, reg, repo); err != nil {
+	if err := sweepImages(r.Client, reg, r.Scheme, repo); err != nil {
 		r.Log.Error(err, "")
 		return reconcile.Result{}, err
 	}

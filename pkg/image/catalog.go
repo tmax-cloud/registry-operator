@@ -13,20 +13,20 @@ import (
 func (r *Image) Catalog() *regv1.APIRepositories {
 	u, err := catalogURL(r.ServerURL)
 	if err != nil {
-		return nil
+		return &regv1.APIRepositories{}
 	}
 
 	Logger.Info("call", "api", u.String())
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
 		Logger.Error(err, "")
-		return nil
+		return &regv1.APIRepositories{}
 	}
 
 	token, err := r.GetToken(catalogScope())
 	if err != nil {
 		Logger.Error(err, "")
-		return nil
+		return &regv1.APIRepositories{}
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("%s %s", token.Type, token.Value))
@@ -34,13 +34,13 @@ func (r *Image) Catalog() *regv1.APIRepositories {
 	res, err := r.HttpClient.Do(req)
 	if err != nil {
 		Logger.Error(err, "")
-		return nil
+		return &regv1.APIRepositories{}
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		Logger.Error(err, "")
-		return nil
+		return &regv1.APIRepositories{}
 	}
 	// Logger.Info("contents", "repositories", string(body))
 
@@ -49,11 +49,14 @@ func (r *Image) Catalog() *regv1.APIRepositories {
 
 	if err := json.Unmarshal(body, rawRepos); err != nil {
 		Logger.Error(err, "failed to unmarshal registry's repository")
-		return nil
+		return &regv1.APIRepositories{}
 	}
 
 	for _, repo := range rawRepos.Repositories {
-		r.SetImage(repo)
+		if err := r.SetImage(repo); err != nil {
+			Logger.Error(err, "failed to set image")
+			return &regv1.APIRepositories{}
+		}
 
 		tags := r.Tags().Tags
 		if len(tags) > 0 {

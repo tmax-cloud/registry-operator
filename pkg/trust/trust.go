@@ -45,6 +45,7 @@ const (
 func NewReadOnly(image *image.Image, notaryURL, path string) (ReadOnly, error) {
 	n := &notaryRepo{
 		notaryPath: path,
+		image:      image,
 	}
 
 	// Notary Server url
@@ -327,7 +328,7 @@ func (n *notaryRepo) CreateRootKey() error {
 
 func (n *notaryRepo) SignImage() error {
 	log.Info(fmt.Sprintf("Signing image %s", n.image.GetImageNameWithHost()))
-	manifest, err := n.image.GetImageManifest()
+	manifest, err := n.image.GetManifest()
 	if err != nil {
 		log.Error(err, "")
 		return err

@@ -34,8 +34,8 @@ import (
 
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/common/operatorlog"
+	regmgr "github.com/tmax-cloud/registry-operator/manager"
 	"github.com/tmax-cloud/registry-operator/pkg/scheduler"
-	regApi "github.com/tmax-cloud/registry-operator/registry"
 
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/controllers"
@@ -191,11 +191,11 @@ func main() {
 	}()
 
 	// Synchronize All Registries
-	if err := regApi.SyncAllRegistry(mgr.GetClient(), mgr.GetScheme()); err != nil {
+	if err := regmgr.SyncAllRegistry(mgr.GetClient(), mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "failed to synchronize all registries")
 	}
 
-	if err := regApi.SyncAllRepoSigner(mgr.GetClient(), mgr.GetScheme()); err != nil {
+	if err := regmgr.SyncAllRepoSigner(mgr.GetClient(), mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "failed to synchronize all repository signers")
 	}
 

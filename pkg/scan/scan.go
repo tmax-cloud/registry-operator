@@ -51,7 +51,7 @@ func GetScanResult(img *image.Image) (ResultResponse, error) {
 	}
 
 	// Get layers list
-	manifest, err := img.GetImageManifest()
+	manifest, err := img.GetManifest()
 	if err != nil {
 		log.Error(err, "")
 		return nil, err
