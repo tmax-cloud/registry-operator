@@ -5,15 +5,20 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"time"
 
+	regclient "github.com/docker/distribution/registry/client"
+	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/opencontainers/go-digest"
 	"github.com/theupdateframework/notary"
 	"github.com/theupdateframework/notary/client"
@@ -25,24 +30,38 @@ import (
 	"github.com/theupdateframework/notary/tuf/data"
 	apiv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/common/auth"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
+	"github.com/tmax-cloud/registry-operator/pkg/image"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var log = ctrl.Log.WithName("trust")
 
-func NewReadOnly(image *Image, path string) (ReadOnly, error) {
+const (
+	DefaultNotaryServer = "https://notary.docker.io"
+)
+
+func NewReadOnly(image *image.Image, notaryURL, path string) (ReadOnly, error) {
 	n := &notaryRepo{
 		notaryPath: path,
+		image:      image,
 	}
 
-	token, err := image.GetToken(TokenTypeNotary)
+	// Notary Server url
+	if notaryURL == "" {
+		n.notaryServerURL = DefaultNotaryServer
+	} else {
+		n.notaryServerURL = notaryURL
+	}
+
+	token, err := n.GetToken()
 	if err != nil {
 		return nil, err
 	}
 
 	// Generate Transport
-	rt := &RegistryTransport{
+	rt := &auth.RegistryTransport{
 		Base: &http.Transport{ // Base is DefaultTransport, added TLSClientConfig
 			Proxy: http.ProxyFromEnvironment,
 			DialContext: (&net.Dialer{
@@ -60,7 +79,7 @@ func NewReadOnly(image *Image, path string) (ReadOnly, error) {
 	}
 
 	// Initialize Notary repository
-	repo, err := client.NewFileCachedRepository(n.notaryPath, data.GUN(image.GetImageNameWithHost()), image.NotaryServerUrl, rt, n.passRetriever(), trustpinning.TrustPinConfig{})
+	repo, err := client.NewFileCachedRepository(n.notaryPath, data.GUN(image.GetImageNameWithHost()), n.notaryServerURL, rt, n.passRetriever(), trustpinning.TrustPinConfig{})
 	if err != nil {
 		return nil, err
 	}
@@ -69,16 +88,24 @@ func NewReadOnly(image *Image, path string) (ReadOnly, error) {
 	return n, nil
 }
 
-func New(image *Image, passPhrase tmaxiov1.TrustPass, path string, ca []byte, rootKey apiv1.TrustKey, targetKey *apiv1.TrustKey) (NotaryRepository, error) {
-	if image == nil {
+func New(img *image.Image, notaryURL string, passPhrase tmaxiov1.TrustPass, path string, ca []byte, rootKey apiv1.TrustKey, targetKey *apiv1.TrustKey) (NotaryRepository, error) {
+	if img == nil {
 		return nil, fmt.Errorf("image cannot be nil")
 	}
 	n := &notaryRepo{
 		notaryPath: path,
-		image:      image,
+		image:      img,
 		passPhrase: passPhrase,
 	}
-	token, err := image.GetToken(TokenTypeNotary)
+
+	// Notary Server url
+	if notaryURL == "" {
+		n.notaryServerURL = DefaultNotaryServer
+	} else {
+		n.notaryServerURL = notaryURL
+	}
+
+	token, err := n.GetToken()
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +123,7 @@ func New(image *Image, passPhrase tmaxiov1.TrustPass, path string, ca []byte, ro
 	}
 
 	// Generate Transport
-	rt := &RegistryTransport{
+	rt := &auth.RegistryTransport{
 		Base: &http.Transport{ // Base is DefaultTransport, added TLSClientConfig
 			Proxy: http.ProxyFromEnvironment,
 			DialContext: (&net.Dialer{
@@ -139,7 +166,7 @@ func New(image *Image, passPhrase tmaxiov1.TrustPass, path string, ca []byte, ro
 	}
 
 	// Initialize Notary repository
-	repo, err := client.NewFileCachedRepository(n.notaryPath, data.GUN(image.GetImageNameWithHost()), image.NotaryServerUrl, rt, n.passRetriever(), trustpinning.TrustPinConfig{})
+	repo, err := client.NewFileCachedRepository(n.notaryPath, data.GUN(img.GetImageNameWithHost()), n.notaryServerURL, rt, n.passRetriever(), trustpinning.TrustPinConfig{})
 	if err != nil {
 		return nil, err
 	}
@@ -190,10 +217,103 @@ func getKeyStores(baseDir string, retriever notary.PassRetriever) ([]trustmanage
 }
 
 type notaryRepo struct {
-	notaryPath string
-	repo       client.Repository
-	image      *Image
-	passPhrase tmaxiov1.TrustPass
+	notaryPath      string
+	notaryServerURL string
+	repo            client.Repository
+	token           auth.Token
+	image           *image.Image
+	passPhrase      tmaxiov1.TrustPass
+}
+
+func (n *notaryRepo) GetToken() (auth.Token, error) {
+	if n.token.Type == "" || n.token.Value == "" {
+		if err := n.fetchToken(); err != nil {
+			log.Error(err, "")
+			return auth.Token{}, err
+		}
+	}
+
+	return n.token, nil
+}
+
+func (n *notaryRepo) fetchToken() error {
+	log.Info("Fetching token...")
+	// Ping
+	u, err := url.Parse(n.notaryServerURL)
+	if err != nil {
+		return err
+	}
+	u.Path = path.Join(u.Path, "v2")
+	pingReq, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	if err != nil {
+		return err
+	}
+	pingReq.Header.Set("Authorization", fmt.Sprintf("Basic %s", n.image.BasicAuth))
+	pingResp, err := n.image.HttpClient.Do(pingReq)
+	if err != nil {
+		return err
+	}
+	defer pingResp.Body.Close()
+
+	// If 200, use basic auth
+	if pingResp.StatusCode >= 200 && pingResp.StatusCode < 300 {
+		n.token = auth.Token{
+			Type:  "Basic",
+			Value: base64.StdEncoding.EncodeToString([]byte(n.image.BasicAuth)),
+		}
+		return nil
+	}
+
+	challenges := challenge.ResponseChallenges(pingResp)
+	if len(challenges) < 1 {
+		return fmt.Errorf("header does not contain WWW-Authenticate")
+	}
+	realm, realmExist := challenges[0].Parameters["realm"]
+	service, serviceExist := challenges[0].Parameters["service"]
+	if !realmExist || !serviceExist {
+		return fmt.Errorf("there is no realm or service in parameters")
+	}
+
+	// Get Token
+	img := n.image.GetImageNameWithHost()
+
+	param := map[string]string{
+		"service": service,
+		"scope":   fmt.Sprintf("repository:%s:pull,push", img),
+	}
+	tokenReq, err := http.NewRequest(http.MethodGet, realm, nil)
+	if err != nil {
+		return err
+	}
+	tokenReq.Header.Set("Authorization", fmt.Sprintf("Basic %s", n.image.BasicAuth))
+	tokenQ := tokenReq.URL.Query()
+	for k, v := range param {
+		tokenQ.Add(k, v)
+	}
+	tokenReq.URL.RawQuery = tokenQ.Encode()
+
+	tokenResp, err := n.image.HttpClient.Do(tokenReq)
+	if err != nil {
+		return err
+	}
+	defer tokenResp.Body.Close()
+	if !regclient.SuccessStatus(tokenResp.StatusCode) {
+		err := regclient.HandleErrorResponse(tokenResp)
+		return err
+	}
+
+	decoder := json.NewDecoder(tokenResp.Body)
+	token := &auth.TokenResponse{}
+	if err := decoder.Decode(token); err != nil {
+		return err
+	}
+
+	n.token = auth.Token{
+		Type:  "Bearer",
+		Value: token.Token,
+	}
+
+	return nil
 }
 
 func (n *notaryRepo) GetPassphrase(id string) (string, error) {
@@ -208,7 +328,7 @@ func (n *notaryRepo) CreateRootKey() error {
 
 func (n *notaryRepo) SignImage() error {
 	log.Info(fmt.Sprintf("Signing image %s", n.image.GetImageNameWithHost()))
-	manifest, err := n.image.GetImageManifest()
+	manifest, err := n.image.GetManifest()
 	if err != nil {
 		log.Error(err, "")
 		return err
@@ -352,13 +472,13 @@ func (n *notaryRepo) GetSignedMetadata(tag string) (*trustRepo, error) {
 	// get the administrative roles
 	adminRolesWithSigs, err := n.repo.ListRoles()
 	if err != nil {
-		return &trustRepo{}, fmt.Errorf("No signers for %s", n.image.NotaryServerUrl)
+		return &trustRepo{}, fmt.Errorf("No signers for %s", n.notaryServerURL)
 	}
 
 	// get delegation roles with the canonical key IDs
 	delegationRoles, err := n.repo.GetDelegationRoles()
 	if err != nil {
-		log.Error(err, "no delegation roles found, or error fetching them for %s", n.image.NotaryServerUrl)
+		log.Error(err, "no delegation roles found, or error fetching them for %s", n.notaryServerURL)
 	}
 
 	// process the signatures to include repo admin if signed by the base targets role

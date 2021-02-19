@@ -6,6 +6,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// RegistryTypeInternalRegistry is internal registry type
+	RegistryTypeInternalRegistry RegistryType = "Registry"
+)
+
 // Status is registry status type
 type Status string
 

@@ -15,8 +15,10 @@ import (
 var logger logr.Logger = logf.Log.WithName("common http")
 
 type HttpClient struct {
-	Login regv1.Authorizer
-	URL   string
+	Login    regv1.Authorizer
+	URL      string
+	CA       []byte
+	Insecure bool
 	*http.Client
 }
 
@@ -35,9 +37,11 @@ func NewHTTPClient(url, username, password string, ca []byte, insecure bool) *Ht
 		}
 
 		return &HttpClient{
-			URL:    url,
-			Login:  regv1.Authorizer{Username: username, Password: password},
-			Client: c,
+			URL:      url,
+			Login:    regv1.Authorizer{Username: username, Password: password},
+			CA:       ca,
+			Insecure: insecure,
+			Client:   c,
 		}
 	}
 
@@ -77,8 +81,10 @@ func NewHTTPClient(url, username, password string, ca []byte, insecure bool) *Ht
 	}
 
 	return &HttpClient{
-		URL:    url,
-		Login:  regv1.Authorizer{Username: username, Password: password},
-		Client: c,
+		URL:      url,
+		Login:    regv1.Authorizer{Username: username, Password: password},
+		CA:       ca,
+		Insecure: insecure,
+		Client:   c,
 	}
 }

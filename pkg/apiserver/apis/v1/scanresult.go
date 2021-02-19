@@ -20,9 +20,9 @@ import (
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	"github.com/tmax-cloud/registry-operator/internal/wrapper"
+	"github.com/tmax-cloud/registry-operator/pkg/image"
 	"github.com/tmax-cloud/registry-operator/pkg/scan"
 	clairReg "github.com/tmax-cloud/registry-operator/pkg/scan/clair"
-	"github.com/tmax-cloud/registry-operator/pkg/trust"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -200,7 +200,7 @@ func getScanResultFromInternal(req *http.Request) (map[string]scan.ResultRespons
 		return nil, errors.NewInternalError(fmt.Errorf(msg))
 	}
 
-	img, err := trust.NewImage(path.Join(regBaseUrl, repo.Spec.Name), "https://"+regBaseUrl, "", basicAuthObj.Auth, nil)
+	img, err := image.NewImage(path.Join(regBaseUrl, repo.Spec.Name), "https://"+regBaseUrl, basicAuthObj.Auth, nil)
 	if err != nil {
 		log.Info(err.Error())
 		return nil, errors.NewInternalError(err)

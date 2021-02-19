@@ -4,7 +4,7 @@ import (
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/base"
-	harborv2 "github.com/tmax-cloud/registry-operator/pkg/registry/ext/harbor/v2"
+	"github.com/tmax-cloud/registry-operator/pkg/registry/inter"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,8 +36,8 @@ type SyncRegistryFactory struct {
 //
 func (f *SyncRegistryFactory) Create(registryType regv1.RegistryType) base.Synchronizable {
 	switch registryType {
-	case regv1.RegistryTypeHarborV2:
-		return harborv2.NewClient(f.k8sClient, f.namespacedName, f.scheme, f.httpClient)
+	case regv1.RegistryTypeInternalRegistry:
+		return inter.NewClient(f.k8sClient, f.namespacedName, f.scheme, f.httpClient)
 	}
 
 	return nil

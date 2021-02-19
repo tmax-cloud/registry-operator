@@ -1,4 +1,4 @@
-package trust
+package auth
 
 import (
 	"fmt"

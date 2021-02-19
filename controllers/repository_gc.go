@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
-	regApi "github.com/tmax-cloud/registry-operator/registry"
+	"github.com/tmax-cloud/registry-operator/pkg/registry/inter"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/controllers/regctl"
@@ -13,7 +14,7 @@ import (
 )
 
 // Delete versions with delete value true in repository
-func sweepImages(c client.Client, reg *regv1.Registry, repo *regv1.Repository) error {
+func sweepImages(c client.Client, reg *regv1.Registry, scheme *runtime.Scheme, repo *regv1.Repository) error {
 	repoName := repo.Spec.Name
 	logz := log.WithValues("repository_namespace", repo.Namespace, "repository_name", repoName)
 	images := repo.Spec.Versions
@@ -30,7 +31,7 @@ func sweepImages(c client.Client, reg *regv1.Registry, repo *regv1.Repository) e
 		return nil
 	}
 
-	deletedTags, err := deleteImagesInRepo(c, reg, repoName, delTags)
+	deletedTags, err := deleteImagesInRepo(c, reg, scheme, repoName, delTags)
 	if err != nil {
 		return err
 	}
@@ -49,25 +50,25 @@ func sweepImages(c client.Client, reg *regv1.Registry, repo *regv1.Repository) e
 }
 
 // Delete all tags and gc
-func sweepRegistryRepo(c client.Client, reg *regv1.Registry, repoName string) error {
-	ra := regApi.NewRegistryApi(reg)
-	if ra == nil {
-		return fmt.Errorf("couldn't get registry api caller")
+func sweepRegistryRepo(c client.Client, reg *regv1.Registry, scheme *runtime.Scheme, repoName string) error {
+	log = log.WithValues("namespace", reg.Namespace, "name", reg.Name, "repository", repoName)
+	regClient, err := inter.GetClient(c, reg, scheme)
+	if err != nil {
+		log.Error(err, "failed to get reg client")
+		return err
 	}
 
-	tags := ra.Tags(repoName).Tags
-	if tags == nil {
-		return nil
-	}
+	tags := regClient.ListTags(repoName)
 
 	log.Info("delete_images")
-	deletedTags, err := deleteImagesInRepo(c, reg, repoName, tags)
+	deletedTags, err := deleteImagesInRepo(c, reg, scheme, repoName, tags.Tags)
 	if err != nil {
+		log.Error(err, "failed to delete tags", "tags", tags.Tags)
 		return err
 	}
 
 	for _, tag := range deletedTags {
-		log.Info("delete", "repository_namespace", reg.Namespace, "repository_name", repoName, "tag", tag)
+		log.Info("delete", "tag", tag)
 	}
 
 	log.Info("garbage_collect")
@@ -81,26 +82,31 @@ func sweepRegistryRepo(c client.Client, reg *regv1.Registry, repoName string) er
 }
 
 // Delete all tags
-func deleteImagesInRepo(c client.Client, reg *regv1.Registry, repoName string, tags []string) ([]string, error) {
-	ra := regApi.NewRegistryApi(reg)
-	if ra == nil {
-		return nil, fmt.Errorf("couldn't get registry api caller")
+func deleteImagesInRepo(c client.Client, reg *regv1.Registry, scheme *runtime.Scheme, repoName string, tags []string) ([]string, error) {
+	log = log.WithValues("namespace", reg.Namespace, "name", reg.Name, "repository", repoName)
+	regClient, err := inter.GetClient(c, reg, scheme)
+	if err != nil {
+		log.Error(err, "failed to get reg client")
+		return nil, err
 	}
+
 	deletedTags := []string{}
 
 	for _, tag := range tags {
 		log.Info("repository", "tag", tag)
-		digest, err := ra.DockerContentDigest(repoName, tag)
+		image := fmt.Sprintf("%s:%s", repoName, tag)
+		mf, err := regClient.GetManifest(image)
 		if err != nil {
-			log.Error(err, "")
+			log.Error(err, "failed to get manifest")
 			return deletedTags, err
 		}
-		log.Info("get", "digest", digest)
+		log.Info("get", "digest", mf.Digest)
 
-		if err := ra.DeleteManifest(repoName, digest); err != nil {
-			log.Error(err, "")
+		if err := regClient.DeleteManifest(image, mf); err != nil {
+			log.Error(err, "failed to delete manifest")
 			return deletedTags, err
 		}
+
 		deletedTags = append(deletedTags, tag)
 	}
 
@@ -113,7 +119,7 @@ func garbageCollect(c client.Client, reg *regv1.Registry) error {
 		return err
 	}
 
-	cmder := regApi.NewCommander(podName, reg.Namespace)
+	cmder := inter.NewCommander(podName, reg.Namespace)
 	out, err := cmder.GarbageCollect()
 	if err != nil {
 		log.Error(err, "exec")

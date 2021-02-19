@@ -1,10 +1,11 @@
-package trust
+package image
 
 import (
 	"fmt"
-	"github.com/docker/distribution/reference"
 	"regexp"
 	"strings"
+
+	"github.com/docker/distribution/reference"
 )
 
 const (

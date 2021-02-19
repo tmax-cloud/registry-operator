@@ -23,7 +23,7 @@ import (
 	"github.com/tmax-cloud/registry-operator/internal/common/certs"
 	regConfig "github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
-	regApi "github.com/tmax-cloud/registry-operator/pkg/registry"
+	"github.com/tmax-cloud/registry-operator/pkg/image"
 	clairReg "github.com/tmax-cloud/registry-operator/pkg/scan/clair"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -130,13 +130,20 @@ func GetRegistryImages(c client.Client, registryURL, basicAuth, imageNamePattern
 		}
 	}
 
-	regCtl := regApi.NewRegistryAPI(registryURL, basicAuth, ca)
-	repos := regCtl.Catalog()
+	img, err := image.NewImage("", registryURL, basicAuth, ca)
+	if err != nil {
+		logger.Error(err, "faild to create image client")
+	}
+	repos := img.Catalog()
 	if repos == nil {
 		return images
 	}
 	for _, repo := range repos.Repositories {
-		vers := regCtl.Tags(repo)
+		if err := img.SetImage(repo); err != nil {
+			logger.Error(err, "failed to set image", "repo", repo)
+			continue
+		}
+		vers := img.Tags()
 		if vers == nil {
 			continue
 		}

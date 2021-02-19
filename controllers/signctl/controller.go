@@ -1,4 +1,4 @@
-package controller
+package signctl
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	apiv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
-	"github.com/tmax-cloud/registry-operator/pkg/registry"
+	"github.com/tmax-cloud/registry-operator/pkg/image"
 	"github.com/tmax-cloud/registry-operator/pkg/trust"
 	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -29,7 +29,7 @@ func NewSigningController(c client.Client, scheme *runtime.Scheme, signer *apiv1
 	return &SigningController{
 		client:      c,
 		ImageSigner: signer,
-		Regctl:      registry.NewRegCtl(c, registryName, registryNamespace),
+		Regctl:      NewRegCtl(c, registryName, registryNamespace),
 		Scheme:      scheme,
 	}
 }
@@ -37,7 +37,7 @@ func NewSigningController(c client.Client, scheme *runtime.Scheme, signer *apiv1
 type SigningController struct {
 	client      client.Client
 	ImageSigner *apiv1.ImageSigner
-	Regctl      *registry.RegCtl
+	Regctl      *RegCtl
 	Scheme      *runtime.Scheme
 }
 
@@ -102,7 +102,7 @@ func (c *SigningController) createRootKey(owner *apiv1.ImageSigner, scheme *runt
 	return nil
 }
 
-func (c *SigningController) SignImage(signerKey *apiv1.SignerKey, img *trust.Image, ca []byte) error {
+func (c *SigningController) SignImage(signerKey *apiv1.SignerKey, img *image.Image, notaryURL string, ca []byte) error {
 	// Target key
 	addTargetKey := false
 	targetKey, err := signerKey.GetTargetKey(img.GetImageNameWithHost())
@@ -112,7 +112,7 @@ func (c *SigningController) SignImage(signerKey *apiv1.SignerKey, img *trust.Ima
 
 	// Initialize notary
 	passPhrase := signerKey.GetPassPhrase()
-	not, err := trust.New(img, passPhrase, fmt.Sprintf("/tmp/notary/%s", utils.RandomString(10)), ca, signerKey.Spec.Root, targetKey)
+	not, err := trust.New(img, notaryURL, passPhrase, fmt.Sprintf("/tmp/notary/%s", utils.RandomString(10)), ca, signerKey.Spec.Root, targetKey)
 	if err != nil {
 		log.Error(err, "")
 		return err

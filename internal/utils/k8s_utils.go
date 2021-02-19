@@ -152,7 +152,7 @@ func GetCAData(secretName, namespace string) ([]byte, error) {
 	return ca, nil
 }
 
-// ParseBasicAuth returns `username:password` as string
+// ParseBasicAuth returns `username:password` as string encrypted by base64
 func ParseBasicAuth(sec *corev1.Secret, host string) (string, error) {
 	if sec == nil {
 		return "", fmt.Errorf("cannot get secret")
@@ -226,7 +226,7 @@ func setDefaultPort(url string) string {
 	return url
 }
 
-// GetBasicAuth returns `username:password` as string from imagePullSecghret
+// GetBasicAuth returns `username:password` as string encrypted by base64 from imagePullSecghret
 func GetBasicAuth(imagePullSecret, namespace, registryURL string) (string, error) {
 	secret, err := GetSecret(imagePullSecret, namespace)
 	if err != nil {
@@ -260,4 +260,9 @@ func DecodeBasicAuth(basic string) (username, password string) {
 	username = basic[:idx]
 	password = basic[idx+1:]
 	return
+}
+
+// EncryptBasicAuth encrypt username and password by base64
+func EncryptBasicAuth(username, password string) string {
+	return base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 }
