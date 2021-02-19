@@ -10,11 +10,11 @@
 1. On your local machine, get released source to install.
 
     ```bash
-    export VERSION=v0.2.2
-    mkdir registry-operator-$VERSION
-    wget -c https://github.com/tmax-cloud/registry-operator/archive/$VERSION.tar.gz -O - |tar -xz -C registry-operator-$VERSION --strip-components=1
-    export WORKDIR=$(pwd)/registry-operator-$VERSION
-    cd ${WORKDIR}
+    REG_OP_VERSION=v0.2.2
+    mkdir registry-operator-${REG_OP_VERSION}
+    wget -c https://github.com/tmax-cloud/registry-operator/archive/${REG_OP_VERSION}.tar.gz -O - |tar -xz -C registry-operator-${REG_OP_VERSION} --strip-components=1
+    REG_OP_HOME=$(pwd)/registry-operator-${REG_OP_VERSION}
+    cd ${REG_OP_HOME}
     ```
 
 1. Create or use CA certificate
@@ -22,7 +22,7 @@
     * If you don't have a root CA certificate, excute following commandsto create new root ca certificate.
 
         ```bash
-        cd ${WORKDIR}
+        cd ${REG_OP_HOME}
         sudo chmod 755 ./config/scripts/newCertFile.sh
         ./config/scripts/newCertFile.sh
         cp ca.crt ca.key ./config/pki/
@@ -39,12 +39,10 @@
 
 1. Execute install.sh script
 
-    **Note**: If you have keycloak's certificate, modify config/manager/keycloak_cert_secret.yaml file's contents
-
     * Create namespace, CRDs, role, etc... Then deploy the registry-operator.
 
         ```bash
-        cd ${WORKDIR}
+        cd ${REG_OP_HOME}
         sudo chmod 755 ./config/scripts/newCertSecret.sh install.sh
         ./install.sh 
         ```
@@ -55,7 +53,7 @@
         * If the node is CentOS 7
 
             ```bash
-            cd ${WORKDIR}
+            cd ${REG_OP_HOME}
             cp ./config/pki/ca.crt /etc/pki/ca-trust/source/anchors/
             update-ca-trust
             ```
@@ -63,7 +61,7 @@
         * If the node is Ubuntu 18.04
 
             ```bash
-            cd ${WORKDIR}
+            cd ${REG_OP_HOME}
             cp ./config/pki/ca.crt /usr/local/share/ca-certificates/
             update-ca-certificates
             ```
@@ -99,7 +97,7 @@
 * The way to verify that the registry operator works is to create a sample registry.
 
     ```bash
-    cd ${WORKDIR}
+    cd ${REG_OP_HOME}
     kubectl create -f config/samples/namespace.yaml
     kubectl create -f config/samples/tmax.io_v1_registry.yaml
     ```
@@ -117,7 +115,7 @@
 * If you want to remove all resources, execute follwing command.
 
     ```bash
-    cd ${WORKDIR}
+    cd ${REG_OP_HOME}
     chmod 755 ./uninstall.sh
     ./uninstall -a
     ```
@@ -125,7 +123,7 @@
 * If you want to remove manager resources without crd resources, execute follwing command.
 
     ```bash
-    cd ${WORKDIR}
+    cd ${REG_OP_HOME}
     chmod 755 ./uninstall.sh
     ./uninstall -m
     ```
@@ -133,7 +131,7 @@
 * If you want to remove only CRDs, execute follwing command.
 
     ```bash
-    cd ${WORKDIR}
+    cd ${REG_OP_HOME}
     chmod 755 ./uninstall.sh
     ./uninstall -c
     ```
@@ -141,7 +139,7 @@
 * If you want to remove Clair server only, execute follwing command.
 
     ```bash
-    cd ${WORKDIR}
+    cd ${REG_OP_HOME}
     chmod 755 ./uninstall.sh
     ./uninstall -s
     ```

@@ -26,7 +26,7 @@ data:
     keycloak:
       service: https://172.22.11.9:8443
     clair:
-      url: "http://tmax-harbor-clair.harbor.svc.cluster.local:6060"
+      url: "http://clair.registry-system.svc.cluster.local:6060"
     elastic_search:
       url: "http://elasticsearch.kube-logging.svc.cluster.local:9200"
     harbor:
