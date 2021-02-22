@@ -28,7 +28,7 @@ type ScanRequestStatusType string
 const (
 	ScanRequestSuccess    ScanRequestStatusType = "Success"
 	ScanRequestFail       ScanRequestStatusType = "Fail"
-	ScanRequestRecepted   ScanRequestStatusType = "Recepted"
+	ScanRequestPending    ScanRequestStatusType = "Pending"
 	ScanRequestProcessing ScanRequestStatusType = "Processing"
 	// ScanRequestError is scan request is failed
 	ScanRequestError ScanRequestStatusType = "Error"

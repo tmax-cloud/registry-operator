@@ -89,8 +89,8 @@ func (r *ImageScanRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	switch instance.Status.Status {
 	case "":
 		err = r.doRecept(instance)
-	case tmaxiov1.ScanRequestRecepted:
-		logger.Info("Already recepted request...")
+	case tmaxiov1.ScanRequestPending:
+		logger.Info("Already pending request...")
 		// XXX: Cancel job?
 		// return ctrl.Result{Requeue: true}, nil
 	case tmaxiov1.ScanRequestProcessing:
@@ -272,7 +272,7 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 		})
 
 	worker.Submit(task)
-	_ = r.updateStatus(instance, tmaxiov1.ScanRequestRecepted, "", nil)
+	_ = r.updateStatus(instance, tmaxiov1.ScanRequestPending, "", nil)
 
 	return nil
 }
