@@ -239,24 +239,34 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 		func(st *scanctl.ScanTask) {
 			_ = r.updateStatus(instance, tmaxiov1.ScanRequestProcessing, "", nil)
 		}, func(st *scanctl.ScanTask) {
+
 			result := map[string]tmaxiov1.ScanResult{}
+
 			for _, job := range st.Jobs() {
 				for imageName, r := range job.Result() {
+
 					scanResult := convertReport(r, job.MaxVuls())
-					result[imageName] = scanResult
-					report := tmaxiov1.ImageScanRequestESReport{
-						Image:  imageName,
-						Result: scanResult,
-					}
-					if job.SendReport {
-						err := es.SendReport(instance.Namespace, &report)
+
+					if job.SendReportEnabled {
+						esReport := tmaxiov1.ImageScanRequestESReport{
+							Image:  imageName,
+							Result: scanResult,
+						}
+
+						err := es.SendReport(instance.Namespace, &esReport)
 						if err != nil {
 							log.Error(err, "Failed to send report.")
 						}
 					}
+
+					// Do not update detail on object
+					scanResult.Vulnerabilities = nil
+					result[imageName] = scanResult
 				}
 			}
+
 			_ = r.updateStatus(instance, tmaxiov1.ScanRequestSuccess, "success", result)
+
 		}, func(err error) {
 			_ = r.updateStatus(instance, tmaxiov1.ScanRequestFail, err.Error(), nil)
 		})
@@ -289,7 +299,7 @@ func (r *ImageScanRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func convertReport(reports *clair.VulnerabilityReport, threshold int) (ret tmaxiov1.ScanResult) {
 
-	ServerityNames := []string{"Unknown", "Negligible", "Low", "Medium", "High", "Critical", "Defcon1"}
+	SeverityNames := []string{"Unknown", "Negligible", "Low", "Medium", "High", "Critical", "Defcon1"}
 
 	summary := map[string]int{}
 	fatal := []string{}
@@ -299,7 +309,7 @@ func convertReport(reports *clair.VulnerabilityReport, threshold int) (ret tmaxi
 	maxBadVuls := 10
 	nBadVuls := 0
 
-	for _, n := range ServerityNames {
+	for _, n := range SeverityNames {
 		summary[n] = 0
 	}
 

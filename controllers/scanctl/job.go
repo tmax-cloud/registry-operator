@@ -2,6 +2,7 @@ package scanctl
 
 import (
 	"context"
+	"path"
 	"regexp"
 	"strings"
 
@@ -11,21 +12,21 @@ import (
 
 // 1:1 ImageScanRequest.ScanTarget
 type ScanJob struct {
-	r              *registry.Registry
-	c              *clair.Clair
-	images         []string
-	maxAllowedVuls int
-	result         map[string]*clair.VulnerabilityReport
-	SendReport     bool
+	r                 *registry.Registry
+	c                 *clair.Clair
+	images            []string
+	maxAllowedVuls    int
+	result            map[string]*clair.VulnerabilityReport
+	SendReportEnabled bool
 }
 
 func NewScanJob(r *registry.Registry, c *clair.Clair, images []string, nAllowVuls int, sendReport bool) *ScanJob {
 	return &ScanJob{
-		r:              r,
-		c:              c,
-		images:         images,
-		maxAllowedVuls: nAllowVuls,
-		SendReport:     sendReport,
+		r:                 r,
+		c:                 c,
+		images:            images,
+		maxAllowedVuls:    nAllowVuls,
+		SendReportEnabled: sendReport,
 	}
 }
 
@@ -39,54 +40,58 @@ func (j *ScanJob) MaxVuls() int {
 
 func (j *ScanJob) Run() error {
 
-	// FIXME: Not possible in the case of docker.io
-	repos, err := j.r.Catalog(context.TODO(), "")
-	if err != nil {
-		return err
+	isContainsPattern := false
+	for _, image := range j.images {
+		if strings.ContainsAny("*?", image) {
+			isContainsPattern = true
+			break
+		}
 	}
 
 	targets := []string{}
-
-	for _, pattern := range j.images {
-		if pattern == "*" {
-			targets = repos
-			break
+	if isContainsPattern {
+		// FIXME: Not possible in the case of docker.io
+		repositories, err := j.r.Catalog(context.TODO(), "")
+		if err != nil {
+			return err
 		}
 
-		for _, repo := range repos {
-			isMatched, _ := regexp.MatchString(pattern, repo)
-			if isMatched && !isDuplicated(targets, repo) {
-				targets = append(targets, repo)
+		for _, repo := range repositories {
+			for _, image := range j.images {
+				if isMatch, _ := regexp.MatchString(convertToRegexp(image), repo); isMatch {
+					targets = append(targets, repo)
+					break
+				}
 			}
 		}
+
+	} else {
+		targets = j.images
 	}
 
-	reports := make(map[string]*clair.VulnerabilityReport, len(j.images))
-	for _, imageName := range targets {
-		imageFullname := strings.Join([]string{j.r.Domain, imageName}, "/")
-		image, err := registry.ParseImage(imageFullname)
+	vuls := make(map[string]*clair.VulnerabilityReport, len(j.images))
+	for _, target := range targets {
+		imagePath := path.Join(j.r.Domain, target)
+		img, err := registry.ParseImage(imagePath)
 		if err != nil {
 			return err
 		}
 
-		ctx := context.TODO()
-		report, err := j.c.Vulnerabilities(ctx, j.r, image.Path, image.Reference())
+		vul, err := j.c.Vulnerabilities(context.TODO(), j.r, img.Path, img.Reference())
 		if err != nil {
 			return err
 		}
 
-		reports[imageFullname] = &report
+		vuls[imagePath] = &vul
 	}
 
-	j.result = reports
+	j.result = vuls
 	return nil
 }
 
-func isDuplicated(items []string, str string) bool {
-	for _, item := range items {
-		if item == str {
-			return true
-		}
-	}
-	return false
+func convertToRegexp(s string) string {
+	c1 := strings.ReplaceAll(s, "?", ".")
+	c2 := strings.ReplaceAll(c1, "*", "[[:alnum:]]")
+
+	return c2
 }
