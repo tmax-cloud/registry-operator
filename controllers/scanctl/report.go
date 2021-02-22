@@ -46,7 +46,11 @@ func (c *ReportClient) SendReport(namespace string, report *tmaxiov1.ImageScanRe
 	if err != nil {
 		return err
 	}
-	fmt.Printf("********* [ElasticSearch]: response: %d/ %s\n", response.StatusCode, (body))
 	defer response.Body.Close()
-	return err
+
+	if response.StatusCode >= 400 && response.StatusCode < 600 {
+		return fmt.Errorf(fmt.Sprintf("ES server respond with %d(%s)\n", response.StatusCode, body))
+	}
+
+	return nil
 }
