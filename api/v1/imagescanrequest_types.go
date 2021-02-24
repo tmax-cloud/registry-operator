@@ -26,9 +26,9 @@ import (
 type ScanRequestStatusType string
 
 const (
-	// ScanRequestSuccess is scan request's result is in a successful state
-	ScanRequestSuccess ScanRequestStatusType = "Success"
-	// ScanRequestProcessing is scan request is processing state
+	ScanRequestSuccess    ScanRequestStatusType = "Success"
+	ScanRequestFail       ScanRequestStatusType = "Fail"
+	ScanRequestPending    ScanRequestStatusType = "Pending"
 	ScanRequestProcessing ScanRequestStatusType = "Processing"
 	// ScanRequestError is scan request is failed
 	ScanRequestError ScanRequestStatusType = "Error"
