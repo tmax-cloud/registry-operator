@@ -10,34 +10,33 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// NewSyncRegistryFactory returns SyncRegistryFactory
-func NewSyncRegistryFactory(
+// NewRegistryFactory returns SyncRegistryFactory
+func NewRegistryFactory(
 	k8sClient client.Client,
 	namespacedName types.NamespacedName,
 	scheme *runtime.Scheme,
 	httpClient *cmhttp.HttpClient,
-) *SyncRegistryFactory {
-	return &SyncRegistryFactory{
-		k8sClient:      k8sClient,
-		namespacedName: namespacedName,
-		scheme:         scheme,
-		httpClient:     httpClient,
+) *RegistryFactory {
+	return &RegistryFactory{
+		Factory: base.Factory{
+			K8sClient:      k8sClient,
+			NamespacedName: namespacedName,
+			Scheme:         scheme,
+			HttpClient:     httpClient,
+		},
 	}
 }
 
-// SyncRegistryFactory creates synchronizable external registry
-type SyncRegistryFactory struct {
-	k8sClient      client.Client
-	namespacedName types.NamespacedName
-	scheme         *runtime.Scheme
-	httpClient     *cmhttp.HttpClient
+// RegistryFactory creates synchronizable external registry
+type RegistryFactory struct {
+	base.Factory
 }
 
 //
-func (f *SyncRegistryFactory) Create(registryType regv1.RegistryType) base.Synchronizable {
+func (f *RegistryFactory) Create(registryType regv1.RegistryType) base.Registry {
 	switch registryType {
-	case regv1.RegistryTypeInternalRegistry:
-		return inter.NewClient(f.k8sClient, f.namespacedName, f.scheme, f.httpClient)
+	case regv1.RegistryTypeHpcdRegistry:
+		return inter.NewClient(f.K8sClient, f.NamespacedName, f.Scheme, f.HttpClient)
 	}
 
 	return nil

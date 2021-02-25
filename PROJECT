@@ -32,6 +32,9 @@ resources:
 - group: tmax.io
   kind: ExternalRegistry
   version: v1
+- group: tmax.io
+  kind: ImageReplicate
+  version: v1
 version: 3-alpha
 plugins:
   go.sdk.operatorframework.io/v2-alpha: {}

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
+	"github.com/tmax-cloud/registry-operator/pkg/image"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/ext"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/sync"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -41,12 +41,12 @@ func (c *Client) SetAuth(req *http.Request) {
 }
 
 // ListRepositories get repository list from registry server
-func (c *Client) ListRepositories() *regv1.APIRepositories {
-	ext.Logger.Info("call", "api", listProjectsURL(c.URL))
+func (c *Client) ListRepositories() *image.APIRepositories {
+	ext.Logger.Info("call", "method", http.MethodGet, "api", listProjectsURL(c.URL))
 	req, err := http.NewRequest(http.MethodGet, listProjectsURL(c.URL), nil)
 	if err != nil {
 		ext.Logger.Error(err, "")
-		return nil
+		return &image.APIRepositories{}
 	}
 
 	if c.Login.Username != "" && c.Login.Password != "" {
@@ -56,29 +56,29 @@ func (c *Client) ListRepositories() *regv1.APIRepositories {
 	res, err := c.Client.Do(req)
 	if err != nil {
 		ext.Logger.Error(err, "")
-		return nil
+		return &image.APIRepositories{}
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		ext.Logger.Error(err, "")
-		return nil
+		return &image.APIRepositories{}
 	}
 
 	// ext.Logger.Info("contents", "projects", string(body))
 	projects := []Project{}
 	if err := json.Unmarshal(body, &projects); err != nil {
-		ext.Logger.Error(err, "failed to unmarshal project")
-		return nil
+		ext.Logger.Error(err, "failed to unmarshal project", "body", string(body))
+		return &image.APIRepositories{}
 	}
 
-	extRepos := &regv1.APIRepositories{}
+	extRepos := &image.APIRepositories{}
 
 	for _, proj := range projects {
 		req, err := http.NewRequest(http.MethodGet, listRepositoriessURL(c.URL, proj.Name), nil)
 		if err != nil {
 			ext.Logger.Error(err, "")
-			return nil
+			return &image.APIRepositories{}
 		}
 
 		c.SetAuth(req)
@@ -86,13 +86,13 @@ func (c *Client) ListRepositories() *regv1.APIRepositories {
 		res, err := c.Client.Do(req)
 		if err != nil {
 			ext.Logger.Error(err, "")
-			return nil
+			return &image.APIRepositories{}
 		}
 
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			ext.Logger.Error(err, "")
-			return nil
+			return &image.APIRepositories{}
 		}
 
 		// ext.Logger.Info("contents", "repositories", string(body))
@@ -101,7 +101,7 @@ func (c *Client) ListRepositories() *regv1.APIRepositories {
 
 		if err := json.Unmarshal(body, &repos); err != nil {
 			ext.Logger.Error(err, "failed to unmarshal registry's repository")
-			return nil
+			return &image.APIRepositories{}
 		}
 
 		for _, repo := range repos {
@@ -126,10 +126,10 @@ func projectAndRepositoryName(repositoryFullName string) (project, repository st
 }
 
 // ListTags get tag list of repository from registry server
-func (c *Client) ListTags(repository string) *regv1.APIRepository {
+func (c *Client) ListTags(repository string) *image.APIRepository {
 	project, repoName := projectAndRepositoryName(repository)
 
-	ext.Logger.Info("call", "api", listTagsURL(c.URL, project, repoName))
+	ext.Logger.Info("call", "method", http.MethodGet, "api", listTagsURL(c.URL, project, repoName))
 	req, err := http.NewRequest(http.MethodGet, listTagsURL(c.URL, project, repoName), nil)
 	if err != nil {
 		ext.Logger.Error(err, "")
@@ -157,7 +157,7 @@ func (c *Client) ListTags(repository string) *regv1.APIRepository {
 		return nil
 	}
 
-	regRepo := &regv1.APIRepository{Name: repository}
+	regRepo := &image.APIRepository{Name: repository}
 	for _, artifact := range artifacts {
 		if strings.ToUpper(artifact.Type) == "IMAGE" {
 			for _, tag := range artifact.Tags {
@@ -175,7 +175,7 @@ func (c *Client) ListTags(repository string) *regv1.APIRepository {
 // Synchronize synchronizes repository list between tmax.io.Repository resource and Registry server
 func (c *Client) Synchronize() error {
 	repos := c.ListRepositories()
-	repoList := &regv1.APIRepositoryList{}
+	repoList := &image.APIRepositoryList{}
 
 	for _, repo := range repos.Repositories {
 		tags := c.ListTags(repo)

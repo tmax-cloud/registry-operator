@@ -1,12 +1,18 @@
 package inter
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/common/certs"
 	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	"github.com/tmax-cloud/registry-operator/pkg/image"
+	"github.com/tmax-cloud/registry-operator/pkg/registry/base"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/sync"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -74,15 +80,15 @@ func GetClient(c client.Client, reg *regv1.Registry, scheme *runtime.Scheme) (*C
 }
 
 // ListRepositories get repository list from registry server
-func (c *Client) ListRepositories() *regv1.APIRepositories {
+func (c *Client) ListRepositories() *image.APIRepositories {
 	return c.imageClient.Catalog()
 }
 
 // ListTags get tag list of repository from registry server
-func (c *Client) ListTags(repository string) *regv1.APIRepository {
+func (c *Client) ListTags(repository string) *image.APIRepository {
 	if err := c.imageClient.SetImage(repository); err != nil {
 		Logger.Error(err, "failed to set image")
-		return &regv1.APIRepository{}
+		return &image.APIRepository{}
 	}
 	return c.imageClient.Tags()
 
@@ -91,7 +97,7 @@ func (c *Client) ListTags(repository string) *regv1.APIRepository {
 // Synchronize synchronizes repository list between tmax.io.Repository resource and Registry server
 func (c *Client) Synchronize() error {
 	repos := c.ListRepositories()
-	repoList := &regv1.APIRepositoryList{}
+	repoList := &image.APIRepositoryList{}
 
 	for _, repo := range repos.Repositories {
 		tags := c.ListTags(repo)
@@ -122,4 +128,81 @@ func (c *Client) DeleteManifest(image string, manifest *image.ImageManifest) err
 		return err
 	}
 	return c.imageClient.DeleteManifest(manifest)
+}
+
+// PutManifest updates manifest in the registry
+func (c *Client) PutManifest(image string, manifest *image.ImageManifest) error {
+	if err := c.imageClient.SetImage(image); err != nil {
+		Logger.Error(err, "failed to set image")
+		return err
+	}
+	return c.imageClient.PutManifest(manifest)
+}
+
+// PullBlob pulls and stores blob
+func (c *Client) ExistBlob(repository, digest string) (bool, error) {
+	image := fmt.Sprintf("%s@%s", repository, digest)
+	if err := c.imageClient.SetImage(image); err != nil {
+		Logger.Error(err, "failed to set image")
+		return false, err
+	}
+	return c.imageClient.ExistBlob()
+}
+
+// PullBlob pulls and stores blob
+func (c *Client) PullBlob(repository, digest string) (string, int64, error) {
+	image := fmt.Sprintf("%s@%s", repository, digest)
+	if err := c.imageClient.SetImage(image); err != nil {
+		Logger.Error(err, "failed to set image")
+		return "", 0, err
+	}
+	blob, size, err := c.imageClient.PullBlob()
+	if err != nil {
+		Logger.Error(err, "failed to pull blob")
+		return "", 0, err
+	}
+
+	defer blob.Close()
+	data, err := ioutil.ReadAll(blob)
+	if err != nil {
+		Logger.Error(err, "")
+		return "", 0, err
+	}
+
+	file := path.Join(base.TempBlobsDir, repository, digest)
+	if err := os.MkdirAll(path.Dir(file), os.ModePerm); err != nil {
+		Logger.Error(err, "failed to make directory", "dir", path.Dir(file))
+		return "", 0, err
+	}
+	Logger.Info("debug", "mkdir path", file)
+
+	if err := ioutil.WriteFile(file, data, 0644); err != nil {
+		Logger.Error(err, "failed to write file", "file", file)
+		return "", 0, err
+	}
+
+	return file, size, nil
+}
+
+// PushBlob pushes and stores blob
+func (c *Client) PushBlob(repository, digest, blobPath string, size int64) error {
+	data, err := ioutil.ReadFile(blobPath)
+	if err != nil {
+		Logger.Error(err, "failed to read file", "file", blobPath)
+		return err
+	}
+
+	image := fmt.Sprintf("%s@%s", repository, digest)
+	if err := c.imageClient.SetImage(image); err != nil {
+		Logger.Error(err, "failed to set image")
+		return err
+	}
+
+	_, _, err = c.imageClient.PushBlob(data, size)
+	if err != nil {
+		Logger.Error(err, "failed to push blob")
+		return err
+	}
+
+	return nil
 }

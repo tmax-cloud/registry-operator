@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	// RegistryTypeInternalRegistry is internal registry type
-	RegistryTypeInternalRegistry RegistryType = "Registry"
+	// RegistryTypeHpcdRegistry is internal hypercloud registry type
+	RegistryTypeHpcdRegistry RegistryType = "HpcdRegistry"
 )
 
 // Status is registry status type

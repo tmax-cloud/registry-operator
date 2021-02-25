@@ -10,6 +10,14 @@ const (
 	SCHEME_HTTPS_PREFIX = "https://"
 )
 
+const (
+	ContentTypeBinary = "application/octet-stream"
+	ContentTypeForm   = "application/x-www-form-urlencoded"
+	ContentTypeJSON   = "application/json"
+	ContentTypeHTML   = "text/html; charset=utf-8"
+	ContentTypeText   = "text/plain; charset=utf-8"
+)
+
 func AddQueryParams(url string, params map[string][]string) string {
 	isFirst := false
 	if !strings.Contains(url, "?") {

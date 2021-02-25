@@ -247,7 +247,7 @@ func (c *KeycloakController) AddCertificate() error {
 		return err
 	}
 
-	c.logger.Info("call", "api", reqURL)
+	c.logger.Info("call", "method", http.MethodPost, "api", reqURL)
 	c.logger.Info("call", "body", string(body))
 	req, err := http.NewRequest(http.MethodPost, reqURL, bytes.NewBuffer(body))
 	if err != nil {
@@ -312,7 +312,7 @@ func (c *KeycloakController) isExistCertificate() bool {
 	params := map[string][]string{"parent": parent, "type": keyType}
 	reqURL = utils.AddQueryParams(reqURL, params)
 
-	c.logger.Info("call", "api", reqURL)
+	c.logger.Info("call", "method", http.MethodGet, "api", reqURL)
 	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
 	if err != nil {
 		c.logger.Error(err, "")

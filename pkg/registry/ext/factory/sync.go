@@ -18,26 +18,25 @@ func NewSyncRegistryFactory(
 	httpClient *cmhttp.HttpClient,
 ) *SyncRegistryFactory {
 	return &SyncRegistryFactory{
-		k8sClient:      k8sClient,
-		namespacedName: namespacedName,
-		scheme:         scheme,
-		httpClient:     httpClient,
+		Factory: base.Factory{
+			K8sClient:      k8sClient,
+			NamespacedName: namespacedName,
+			Scheme:         scheme,
+			HttpClient:     httpClient,
+		},
 	}
 }
 
 // SyncRegistryFactory creates synchronizable external registry
 type SyncRegistryFactory struct {
-	k8sClient      client.Client
-	namespacedName types.NamespacedName
-	scheme         *runtime.Scheme
-	httpClient     *cmhttp.HttpClient
+	base.Factory
 }
 
 //
 func (f *SyncRegistryFactory) Create(registryType regv1.RegistryType) base.Synchronizable {
 	switch registryType {
 	case regv1.RegistryTypeHarborV2:
-		return harborv2.NewClient(f.k8sClient, f.namespacedName, f.scheme, f.httpClient)
+		return harborv2.NewClient(f.K8sClient, f.NamespacedName, f.Scheme, f.HttpClient)
 	}
 
 	return nil

@@ -195,6 +195,26 @@ rules:
 - apiGroups:
   - tmax.io
   resources:
+  - imagereplicates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - tmax.io
+  resources:
+  - imagereplicates/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - tmax.io
+  resources:
   - imagescanrequests
   verbs:
   - create

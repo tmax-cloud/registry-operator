@@ -164,6 +164,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.ImageReplicateReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("ImageReplicate"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ImageReplicate")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	// API Server

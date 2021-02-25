@@ -1,16 +1,13 @@
 package image
 
 import (
-	"encoding/json"
-	"errors"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
-	"path"
 	"strconv"
 
-	"github.com/docker/distribution/manifest/schema1"
+	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/registry/client"
 )
@@ -18,18 +15,20 @@ import (
 type ImageManifest struct {
 	Digest        string
 	ContentLength int64
-
-	// *schema1.Manifest or *schema2.Manifest
-	Schema interface{}
+	Manifest      distribution.Manifest
 }
 
 func (r *Image) manifest(schemaVersion int) (*ImageManifest, error) {
-	u, err := manifestURL(r.ServerURL, r.Name, r.Tag)
+	ref := r.Tag
+	if ref == "" {
+		ref = r.Digest
+	}
+	u, err := manifestURL(r.ServerURL, r.Name, ref)
 	if err != nil {
 		return nil, err
 	}
 
-	Logger.Info("call", "api", u.String())
+	Logger.Info("call", "method", http.MethodGet, "api", u.String())
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
 		Logger.Error(err, "")
@@ -53,19 +52,24 @@ func (r *Image) manifest(schemaVersion int) (*ImageManifest, error) {
 		return nil, err
 	}
 	defer res.Body.Close()
-	bodyStr, err := ioutil.ReadAll(res.Body)
+	bodyData, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		Logger.Error(err, "")
 		return nil, err
 	}
 	if !client.SuccessStatus(res.StatusCode) {
-		Logger.Error(err, "")
 		err := client.HandleErrorResponse(res)
+		Logger.Error(err, "")
 		return nil, err
 	}
 
+	mediaType := res.Header.Get("Content-Type")
 	digest := res.Header.Get("Docker-Content-Digest")
 	lengthStr := res.Header.Get("Content-Length")
+	manifest, _, err := distribution.UnmarshalManifest(mediaType, bodyData)
+	if err != nil {
+		return nil, err
+	}
 
 	if digest == "" || lengthStr == "" {
 		return nil, fmt.Errorf("expected headers not exist")
@@ -77,38 +81,10 @@ func (r *Image) manifest(schemaVersion int) (*ImageManifest, error) {
 		return nil, err
 	}
 
-	if schemaVersion == 2 {
-		body := &schema2.Manifest{}
-		if err := json.Unmarshal(bodyStr, body); err != nil {
-			Logger.Error(err, "")
-			return nil, err
-		}
-
-		if body.Versioned.SchemaVersion != 2 {
-			return nil, errors.New("expected schema version is v2 but v1")
-		}
-
-		return &ImageManifest{
-			Digest:        digest,
-			ContentLength: int64(length),
-			Schema:        body,
-		}, nil
-	}
-
-	body := &schema1.Manifest{}
-	if err := json.Unmarshal(bodyStr, body); err != nil {
-		Logger.Error(err, "")
-		return nil, err
-	}
-
-	if body.Versioned.SchemaVersion != 1 {
-		return nil, errors.New("expected schema version is v1 but v2")
-	}
-
 	return &ImageManifest{
 		Digest:        digest,
 		ContentLength: int64(length),
-		Schema:        body,
+		Manifest:      manifest,
 	}, nil
 }
 
@@ -135,35 +111,22 @@ func (r *Image) GetManifest() (*ImageManifest, error) {
 	return mf1, nil
 }
 
-// ManifestVersion returns manifest schema version 1 or 2. If invalid manifest, return -1
-func (r *Image) ManifestVersion(manifest *ImageManifest) int {
-	switch manifest.Schema.(type) {
-	case *schema2.Manifest:
-		return 2
-	case *schema1.Manifest:
-		return 1
-	}
-
-	return -1
-}
-
 // DeleteManifest deletes manifest in the registry
 func (r *Image) DeleteManifest(manifest *ImageManifest) error {
-	u, err := url.Parse(r.ServerURL)
+	ref := r.Tag
+	if ref == "" {
+		ref = r.Digest
+	}
+	u, err := manifestURL(r.ServerURL, r.Name, ref)
 	if err != nil {
-		Logger.Error(err, "")
 		return err
 	}
 
-	u.Path = path.Join(u.Path, fmt.Sprintf("v2/%s/manifests/%s", r.Name, manifest.Digest))
-	Logger.Info("call", "api", u.String())
+	Logger.Info("call", "method", http.MethodDelete, "api", u.String())
 	req, err := http.NewRequest(http.MethodDelete, u.String(), nil)
 	if err != nil {
 		Logger.Error(err, "")
 		return err
-	}
-	if r.ManifestVersion(manifest) == 2 {
-		req.Header.Add("Accept", schema2.MediaTypeManifest)
 	}
 
 	token, err := r.GetToken(repositoryScope(r.Name))
@@ -178,8 +141,60 @@ func (r *Image) DeleteManifest(manifest *ImageManifest) error {
 		Logger.Error(err, "")
 		return err
 	}
+	defer res.Body.Close()
 
-	if res.StatusCode >= 400 {
+	if !client.SuccessStatus(res.StatusCode) {
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			Logger.Error(err, "")
+			return nil
+		}
+		Logger.Error(nil, "err", "err", string(body))
+		return fmt.Errorf("error!! %s", string(body))
+	}
+
+	return nil
+}
+
+func (r *Image) PutManifest(manifest *ImageManifest) error {
+	mediaType, payload, err := manifest.Manifest.Payload()
+	if err != nil {
+		Logger.Error(err, "failed to get payload")
+		return err
+	}
+	ref := r.Tag
+	if ref == "" {
+		ref = r.Digest
+	}
+	u, err := manifestURL(r.ServerURL, r.Name, ref)
+	if err != nil {
+		return err
+	}
+
+	Logger.Info("call", "method", http.MethodPut, "api", u.String())
+	req, err := http.NewRequest(http.MethodPut, u.String(), bytes.NewReader(payload))
+	if err != nil {
+		Logger.Error(err, "")
+		return err
+	}
+
+	req.Header.Add("Content-Type", mediaType)
+
+	token, err := r.GetToken(repositoryScope(r.Name))
+	if err != nil {
+		Logger.Error(err, "failed to get token")
+		return err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("%s %s", token.Type, token.Value))
+
+	res, err := r.HttpClient.Do(req)
+	if err != nil {
+		Logger.Error(err, "")
+		return err
+	}
+	defer res.Body.Close()
+
+	if !client.SuccessStatus(res.StatusCode) {
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			Logger.Error(err, "")

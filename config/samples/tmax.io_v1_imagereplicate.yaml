@@ -1,0 +1,18 @@
+apiVersion: tmax.io/v1
+kind: ImageReplicate
+metadata:
+  name: sample
+  namespace: reg-test
+spec:
+  fromImage:
+    registryType: HpcdRegistry
+    registryName: tmax-registry
+    registryNamespace: reg-test
+    image: alpine:3
+    imagePullSecret: hpcd-registry-tmax-registry
+  toImage:
+    registryType: HpcdRegistry
+    registryName: tmax-registry2
+    registryNamespace: reg-test
+    image: alpine:3
+    imagePullSecret: hpcd-registry-tmax2-registry

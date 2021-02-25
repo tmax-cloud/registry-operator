@@ -49,7 +49,7 @@ func (c *KeycloakClient) GetToken(scopes []string) (string, error) {
 
 	reqURL = utils.AddQueryParams(reqURL, params)
 
-	c.logger.Info("call", "api", reqURL)
+	c.logger.Info("call", "method", http.MethodGet, "api", reqURL)
 	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
 	if err != nil {
 		c.logger.Error(err, "")

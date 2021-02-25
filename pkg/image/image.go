@@ -10,6 +10,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/tmax-cloud/registry-operator/internal/common/auth"
@@ -19,15 +20,20 @@ import (
 var Logger = log.Log.WithName("image-client")
 
 const (
+	// DefaultServer is the default registry server
 	DefaultServer = "https://registry-1.docker.io"
+	// DefaultHostname is the default built-in hostname
+	DefaultHostname = "docker.io"
 )
 
 type Image struct {
 	ServerURL string
 
-	Host string
-	Name string
-	Tag  string
+	Host         string
+	Name         string
+	FamiliarName string
+	Tag          string
+	Digest       string
 
 	// username:password string encrypted by base64
 	BasicAuth string
@@ -36,27 +42,12 @@ type Image struct {
 	HttpClient http.Client
 }
 
+// NewImage creates new image client
 func NewImage(uri, registryServer, basicAuth string, ca []byte) (*Image, error) {
 	r := &Image{}
 
-	if uri != "" {
-		// Parse image url
-		img, err := ParseNamed(uri)
-		if err != nil {
-			return nil, err
-		}
-		img = WithDefaultTag(img)
-		r.Host = img.Hostname()
-		r.Name = img.RemoteName()
-		if tagged, isTagged := img.(NamedTagged); isTagged {
-			r.Tag = tagged.Tag()
-		} else {
-			return nil, fmt.Errorf("no tag given")
-		}
-	}
-
 	// Server url
-	if registryServer == "" {
+	if registryServer == "" || strings.HasPrefix(uri, DefaultHostname) {
 		r.ServerURL = DefaultServer
 	} else {
 		// set protocol scheme
@@ -64,6 +55,14 @@ func NewImage(uri, registryServer, basicAuth string, ca []byte) (*Image, error) 
 			registryServer = "https://" + registryServer
 		}
 		r.ServerURL = registryServer
+	}
+
+	// Set image
+	if uri != "" {
+		if err := r.SetImage(uri); err != nil {
+			Logger.Error(err, "failed to set image", "uri", uri)
+			return nil, err
+		}
 	}
 
 	// Auth
@@ -90,26 +89,54 @@ func NewImage(uri, registryServer, basicAuth string, ca []byte) (*Image, error) 
 	return r, nil
 }
 
-// SetImage sets image from "imageName:tag" or imageName form argument
+// SetImage sets image from "[<server>/]<imageName>[:<tag>|@<digest>]" form argument
 func (r *Image) SetImage(image string) error {
-	uri := r.ServerURL
-	uri = strings.TrimPrefix(uri, "http://")
-	uri = strings.TrimPrefix(uri, "https://")
-	uri = path.Join(uri, image)
-
-	// Parse image url
-	img, err := ParseNamed(uri)
-	if err != nil {
-		Logger.Error(err, "failed to parse uri", "uri", uri)
-		return err
+	// Parse image
+	var img reference.Named
+	var err error
+	if r.ServerURL == "" || strings.HasPrefix(r.ServerURL, DefaultHostname) {
+		r.ServerURL = DefaultServer
 	}
-	img = WithDefaultTag(img)
-	r.Host = img.Hostname()
-	r.Name = img.RemoteName()
-	if tagged, isTagged := img.(NamedTagged); isTagged {
-		r.Tag = tagged.Tag()
+	if r.ServerURL == DefaultServer {
+		img, err = reference.ParseNormalizedNamed(image)
+		if err != nil {
+			Logger.Error(err, "failed to parse image", "image", image)
+			return err
+		}
+		r.FamiliarName = reference.FamiliarName(img)
 	} else {
-		return fmt.Errorf("no tag given")
+		img, err = reference.ParseNamed(image)
+		if err != nil {
+			uri := r.ServerURL
+			uri = strings.TrimPrefix(uri, "http://")
+			uri = strings.TrimPrefix(uri, "https://")
+			uri = path.Join(uri, image)
+			img, err = reference.ParseNamed(uri)
+			if err != nil {
+				Logger.Error(err, "failed to parse uri", "uri", uri)
+				return err
+			}
+		}
+		r.FamiliarName = reference.Path(img)
+	}
+
+	r.Host, r.Name = reference.SplitHostname(img)
+	refered := false
+	r.Digest = ""
+	r.Tag = ""
+	if canonical, isCanonical := img.(reference.Canonical); isCanonical {
+		r.Digest = canonical.Digest().String()
+		refered = true
+	}
+
+	img = reference.TagNameOnly(img)
+	if tagged, isTagged := img.(reference.NamedTagged); isTagged {
+		r.Tag = tagged.Tag()
+		refered = true
+	}
+
+	if !refered {
+		return fmt.Errorf("no tag and digest given")
 	}
 
 	return nil
