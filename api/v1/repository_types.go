@@ -44,29 +44,3 @@ type RepositoryList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Repository `json:"items"`
 }
-
-// API
-type APIRepositories struct {
-	Repositories []string `json:"repositories"`
-}
-
-type APIRepository struct {
-	Name string   `json:"name"`
-	Tags []string `json:"tags"`
-}
-
-type APIRepositoryList []APIRepository
-
-func (l APIRepositoryList) GetRepository(name string) *APIRepository {
-	for _, repo := range l {
-		if repo.Name == name {
-			return &repo
-		}
-	}
-
-	return nil
-}
-
-func (l *APIRepositoryList) AddRepository(repo APIRepository) {
-	*l = append(*l, repo)
-}

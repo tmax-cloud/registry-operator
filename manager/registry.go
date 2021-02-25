@@ -14,6 +14,7 @@ import (
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	"github.com/tmax-cloud/registry-operator/pkg/image"
+	"github.com/tmax-cloud/registry-operator/pkg/registry/base"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/inter/factory"
 	"github.com/tmax-cloud/registry-operator/pkg/trust"
 
@@ -144,7 +145,7 @@ func SyncRegistry(c client.Client, reg *regv1.Registry, scheme *runtime.Scheme) 
 		ca = append(ca, kca...)
 	}
 
-	syncFactory := factory.NewSyncRegistryFactory(
+	syncFactory := factory.NewRegistryFactory(
 		c,
 		types.NamespacedName{Name: reg.Name, Namespace: reg.Namespace},
 		scheme,
@@ -156,7 +157,7 @@ func SyncRegistry(c client.Client, reg *regv1.Registry, scheme *runtime.Scheme) 
 		),
 	)
 
-	syncClient := syncFactory.Create(regv1.RegistryTypeInternalRegistry)
+	syncClient := syncFactory.Create(regv1.RegistryTypeHpcdRegistry).(base.Synchronizable)
 	if err := syncClient.Synchronize(); err != nil {
 		logger.Error(err, "failed to synchronize external registry")
 		return err
