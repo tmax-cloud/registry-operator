@@ -16,6 +16,38 @@ func manifestURL(baseURL, imageName, ref string) (*url.URL, error) {
 	return u, nil
 }
 
+func blobURL(baseURL, imageName, digest string) (*url.URL, error) {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		Logger.Error(err, "failed to parse url")
+		return nil, err
+	}
+	u.Path = path.Join(u.Path, fmt.Sprintf("v2/%s/blobs/%s", imageName, digest))
+	return u, nil
+}
+
+func uploadBlobURL(baseURL, imageName string) (*url.URL, error) {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		Logger.Error(err, "failed to parse url")
+		return nil, err
+	}
+	u.Path = path.Join(u.Path, fmt.Sprintf("v2/%s/blobs/uploads/", imageName))
+	return u, nil
+}
+
+func completelyUploadBlobURL(location, digest string) (*url.URL, error) {
+	u, err := url.Parse(location)
+	if err != nil {
+		Logger.Error(err, "failed to parse url")
+		return nil, err
+	}
+	q := u.Query()
+	q.Set("digest", digest)
+	u.RawQuery = q.Encode()
+	return u, nil
+}
+
 func pingURL(baseURL string) (*url.URL, error) {
 	u, err := url.Parse(baseURL)
 	if err != nil {

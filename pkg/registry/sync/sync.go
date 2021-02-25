@@ -7,6 +7,7 @@ import (
 	"github.com/tmax-cloud/registry-operator/controllers/repoctl"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
+	"github.com/tmax-cloud/registry-operator/pkg/image"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,7 +19,7 @@ import (
 var logger = log.Log.WithName("sync-registry")
 
 // Registry synchronizes custom resource repository based on all repositories in registry server
-func Registry(c client.Client, registry, namespace string, scheme *runtime.Scheme, repos *regv1.APIRepositoryList) error {
+func Registry(c client.Client, registry, namespace string, scheme *runtime.Scheme, repos *image.APIRepositoryList) error {
 	syncLog := logger.WithValues("registry_name", registry, "registry_ns", namespace)
 
 	crImages, crImageNames, err := crImages(c, registry, namespace)
@@ -72,7 +73,7 @@ func Registry(c client.Client, registry, namespace string, scheme *runtime.Schem
 }
 
 // ExternalRegistry synchronizes external registry repository list
-func ExternalRegistry(c client.Client, registry, namespace string, scheme *runtime.Scheme, repos *regv1.APIRepositoryList) error {
+func ExternalRegistry(c client.Client, registry, namespace string, scheme *runtime.Scheme, repos *image.APIRepositoryList) error {
 	syncLog := logger.WithValues("registry_name", registry, "registry_ns", namespace)
 	crImages, crImageNames, err := crExImages(c, registry, namespace)
 	if err != nil {
@@ -223,7 +224,7 @@ func compareRepositories(regImageNames, crImageNames []string, crImages []regv1.
 	return
 }
 
-func patchRepository(c client.Client, registry, namespace string, existRepositories []regv1.Repository, repos *regv1.APIRepositoryList) error {
+func patchRepository(c client.Client, registry, namespace string, existRepositories []regv1.Repository, repos *image.APIRepositoryList) error {
 	syncLog := logger.WithValues("registry_name", registry, "registry_ns", namespace)
 	repoCtl := &repoctl.RegistryRepository{}
 

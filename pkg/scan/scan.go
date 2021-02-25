@@ -2,7 +2,6 @@ package scan
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -10,7 +9,6 @@ import (
 	"path"
 
 	"github.com/docker/distribution"
-	"github.com/docker/distribution/manifest/schema2"
 	reg "github.com/genuinetools/reg/clair"
 	"github.com/opencontainers/go-digest"
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
@@ -58,13 +56,8 @@ func GetScanResult(img *image.Image) (ResultResponse, error) {
 		return nil, err
 	}
 
-	// TODO: support schema v1 manifest
-	if img.ManifestVersion(manifest) == 1 {
-		return nil, errors.New("not supported schema version 1 manifest yet")
-	}
-
 	// Get clair result for each layer
-	filteredLayer, err := filterEmptyLayers(manifest.Schema.(*schema2.Manifest).Layers)
+	filteredLayer, err := filterEmptyLayers(manifest.Manifest.References())
 	if err != nil {
 		return nil, err
 	}
