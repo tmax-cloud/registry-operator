@@ -3,9 +3,11 @@ kind: RegistryCronJob
 metadata:
   name: rcj-sync-harbor-1
 spec:
-  schedule: "*/1 * * * *"
+  schedule: "*/5 * * * *"
   jobSpec:
     ttl: -1
-    syncRepository:
-      externalRegistry:
+    priority: 0
+    claim:
+      jobType: Synchronize
+      handleObject:
         name: harbor-1

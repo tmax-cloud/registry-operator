@@ -23,6 +23,7 @@ import (
 
 // RegistryJobState is a state of the RegistryJob
 type RegistryJobState string
+type RegistryJobType string
 
 // RegistryJob's states
 const (
@@ -30,12 +31,18 @@ const (
 	RegistryJobStateRunning   = RegistryJobState("Running")
 	RegistryJobStateCompleted = RegistryJobState("Completed")
 	RegistryJobStateFailed    = RegistryJobState("Failed")
+
+	JobTypeSynchronize = RegistryJobType("Synchronize")
+	JobTypeReplicate   = RegistryJobType("Replicate")
 )
 
-// RegistryJobSyncRepository is a job type of synchronizing repository list of external registry
-type RegistryJobSyncRepository struct {
-	// ExternalRegistry refers to the ExternalRegistry
-	ExternalRegistry corev1.LocalObjectReference `json:"externalRegistry"`
+// RegistryJobClaim is a job type of synchronizing repository list of external registry
+type RegistryJobClaim struct {
+	// +kubebuilder:validation:Enum=Synchronize;Replicate
+	// Type of job to work
+	JobType RegistryJobType `json:"jobType"`
+	// HandleObject refers to the HandleObject
+	HandleObject corev1.LocalObjectReference `json:"handleObject"`
 }
 
 // RegistryJobSpec defines the desired state of RegistryJob
@@ -49,8 +56,8 @@ type RegistryJobSpec struct {
 	// Priority is an integer value, greater or equal to 0
 	Priority int `json:"priority,omitempty"`
 
-	// SyncRepository is a repository sync type job
-	SyncRepository *RegistryJobSyncRepository `json:"syncRepository,omitempty"`
+	// Claim is a repository sync type job
+	Claim *RegistryJobClaim `json:"claim,omitempty"`
 }
 
 // RegistryJobStatus defines the observed state of RegistryJob
