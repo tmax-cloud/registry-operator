@@ -49,7 +49,7 @@ spec:
               description: JobSpec is a spec for the job
               properties:
                 claim:
-                  description: Claim is a repository sync type job
+                  description: Claim is a claim that need to be handled
                   properties:
                     handleObject:
                       description: HandleObject refers to the HandleObject
