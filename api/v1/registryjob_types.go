@@ -23,6 +23,8 @@ import (
 
 // RegistryJobState is a state of the RegistryJob
 type RegistryJobState string
+
+// RegistryJobType is a job type name
 type RegistryJobType string
 
 // RegistryJob's states
@@ -32,11 +34,11 @@ const (
 	RegistryJobStateCompleted = RegistryJobState("Completed")
 	RegistryJobStateFailed    = RegistryJobState("Failed")
 
-	JobTypeSynchronize = RegistryJobType("Synchronize")
+	JobTypeSynchronize = RegistryJobType("SynchronizeExtReg")
 	JobTypeReplicate   = RegistryJobType("Replicate")
 )
 
-// RegistryJobClaim is a job type of synchronizing repository list of external registry
+// RegistryJobClaim is a claim of registry job
 type RegistryJobClaim struct {
 	// +kubebuilder:validation:Enum=Synchronize;Replicate
 	// Type of job to work
@@ -56,7 +58,7 @@ type RegistryJobSpec struct {
 	// Priority is an integer value, greater or equal to 0
 	Priority int `json:"priority,omitempty"`
 
-	// Claim is a repository sync type job
+	// Claim is a claim that need to be handled
 	Claim *RegistryJobClaim `json:"claim,omitempty"`
 }
 

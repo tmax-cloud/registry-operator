@@ -13,21 +13,36 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var Logger = log.Log.WithName("registry-handler")
+var logger = log.Log.WithName("extregctl-handler")
 
-func ExternalRegistrySyncHandleFunc(k8sClient client.Client, object types.NamespacedName, scheme *runtime.Scheme) error {
+// NewExternalRegistrySyncHandler returns a new handler to synchronize external registry
+func NewExternalRegistrySyncHandler(k8sClient client.Client, scheme *runtime.Scheme) *ExternalRegistrySyncHandler {
+	return &ExternalRegistrySyncHandler{
+		k8sClient: k8sClient,
+		scheme:    scheme,
+	}
+}
+
+// ExternalRegistrySyncHandler contains objects to use in handle function
+type ExternalRegistrySyncHandler struct {
+	k8sClient client.Client
+	scheme    *runtime.Scheme
+}
+
+// Handle synchronizes external registry repository list
+func (h *ExternalRegistrySyncHandler) Handle(object types.NamespacedName) error {
 	// get external registry
 	exreg := &v1.ExternalRegistry{}
 	exregNamespacedName := object
-	if err := k8sClient.Get(context.TODO(), exregNamespacedName, exreg); err != nil {
-		Logger.Error(err, "")
+	if err := h.k8sClient.Get(context.TODO(), exregNamespacedName, exreg); err != nil {
+		logger.Error(err, "")
 	}
 
 	username, password := "", ""
 	if exreg.Spec.ImagePullSecret != "" {
 		basic, err := utils.GetBasicAuth(exreg.Spec.ImagePullSecret, exreg.Namespace, exreg.Spec.RegistryURL)
 		if err != nil {
-			Logger.Error(err, "failed to get basic auth")
+			logger.Error(err, "failed to get basic auth")
 		}
 
 		username, password = utils.DecodeBasicAuth(basic)
@@ -37,15 +52,15 @@ func ExternalRegistrySyncHandleFunc(k8sClient client.Client, object types.Namesp
 	if exreg.Spec.CertificateSecret != "" {
 		data, err := utils.GetCAData(exreg.Spec.CertificateSecret, exreg.Namespace)
 		if err != nil {
-			Logger.Error(err, "failed to get ca data")
+			logger.Error(err, "failed to get ca data")
 		}
 		ca = data
 	}
 
 	syncFactory := factory.NewSyncRegistryFactory(
-		k8sClient,
+		h.k8sClient,
 		exregNamespacedName,
-		scheme,
+		h.scheme,
 		http.NewHTTPClient(
 			exreg.Spec.RegistryURL,
 			username, password,
@@ -56,7 +71,7 @@ func ExternalRegistrySyncHandleFunc(k8sClient client.Client, object types.Namesp
 
 	syncClient := syncFactory.Create(exreg.Spec.RegistryType)
 	if err := syncClient.Synchronize(); err != nil {
-		Logger.Error(err, "failed to synchronize external registry")
+		logger.Error(err, "failed to synchronize external registry")
 		return err
 	}
 	return nil

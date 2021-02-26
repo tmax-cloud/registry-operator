@@ -32,27 +32,27 @@ func New(c client.Client, s *runtime.Scheme) *Scheduler {
 		caller:    make(chan struct{}, 1),
 	}
 	sch.jobPool = pool.NewJobPool(sch.caller, priorityBasedFifoCompare)
-	sch.handler = HandleFuncs{}
+	sch.handlers = Handlers{}
 	go sch.start()
 	return sch
 }
 
-// HandleFunc is a function to be called by scheduler
-type HandleFunc func(k8sClient client.Client, object types.NamespacedName, scheme *runtime.Scheme) error
+// Handler is an interface that scheduler can call
+type Handler interface {
+	// Handle is a function to be called by scheduler
+	Handle(object types.NamespacedName) error
+}
 
-// HandleFuncType is a type name of function or job type name
-type HandleFuncType string
-
-// HandleFuncs map of handler
-type HandleFuncs map[HandleFuncType]HandleFunc
+// Handlers is a map of handler
+type Handlers map[v1.RegistryJobType]Handler
 
 // Scheduler watches RegistryJobs and calls the job handlers, considering how many runs are running (in a jobPool)
 type Scheduler struct {
 	k8sClient client.Client
 	scheme    *runtime.Scheme
 
-	jobPool *pool.JobPool
-	handler HandleFuncs
+	jobPool  *pool.JobPool
+	handlers Handlers
 
 	// Buffered channel with capacity 1
 	// Since scheduler lists resources by itself, the actual scheduling logic should be executed only once even when
@@ -108,60 +108,69 @@ func (s *Scheduler) schedulePending(availableCnt *int) func(structs.Item) {
 	}
 }
 
-// RegisterHandler registers that the scheduler can call
-func (s *Scheduler) RegisterHandler(newType HandleFuncType, workFunc HandleFunc) error {
-	_, exist := s.handler[newType]
+// RegisterHandler registers a handler which the scheduler can call
+func (s *Scheduler) RegisterHandler(newType v1.RegistryJobType, handler Handler) error {
+	_, exist := s.handlers[newType]
 	if exist {
 		err := fmt.Errorf("%s type func is already exist", newType)
 		log.Error(err, "failed to register handler")
 		return err
 	}
 
-	s.handler[newType] = workFunc
+	s.handlers[newType] = handler
 
 	return nil
 }
 
 func (s *Scheduler) executeJob(job *v1.RegistryJob) {
-	log.Info(fmt.Sprintf("Executing job %s / %s", job.Name, job.Namespace))
+	jobLog := log.WithValues("job namespace", job.Namespace, "job name", job.Name)
+	jobLog.Info("executing job")
 
 	// Set as running
 	if err := s.patchJobStarted(job); err != nil {
-		log.Error(err, "")
+		jobLog.Error(err, "")
 	}
 
 	state := v1.RegistryJobStateCompleted
 	msg := ""
 
-	// Sync jobs
-	if job.Spec.Claim != nil && job.Spec.Claim.HandleObject.Name != "" {
-		handleFunc, exist := s.handler[HandleFuncType(job.Spec.Claim.JobType)]
-		if !exist {
-			err := fmt.Errorf("%s type func is not exist", job.Spec.Claim.JobType)
-			log.Error(err, "failed to get handle function")
-			state = v1.RegistryJobStateFailed
-			msg = err.Error()
-			if err := s.patchJobCompleted(job, state, msg); err != nil {
-				log.Error(err, "")
-			}
-			return
-		}
-
-		object := types.NamespacedName{Name: job.Spec.Claim.HandleObject.Name, Namespace: job.Namespace}
-		if err := handleFunc(s.k8sClient, object, s.scheme); err != nil {
-			log.Error(err, "failed to execute job", "job type", job.Spec.Claim.JobType, "object namespace", object.Namespace, "object name", object.Name)
-			state = v1.RegistryJobStateFailed
-			msg = err.Error()
-			if err := s.patchJobCompleted(job, state, msg); err != nil {
-				log.Error(err, "")
-			}
+	if job.Spec.Claim == nil || job.Spec.Claim.JobType == "" || job.Spec.Claim.HandleObject.Name == "" {
+		err := fmt.Errorf("invalid claim")
+		jobLog.Error(err, "something in the claim is empty")
+		state = v1.RegistryJobStateFailed
+		msg = err.Error()
+		if err := s.patchJobCompleted(job, state, msg); err != nil {
+			jobLog.Error(err, "")
 			return
 		}
 	}
 
+	handler, exist := s.handlers[job.Spec.Claim.JobType]
+	if !exist {
+		err := fmt.Errorf("%s type func is not exist", job.Spec.Claim.JobType)
+		jobLog.Error(err, "failed to get handle function")
+		state = v1.RegistryJobStateFailed
+		msg = err.Error()
+		if err := s.patchJobCompleted(job, state, msg); err != nil {
+			jobLog.Error(err, "")
+		}
+		return
+	}
+
+	object := types.NamespacedName{Name: job.Spec.Claim.HandleObject.Name, Namespace: job.Namespace}
+	if err := handler.Handle(object); err != nil {
+		jobLog.Error(err, "failed to execute job", "job type", job.Spec.Claim.JobType, "object namespace", object.Namespace, "object name", object.Name)
+		state = v1.RegistryJobStateFailed
+		msg = err.Error()
+		if err := s.patchJobCompleted(job, state, msg); err != nil {
+			jobLog.Error(err, "")
+		}
+		return
+	}
+
 	// Set as complete
 	if err := s.patchJobCompleted(job, state, msg); err != nil {
-		log.Error(err, "")
+		jobLog.Error(err, "")
 	}
 }
 

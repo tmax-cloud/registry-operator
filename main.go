@@ -24,7 +24,6 @@ import (
 	"sync"
 
 	"github.com/tmax-cloud/registry-operator/pkg/apiserver"
-	"github.com/tmax-cloud/registry-operator/pkg/registry/handler"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -98,12 +97,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// register sheduler's handlers
 	s := scheduler.New(mgr.GetClient(), mgr.GetScheme())
-	if err := s.RegisterHandler(scheduler.HandleFuncType(tmaxiov1.JobTypeSynchronize), handler.ExternalRegistrySyncHandleFunc); err != nil {
-		setupLog.Error(err, "unable to register handler", "type", tmaxiov1.JobTypeSynchronize)
-		os.Exit(1)
-	}
 
 	if err = (&controllers.RegistryReconciler{
 		Client: mgr.GetClient(),
@@ -167,7 +161,7 @@ func main() {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ExternalRegistry"),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, s); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ExternalRegistry")
 		os.Exit(1)
 	}
