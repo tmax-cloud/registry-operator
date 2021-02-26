@@ -62,7 +62,7 @@ spec:
                     jobType:
                       description: Type of job to work
                       enum:
-                      - Synchronize
+                      - SynchronizeExtReg
                       - Replicate
                       type: string
                   required:

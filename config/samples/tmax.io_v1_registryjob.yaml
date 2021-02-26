@@ -7,6 +7,6 @@ spec:
   ttl: 0
   priority: 0
   claim:
-    jobType: Synchronize
+    jobType: SynchronizeExtReg
     handleObject:
       name: harbor-1

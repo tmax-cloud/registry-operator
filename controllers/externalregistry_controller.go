@@ -71,8 +71,8 @@ func (r *ExternalRegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 
 func (r *ExternalRegistryReconciler) SetupWithManager(mgr ctrl.Manager, s *scheduler.Scheduler) error {
 	h := handler.NewExternalRegistrySyncHandler(mgr.GetClient(), mgr.GetScheme())
-	if err := s.RegisterHandler(regv1.JobTypeSynchronize, h); err != nil {
-		r.Log.Error(err, "unable to register handler", "type", regv1.JobTypeSynchronize)
+	if err := s.RegisterHandler(regv1.JobTypeSynchronizeExtReg, h); err != nil {
+		r.Log.Error(err, "unable to register handler", "type", regv1.JobTypeSynchronizeExtReg)
 		return err
 	}
 	return ctrl.NewControllerManagedBy(mgr).

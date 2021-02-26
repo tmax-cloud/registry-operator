@@ -22,7 +22,7 @@ func ExternalRegistryJob(exreg *regv1.ExternalRegistry) *regv1.RegistryJob {
 		Spec: regv1.RegistryJobSpec{
 			Priority: 100,
 			Claim: &regv1.RegistryJobClaim{
-				JobType: regv1.JobTypeSynchronize,
+				JobType: regv1.JobTypeSynchronizeExtReg,
 				HandleObject: corev1.LocalObjectReference{
 					Name: exreg.Name,
 				},
