@@ -45,23 +45,30 @@ spec:
         spec:
           description: RegistryJobSpec defines the desired state of RegistryJob
           properties:
-            priority:
-              description: Priority is an integer value, greater or equal to 0
-              type: integer
-            syncRepository:
-              description: SyncRepository is a repository sync type job
+            claim:
+              description: Claim is a claim that need to be handled
               properties:
-                externalRegistry:
-                  description: ExternalRegistry refers to the ExternalRegistry
+                handleObject:
+                  description: HandleObject refers to the HandleObject
                   properties:
                     name:
                       description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                         TODO: Add other useful fields. apiVersion, kind, uid?'
                       type: string
                   type: object
+                jobType:
+                  description: Type of job to work
+                  enum:
+                  - SynchronizeExtReg
+                  - Replicate
+                  type: string
               required:
-              - externalRegistry
+              - handleObject
+              - jobType
               type: object
+            priority:
+              description: Priority is an integer value, greater or equal to 0
+              type: integer
             ttl:
               description: TTL is a time-to-live (in seconds) If 0, it is deleted
                 immediately If -1, it is not deleted If ttl > 0, it is deleted after

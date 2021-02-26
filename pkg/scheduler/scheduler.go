@@ -6,9 +6,6 @@ import (
 	"time"
 
 	v1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/internal/common/http"
-	"github.com/tmax-cloud/registry-operator/internal/utils"
-	"github.com/tmax-cloud/registry-operator/pkg/registry/ext/factory"
 	"github.com/tmax-cloud/registry-operator/pkg/scheduler/pool"
 	"github.com/tmax-cloud/registry-operator/pkg/structs"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,16 +32,27 @@ func New(c client.Client, s *runtime.Scheme) *Scheduler {
 		caller:    make(chan struct{}, 1),
 	}
 	sch.jobPool = pool.NewJobPool(sch.caller, priorityBasedFifoCompare)
+	sch.handlers = Handlers{}
 	go sch.start()
 	return sch
 }
+
+// Handler is an interface that scheduler can call
+type Handler interface {
+	// Handle is a function to be called by scheduler
+	Handle(object types.NamespacedName) error
+}
+
+// Handlers is a map of handler
+type Handlers map[v1.RegistryJobType]Handler
 
 // Scheduler watches RegistryJobs and calls the job handlers, considering how many runs are running (in a jobPool)
 type Scheduler struct {
 	k8sClient client.Client
 	scheme    *runtime.Scheme
 
-	jobPool *pool.JobPool
+	jobPool  *pool.JobPool
+	handlers Handlers
 
 	// Buffered channel with capacity 1
 	// Since scheduler lists resources by itself, the actual scheduling logic should be executed only once even when
@@ -100,68 +108,69 @@ func (s *Scheduler) schedulePending(availableCnt *int) func(structs.Item) {
 	}
 }
 
+// RegisterHandler registers a handler which the scheduler can call
+func (s *Scheduler) RegisterHandler(newType v1.RegistryJobType, handler Handler) error {
+	_, exist := s.handlers[newType]
+	if exist {
+		err := fmt.Errorf("%s type func is already exist", newType)
+		log.Error(err, "failed to register handler")
+		return err
+	}
+
+	s.handlers[newType] = handler
+
+	return nil
+}
+
 func (s *Scheduler) executeJob(job *v1.RegistryJob) {
-	log.Info(fmt.Sprintf("Executing job %s / %s", job.Name, job.Namespace))
+	jobLog := log.WithValues("job namespace", job.Namespace, "job name", job.Name)
+	jobLog.Info("executing job")
 
 	// Set as running
 	if err := s.patchJobStarted(job); err != nil {
-		log.Error(err, "")
+		jobLog.Error(err, "")
 	}
 
 	state := v1.RegistryJobStateCompleted
 	msg := ""
 
-	// Sync jobs
-	if job.Spec.SyncRepository != nil && job.Spec.SyncRepository.ExternalRegistry.Name != "" {
-		// get external registry
-		exreg := &v1.ExternalRegistry{}
-		exregNamespacedName := types.NamespacedName{Name: job.Spec.SyncRepository.ExternalRegistry.Name, Namespace: job.Namespace}
-		if err := s.k8sClient.Get(context.TODO(), exregNamespacedName, exreg); err != nil {
-			log.Error(err, "")
+	if job.Spec.Claim == nil || job.Spec.Claim.JobType == "" || job.Spec.Claim.HandleObject.Name == "" {
+		err := fmt.Errorf("invalid claim")
+		jobLog.Error(err, "something in the claim is empty")
+		state = v1.RegistryJobStateFailed
+		msg = err.Error()
+		if err := s.patchJobCompleted(job, state, msg); err != nil {
+			jobLog.Error(err, "")
+			return
 		}
+	}
 
-		username, password := "", ""
-		if exreg.Spec.ImagePullSecret != "" {
-			basic, err := utils.GetBasicAuth(exreg.Spec.ImagePullSecret, exreg.Namespace, exreg.Spec.RegistryURL)
-			if err != nil {
-				log.Error(err, "failed to get basic auth")
-			}
-
-			username, password = utils.DecodeBasicAuth(basic)
+	handler, exist := s.handlers[job.Spec.Claim.JobType]
+	if !exist {
+		err := fmt.Errorf("%s type func is not exist", job.Spec.Claim.JobType)
+		jobLog.Error(err, "failed to get handle function")
+		state = v1.RegistryJobStateFailed
+		msg = err.Error()
+		if err := s.patchJobCompleted(job, state, msg); err != nil {
+			jobLog.Error(err, "")
 		}
+		return
+	}
 
-		var ca []byte
-		if exreg.Spec.CertificateSecret != "" {
-			data, err := utils.GetCAData(exreg.Spec.CertificateSecret, exreg.Namespace)
-			if err != nil {
-				log.Error(err, "failed to get ca data")
-			}
-			ca = data
+	object := types.NamespacedName{Name: job.Spec.Claim.HandleObject.Name, Namespace: job.Namespace}
+	if err := handler.Handle(object); err != nil {
+		jobLog.Error(err, "failed to execute job", "job type", job.Spec.Claim.JobType, "object namespace", object.Namespace, "object name", object.Name)
+		state = v1.RegistryJobStateFailed
+		msg = err.Error()
+		if err := s.patchJobCompleted(job, state, msg); err != nil {
+			jobLog.Error(err, "")
 		}
-
-		syncFactory := factory.NewSyncRegistryFactory(
-			s.k8sClient,
-			exregNamespacedName,
-			s.scheme,
-			http.NewHTTPClient(
-				exreg.Spec.RegistryURL,
-				username, password,
-				ca,
-				exreg.Spec.Insecure,
-			),
-		)
-
-		syncClient := syncFactory.Create(exreg.Spec.RegistryType)
-		if err := syncClient.Synchronize(); err != nil {
-			log.Error(err, "failed to synchronize external registry")
-			state = v1.RegistryJobStateFailed
-			msg = err.Error()
-		}
+		return
 	}
 
 	// Set as complete
 	if err := s.patchJobCompleted(job, state, msg); err != nil {
-		log.Error(err, "")
+		jobLog.Error(err, "")
 	}
 }
 

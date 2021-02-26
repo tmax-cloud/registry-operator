@@ -28,8 +28,9 @@ func ExternalRegistryCronJob(exreg *regv1.ExternalRegistry) *regv1.RegistryCronJ
 		Spec: regv1.RegistryCronJobSpec{
 			JobSpec: regv1.RegistryJobSpec{
 				Priority: 0,
-				SyncRepository: &regv1.RegistryJobSyncRepository{
-					ExternalRegistry: corev1.LocalObjectReference{
+				Claim: &regv1.RegistryJobClaim{
+					JobType: regv1.JobTypeSynchronizeExtReg,
+					HandleObject: corev1.LocalObjectReference{
 						Name: exreg.Name,
 					},
 				},

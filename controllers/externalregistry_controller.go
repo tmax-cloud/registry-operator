@@ -27,6 +27,8 @@ import (
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/controllers/exregctl"
+	"github.com/tmax-cloud/registry-operator/controllers/exregctl/handler"
+	"github.com/tmax-cloud/registry-operator/pkg/scheduler"
 )
 
 // ExternalRegistryReconciler reconciles a ExternalRegistry object
@@ -67,7 +69,12 @@ func (r *ExternalRegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	return ctrl.Result{}, nil
 }
 
-func (r *ExternalRegistryReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *ExternalRegistryReconciler) SetupWithManager(mgr ctrl.Manager, s *scheduler.Scheduler) error {
+	h := handler.NewExternalRegistrySyncHandler(mgr.GetClient(), mgr.GetScheme())
+	if err := s.RegisterHandler(regv1.JobTypeSynchronizeExtReg, h); err != nil {
+		r.Log.Error(err, "unable to register handler", "type", regv1.JobTypeSynchronizeExtReg)
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&regv1.ExternalRegistry{}).
 		Owns(&regv1.RegistryCronJob{}).

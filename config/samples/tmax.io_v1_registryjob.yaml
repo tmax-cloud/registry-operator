@@ -5,6 +5,8 @@ metadata:
   namespace: default
 spec:
   ttl: 0
-  syncRepository:
-    externalRegistry:
+  priority: 0
+  claim:
+    jobType: SynchronizeExtReg
+    handleObject:
       name: harbor-1

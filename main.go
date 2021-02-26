@@ -97,6 +97,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	s := scheduler.New(mgr.GetClient(), mgr.GetScheme())
+
 	if err = (&controllers.RegistryReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Registry"),
@@ -149,7 +151,7 @@ func main() {
 		Client:    mgr.GetClient(),
 		Log:       ctrl.Log.WithName("controllers").WithName("RegistryJob"),
 		Scheme:    mgr.GetScheme(),
-		Scheduler: scheduler.New(mgr.GetClient(), mgr.GetScheme()),
+		Scheduler: s,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RegistryJob")
 		os.Exit(1)
@@ -159,7 +161,7 @@ func main() {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ExternalRegistry"),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, s); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ExternalRegistry")
 		os.Exit(1)
 	}
