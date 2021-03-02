@@ -31,7 +31,7 @@ type ImageReplicateSpec struct {
 }
 
 type ImageInfo struct {
-	// +kubebuilder:validation:Enum=HarborV2;HpcdRegistry
+	// +kubebuilder:validation:Enum=HpcdRegistry;DockerHub
 	// Registry type like HarborV2
 	RegistryType RegistryType `json:"registryType"`
 	// metadata name of external registry or hpcd registry

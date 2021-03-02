@@ -63,8 +63,8 @@ spec:
                 registryType:
                   description: Registry type like HarborV2
                   enum:
-                  - HarborV2
                   - HpcdRegistry
+                  - DockerHub
                   type: string
               required:
               - image
@@ -95,8 +95,8 @@ spec:
                 registryType:
                   description: Registry type like HarborV2
                   enum:
-                  - HarborV2
                   - HpcdRegistry
+                  - DockerHub
                   type: string
               required:
               - image

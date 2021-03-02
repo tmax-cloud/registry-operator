@@ -60,7 +60,7 @@ spec:
                   description: Type of job to work
                   enum:
                   - SynchronizeExtReg
-                  - Replicate
+                  - ImageReplicate
                   type: string
               required:
               - handleObject

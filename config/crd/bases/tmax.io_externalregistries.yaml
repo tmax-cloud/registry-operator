@@ -65,6 +65,7 @@ spec:
               description: Registry type like HarborV2
               enum:
               - HarborV2
+              - DockerHub
               type: string
             registryUrl:
               description: 'Registry URL (example: docker.io)'

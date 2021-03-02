@@ -2,10 +2,12 @@ package handler
 
 import (
 	"context"
+	"errors"
 
 	v1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/common/http"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
+	"github.com/tmax-cloud/registry-operator/pkg/registry/base"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/ext/factory"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,18 +33,19 @@ type ExternalRegistrySyncHandler struct {
 
 // Handle synchronizes external registry repository list
 func (h *ExternalRegistrySyncHandler) Handle(object types.NamespacedName) error {
+	log := logger.WithValues("namespace", object.Namespace, "name", object.Name)
 	// get external registry
 	exreg := &v1.ExternalRegistry{}
 	exregNamespacedName := object
 	if err := h.k8sClient.Get(context.TODO(), exregNamespacedName, exreg); err != nil {
-		logger.Error(err, "")
+		log.Error(err, "")
 	}
 
 	username, password := "", ""
 	if exreg.Spec.ImagePullSecret != "" {
 		basic, err := utils.GetBasicAuth(exreg.Spec.ImagePullSecret, exreg.Namespace, exreg.Spec.RegistryURL)
 		if err != nil {
-			logger.Error(err, "failed to get basic auth")
+			log.Error(err, "failed to get basic auth")
 		}
 
 		username, password = utils.DecodeBasicAuth(basic)
@@ -52,12 +55,12 @@ func (h *ExternalRegistrySyncHandler) Handle(object types.NamespacedName) error 
 	if exreg.Spec.CertificateSecret != "" {
 		data, err := utils.GetCAData(exreg.Spec.CertificateSecret, exreg.Namespace)
 		if err != nil {
-			logger.Error(err, "failed to get ca data")
+			log.Error(err, "failed to get ca data")
 		}
 		ca = data
 	}
 
-	syncFactory := factory.NewSyncRegistryFactory(
+	syncFactory := factory.NewRegistryFactory(
 		h.k8sClient,
 		exregNamespacedName,
 		h.scheme,
@@ -69,9 +72,14 @@ func (h *ExternalRegistrySyncHandler) Handle(object types.NamespacedName) error 
 		),
 	)
 
-	syncClient := syncFactory.Create(exreg.Spec.RegistryType)
+	syncClient, ok := syncFactory.Create(exreg.Spec.RegistryType).(base.Synchronizable)
+	if !ok {
+		err := errors.New("unable to convert to synchronizable")
+		log.Error(err, "failed to create sync client")
+		return err
+	}
 	if err := syncClient.Synchronize(); err != nil {
-		logger.Error(err, "failed to synchronize external registry")
+		log.Error(err, "failed to synchronize external registry")
 		return err
 	}
 	return nil
