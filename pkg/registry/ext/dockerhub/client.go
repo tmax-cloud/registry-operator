@@ -315,7 +315,7 @@ func (c *Client) PutManifest(image string, manifest *image.ImageManifest) error 
 	return c.imageClient.PutManifest(manifest)
 }
 
-// PullBlob pulls and stores blob
+// ExistBlob checks if blob exists
 func (c *Client) ExistBlob(repository, digest string) (bool, error) {
 	image := fmt.Sprintf("%s@%s", repository, digest)
 	if err := c.imageClient.SetImage(image); err != nil {
