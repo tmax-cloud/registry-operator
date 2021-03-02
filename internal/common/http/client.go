@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/common/auth"
 	"github.com/tmax-cloud/registry-operator/internal/common/certs"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -19,6 +20,7 @@ type HttpClient struct {
 	URL      string
 	CA       []byte
 	Insecure bool
+	Token    auth.Token
 	*http.Client
 }
 
