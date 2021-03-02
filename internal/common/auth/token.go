@@ -2,6 +2,11 @@ package auth
 
 import "time"
 
+const (
+	TokenTypeBasic  = "Basic"
+	TokenTypeBearer = "Bearer"
+)
+
 type Token struct {
 	// Type is "Basic" or "Bearer"
 	Type  string
