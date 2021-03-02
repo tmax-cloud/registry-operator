@@ -35,12 +35,12 @@ const (
 	RegistryJobStateFailed    = RegistryJobState("Failed")
 
 	JobTypeSynchronizeExtReg = RegistryJobType("SynchronizeExtReg")
-	JobTypeReplicate         = RegistryJobType("Replicate")
+	JobTypeImageReplicate    = RegistryJobType("ImageReplicate")
 )
 
 // RegistryJobClaim is a claim of registry job
 type RegistryJobClaim struct {
-	// +kubebuilder:validation:Enum=SynchronizeExtReg;Replicate
+	// +kubebuilder:validation:Enum=SynchronizeExtReg;ImageReplicate
 	// Type of job to work
 	JobType RegistryJobType `json:"jobType"`
 	// HandleObject refers to the HandleObject

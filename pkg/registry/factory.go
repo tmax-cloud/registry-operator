@@ -7,7 +7,9 @@ import (
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
+	"github.com/tmax-cloud/registry-operator/pkg/image"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/base"
+	extfactory "github.com/tmax-cloud/registry-operator/pkg/registry/ext/factory"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/inter"
 	intfactory "github.com/tmax-cloud/registry-operator/pkg/registry/inter/factory"
 	"k8s.io/apimachinery/pkg/types"
@@ -22,6 +24,8 @@ func GetFactory(registryType regv1.RegistryType, f *base.Factory) RegistryFactor
 	switch registryType {
 	case regv1.RegistryTypeHpcdRegistry:
 		return intfactory.NewRegistryFactory(f.K8sClient, f.NamespacedName, f.Scheme, f.HttpClient)
+	case regv1.RegistryTypeDockerHub:
+		return extfactory.NewRegistryFactory(f.K8sClient, f.NamespacedName, f.Scheme, f.HttpClient)
 	}
 
 	return nil
@@ -65,6 +69,9 @@ func GetURL(client client.Client, registry types.NamespacedName, registryType re
 			return "", err
 		}
 		return reg.Status.ServerURL, nil
+
+	case regv1.RegistryTypeDockerHub:
+		return image.DefaultServer, nil
 	}
 
 	return "", fmt.Errorf("%s/%s(type:%s) registry url is not found", registry.Namespace, registry.Name, registryType)

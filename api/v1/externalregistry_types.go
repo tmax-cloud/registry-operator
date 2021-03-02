@@ -27,6 +27,8 @@ import (
 const (
 	// RegistryTypeHarborV2 is harbor v2 registry type
 	RegistryTypeHarborV2 RegistryType = "HarborV2"
+	// RegistryTypeDockerHub is docker hub registry type
+	RegistryTypeDockerHub RegistryType = "DockerHub"
 	// RegistryTypeDocker   RegistryType = "Docker"
 )
 
@@ -47,7 +49,7 @@ const (
 
 // ExternalRegistrySpec defines the desired state of ExternalRegistry
 type ExternalRegistrySpec struct {
-	// +kubebuilder:validation:Enum=HarborV2
+	// +kubebuilder:validation:Enum=HarborV2;DockerHub
 	// Registry type like HarborV2
 	RegistryType RegistryType `json:"registryType"`
 	// Registry URL (example: docker.io)
