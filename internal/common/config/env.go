@@ -9,10 +9,10 @@ const (
 	ConfigKeycloakService = "keycloak.service"
 	// ConfigClusterName is the key to get cluster.name config
 	ConfigClusterName = "cluster.name"
-	// ConfigClairURL is the key to get clair.url config
-	ConfigClairURL = "clair.url"
-	// ConfigElasticSearchURL is the key to get elastic_search.url config
-	ConfigElasticSearchURL = "elastic_search.url"
+	// ConfigImageScanSvr is the key to get clair.url config
+	ConfigImageScanSvr = "scanning.scanner.url"
+	// ConfigImageReportSvr is the key to get elastic_search.url config
+	ConfigImageReportSvr = "scanning.report.url"
 	// ConfigHarborNamespace is the key to get harbor.namespace config
 	ConfigHarborNamespace = "harbor.namespace"
 	// ConfigHarborCoreIngress is the key to get harbor.core.ingress config

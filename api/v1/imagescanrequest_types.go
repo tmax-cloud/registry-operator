@@ -17,8 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"time"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -40,26 +38,10 @@ type ScanTarget struct {
 	RegistryURL string `json:"registryUrl"`
 	// Image path (example: library/alpine:3)
 	Images []string `json:"images"`
-	// Alternate URL for registry authentication (example: auth.docker.io)
-	AuthURL string `json:"authUrl,omitempty"`
-	// Do not verify tls certificates
-	Insecure bool `json:"insecure,omitempty"`
-	// Force allow use of non-ssl
-	ForceNonSSL bool `json:"forceNonSSL,omitempty"`
-	// Certificate secret name for private registry. Secret's data key must be 'ca.crt' or 'tls.crt'.
+	// The name of certificate secret for private registry.
 	CertificateSecret string `json:"certificateSecret,omitempty"`
-	// Login id and password secret object for registry
+	// The name of secret containing login credential of registry
 	ImagePullSecret string `json:"imagePullSecret,omitempty"`
-	// Debug flag
-	Debug bool `json:"debug,omitempty"`
-	// Skip pinging the registry while establishing connection
-	SkipPing bool `json:"skipPing,omitempty"`
-	// Timeout for HTTP requests
-	TimeOut time.Duration `json:"timeOut,omitempty"`
-	// Number of fixable issues permitted
-	FixableThreshold int `json:"fixableThreshold,omitempty"`
-	// Send vulerability to ES
-	ElasticSearch bool `json:"elasticSearch,omitempty"`
 }
 
 // ScanResult is result of scanning an image
@@ -86,7 +68,6 @@ type Vulnerability struct {
 	Severity string `json:"Severity,omitempty"`
 	// Metadata
 	//Metadata runtime.RawExtension `json:"Metadata,omitempty"`
-
 	// Fixed version
 	FixedBy string `json:"FixedBy,omitempty"`
 }
@@ -100,6 +81,12 @@ type Vulnerabilities []Vulnerability
 // ImageScanRequestSpec defines the desired state of ImageScanRequest
 type ImageScanRequestSpec struct {
 	ScanTargets []ScanTarget `json:"scanTargets"`
+	// Do not verify registry server's certificate
+	Insecure bool `json:"insecure",omitempty`
+	// The number of fixable issues allowable
+	MaxFixable int `json:"maxFixable,omitempty"`
+	// Whether to send result to report server
+	SendReport bool `json:"sendReport,omitempty"`
 }
 
 // ImageScanRequestStatus defines the observed state of ImageScanRequest

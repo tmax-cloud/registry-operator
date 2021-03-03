@@ -175,8 +175,6 @@ func newImageScanReq(name, ns string, reqBody *scan.Request) (*v1.ImageScanReque
 			Images:          repoUrls,
 			ImagePullSecret: regCred,
 			RegistryURL:     strings.TrimPrefix(regObj.Status.ServerURL, "https://"),
-			ElasticSearch:   true,
-			Insecure:        true,
 		})
 	}
 
@@ -187,6 +185,8 @@ func newImageScanReq(name, ns string, reqBody *scan.Request) (*v1.ImageScanReque
 		},
 		Spec: v1.ImageScanRequestSpec{
 			ScanTargets: targets,
+			SendReport:  true,
+			Insecure:    true,
 		},
 	}, nil
 }
@@ -245,8 +245,6 @@ func newExtImageScanReq(name, ns string, reqBody *scan.Request) (*v1.ImageScanRe
 			ImagePullSecret:   regObj.Spec.ImagePullSecret,
 			CertificateSecret: regObj.Spec.CertificateSecret,
 			RegistryURL:       strings.TrimPrefix(regObj.Spec.RegistryURL, "https://"),
-			ElasticSearch:     true,
-			Insecure:          regObj.Spec.Insecure,
 		})
 	}
 
@@ -257,6 +255,8 @@ func newExtImageScanReq(name, ns string, reqBody *scan.Request) (*v1.ImageScanRe
 		},
 		Spec: v1.ImageScanRequestSpec{
 			ScanTargets: targets,
+			SendReport:  true,
+			Insecure:    true,
 		},
 	}, nil
 }
