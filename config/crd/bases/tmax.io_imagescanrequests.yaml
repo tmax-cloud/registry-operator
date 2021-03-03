@@ -45,57 +45,41 @@ spec:
         spec:
           description: ImageScanRequestSpec defines the desired state of ImageScanRequest
           properties:
+            insecure:
+              description: Do not verify registry server's certificate
+              type: boolean
+            maxFixable:
+              description: The number of fixable issues allowable
+              type: integer
             scanTargets:
               items:
                 description: ScanTarget is a target setting to scan images
                 properties:
-                  authUrl:
-                    description: 'Alternate URL for registry authentication (example:
-                      auth.docker.io)'
-                    type: string
                   certificateSecret:
-                    description: Certificate secret name for private registry. Secret's
-                      data key must be 'ca.crt' or 'tls.crt'.
+                    description: The name of certificate secret for private registry.
                     type: string
-                  debug:
-                    description: Debug flag
-                    type: boolean
-                  elasticSearch:
-                    description: Send vulerability to ES
-                    type: boolean
-                  fixableThreshold:
-                    description: Number of fixable issues permitted
-                    type: integer
-                  forceNonSSL:
-                    description: Force allow use of non-ssl
-                    type: boolean
                   imagePullSecret:
-                    description: Login id and password secret object for registry
+                    description: The name of secret containing login credential of
+                      registry
                     type: string
                   images:
                     description: 'Image path (example: library/alpine:3)'
                     items:
                       type: string
                     type: array
-                  insecure:
-                    description: Do not verify tls certificates
-                    type: boolean
                   registryUrl:
                     description: 'Registry URL (example: docker.io)'
                     type: string
-                  skipPing:
-                    description: Skip pinging the registry while establishing connection
-                    type: boolean
-                  timeOut:
-                    description: Timeout for HTTP requests
-                    format: int64
-                    type: integer
                 required:
                 - images
                 - registryUrl
                 type: object
               type: array
+            sendReport:
+              description: Whether to send result to report server
+              type: boolean
           required:
+          - insecure
           - scanTargets
           type: object
         status:
@@ -132,7 +116,8 @@ spec:
                             description: Description for severity
                             type: string
                           FixedBy:
-                            description: Fixed version
+                            description: Metadata Metadata runtime.RawExtension `json:"Metadata,omitempty"`
+                              Fixed version
                             type: string
                           Link:
                             description: Description link
