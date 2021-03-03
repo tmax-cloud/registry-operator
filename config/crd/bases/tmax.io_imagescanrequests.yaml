@@ -79,7 +79,6 @@ spec:
               description: Whether to send result to report server
               type: boolean
           required:
-          - insecure
           - scanTargets
           type: object
         status:
