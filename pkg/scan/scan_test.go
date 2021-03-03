@@ -13,26 +13,31 @@ import (
 )
 
 func TestGetScanResult(t *testing.T) {
+
 	imgUrl := "127.0.0.1:32222/test"
 	imgTag := "test"
 	regUrl := "http://127.0.0.1:32222"
 	clairUrl := regUrl
 
-	launchTestServer(t)
-
-	time.Sleep(3 * time.Second)
-
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
-
-	if err := os.Setenv("CLAIR_URL", clairUrl); err != nil {
+	if err := os.Setenv("SCANNING_SCANNER_URL", clairUrl); err != nil {
 		t.Fatal(err)
 	}
+
+	go func() {
+		svr := buildMockupServer(t)
+		if err := svr.ListenAndServe(); err != nil {
+			log.Error(err, "")
+			os.Exit(1)
+		}
+	}()
+
+	time.Sleep(3 * time.Second)
 
 	img, err := image.NewImage(imgUrl, regUrl, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	img.Tag = imgTag
 
 	res, err := GetScanResult(img)
@@ -50,8 +55,9 @@ func TestGetScanResult(t *testing.T) {
 	}
 }
 
-func launchTestServer(t *testing.T) {
+func buildMockupServer(t *testing.T) *http.Server {
 	router := mux.NewRouter()
+
 	// Registry
 	router.HandleFunc("/v2", func(w http.ResponseWriter, req *http.Request) {})
 	router.HandleFunc("/v2/test/manifests/test", func(w http.ResponseWriter, req *http.Request) {
@@ -79,12 +85,8 @@ func launchTestServer(t *testing.T) {
 		}
 	})
 
-	srv := &http.Server{Addr: "0.0.0.0:32222", Handler: router}
-
-	go func() {
-		if err := srv.ListenAndServe(); err != nil {
-			log.Error(err, "")
-			os.Exit(1)
-		}
-	}()
+	return &http.Server{
+		Addr:    "0.0.0.0:32222",
+		Handler: router,
+	}
 }
