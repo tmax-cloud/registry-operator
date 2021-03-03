@@ -15,7 +15,7 @@ import (
 
 var logger = log.Log.WithName("replicate-copy")
 
-// TODO: Below copy logic will be moved. it is here for testing temporarilly.
+// Copy copies image between registires 
 func Copy(fromReplicate, toReplicate base.Replicatable, fromImage, toImage string) error {
 	fromNamed, err := reference.ParseNamed(fromImage)
 	if err != nil {
@@ -108,7 +108,8 @@ func Copy(fromReplicate, toReplicate base.Replicatable, fromImage, toImage strin
 			}
 
 			if exist {
-				return fmt.Errorf("%s blob already exist", toNamed.Name()+"@"+digest.String())
+				logger.Info("blob is already exist", "blob", toNamed.Name()+"@"+digest.String())
+				continue
 			}
 
 			if err := toReplicate.PushBlob(toNamed.Name(), digest.String(), contentMap[digest.String()].file, contentMap[digest.String()].size); err != nil {

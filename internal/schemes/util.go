@@ -95,7 +95,7 @@ func SubresourceName(subresource interface{}, subresourceType SubresourceType) s
 
 	case *regv1.ImageReplicate:
 		switch subresourceType {
-		case SubTypeExternalRegistryJob:
+		case SubTypeImageReplicateJob:
 			return regv1.K8sPrefix + ImageReplicatePrefix + res.Name
 		}
 	}

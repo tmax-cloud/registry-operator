@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,6 +27,7 @@ import (
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/controllers/replicatectl"
 	"github.com/tmax-cloud/registry-operator/controllers/replicatectl/handler"
 	"github.com/tmax-cloud/registry-operator/pkg/scheduler"
 )
@@ -52,9 +54,23 @@ func (r *ImageReplicateReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return ctrl.Result{}, nil
 	}
 
-	// TODO: update status
+	if replImage.Status.State == regv1.ImageReplicateSuccess ||
+		replImage.Status.State == regv1.ImageReplicateFail {
+		r.Log.Info("Image Replicate is already finished", "result", replImage.Status.State)
+		return ctrl.Result{}, nil
+	}
 
-	// TODO: handle registry job
+	updated, err := replicatectl.UpdateImageReplicateStatus(r.Client, replImage)
+	if err != nil {
+		return ctrl.Result{}, err
+	} else if updated {
+		return ctrl.Result{}, nil
+	}
+
+	if err = r.handleAllSubresources(replImage); err != nil {
+		r.Log.Error(err, "Subresource creation failed")
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -67,5 +83,71 @@ func (r *ImageReplicateReconciler) SetupWithManager(mgr ctrl.Manager, s *schedul
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&tmaxiov1.ImageReplicate{}).
+		Owns(&tmaxiov1.RegistryJob{}).
 		Complete(r)
+}
+
+func (r *ImageReplicateReconciler) handleAllSubresources(repl *regv1.ImageReplicate) error { // if want to requeue, return true
+	subResourceLogger := r.Log.WithValues("SubResource.Namespace", repl.Namespace, "SubResource.Name", repl.Name)
+	subResourceLogger.Info("Creating all Subresources")
+
+	patchRepl := repl.DeepCopy() // Target to Patch object
+
+	defer func() {
+		if err := r.update(repl, patchRepl); err != nil {
+			subResourceLogger.Error(err, "failed to update")
+		}
+	}()
+
+	collectSubController := collectImageReplicateSubController()
+
+	// Check if subresources are created.
+	for _, sctl := range collectSubController {
+		subresourceType := reflect.TypeOf(sctl).String()
+		subResourceLogger.Info("Check subresource", "subresourceType", subresourceType)
+
+		// Check if subresource is handled.
+		if err := sctl.Handle(r.Client, repl, patchRepl, r.Scheme); err != nil {
+			subResourceLogger.Error(err, "Got an error in creating subresource ")
+			return err
+		}
+
+		// Check if subresource is ready.
+		if err := sctl.Ready(r.Client, repl, patchRepl, false); err != nil {
+			subResourceLogger.Error(err, "Got an error in checking ready")
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ImageReplicateReconciler) update(origin, target *regv1.ImageReplicate) error {
+	subResourceLogger := r.Log.WithValues("SubResource.Namespace", origin.Namespace, "SubResource.Name", origin.Name)
+
+	// Update spec, if patch exists
+	if !reflect.DeepEqual(origin.Spec, target.Spec) {
+		subResourceLogger.Info("Update image replicate")
+		if err := r.Update(context.TODO(), target); err != nil {
+			subResourceLogger.Error(err, "Unknown error updating")
+			return err
+		}
+	}
+
+	// Update status, if patch exists
+	if !reflect.DeepEqual(origin.Status, target.Status) {
+		if err := r.Status().Update(context.TODO(), target); err != nil {
+			subResourceLogger.Error(err, "Unknown error updating status")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func collectImageReplicateSubController() []replicatectl.ImageReplicateSubresource {
+	collection := []replicatectl.ImageReplicateSubresource{}
+
+	collection = append(collection, &replicatectl.RegistryJob{})
+
+	return collection
 }

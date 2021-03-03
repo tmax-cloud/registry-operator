@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	v1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/pkg/registry"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/base"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/replicate"
@@ -36,6 +37,7 @@ type ReplicateHandler struct {
 func (h *ReplicateHandler) Handle(object types.NamespacedName) error {
 	// get image replicate
 	logger.Info("get image replicate")
+	object.Name = strings.TrimPrefix(object.Name, v1.K8sPrefix+schemes.ImageReplicatePrefix)
 	replImage := &v1.ImageReplicate{}
 	if err := h.k8sClient.Get(context.TODO(), object, replImage); err != nil {
 		logger.Error(err, "")
