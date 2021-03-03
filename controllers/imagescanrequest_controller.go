@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/genuinetools/reg/clair"
@@ -138,12 +137,6 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 
 	// validation phase
 	// TODO: Move this to validation webhook
-	for _, e := range instance.Spec.ScanTargets {
-		if !instance.Spec.Insecure && !strings.HasPrefix(e.RegistryURL, "https:") {
-			return fmt.Errorf("Invalid registry URL included. Add prefix 'https' to registry URL")
-		}
-	}
-
 	if instance.Spec.MaxFixable < 0 {
 		return fmt.Errorf("fixable threshold must be a positive integer")
 	}
