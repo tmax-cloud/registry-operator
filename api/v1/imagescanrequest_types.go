@@ -82,7 +82,7 @@ type Vulnerabilities []Vulnerability
 type ImageScanRequestSpec struct {
 	ScanTargets []ScanTarget `json:"scanTargets"`
 	// Do not verify registry server's certificate
-	Insecure bool `json:"insecure",omitempty`
+	Insecure bool `json:"insecure,omitempty"`
 	// The number of fixable issues allowable
 	MaxFixable int `json:"maxFixable,omitempty"`
 	// Whether to send result to report server
