@@ -5,21 +5,9 @@ import (
 	"testing"
 
 	"github.com/bmizerany/assert"
-	"github.com/docker/distribution/reference"
 )
 
 func TestParseName(t *testing.T) {
-	image := "registry-1.docker.io/alpine:3"
-	named, err := reference.ParseNormalizedNamed(image)
-	if err != nil {
-		fmt.Println(err.Error())
-		t.Fatal()
-	}
-
-	fmt.Println(reference.Domain(named))
-
-	assert.Equal(t, "", reference.Path(named))
-
 	type suite struct {
 		fullName      string
 		expNamespace  string

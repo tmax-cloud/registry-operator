@@ -168,6 +168,10 @@ func (r *Image) NormalizeNamed(image string) (reference.Named, error) {
 	return named, nil
 }
 
+func (r *Image) isValidDomain(domain string) bool {
+	return strings.Contains(r.ServerURL, domain)
+}
+
 // SetImage sets image from "[<server>/]<imageName>[:<tag>|@<digest>]" form argument
 func (r *Image) SetImage(image string) error {
 	// Parse image
@@ -183,7 +187,9 @@ func (r *Image) SetImage(image string) error {
 		if r.isDefaultServerDomain(domain) {
 			domain = DefaultServer
 		}
-		r.SetServerURL(domain)
+		if !r.isValidDomain(domain) {
+			r.SetServerURL(domain)
+		}
 	}
 
 	if r.ServerURL == DefaultServer {
