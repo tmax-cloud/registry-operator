@@ -25,10 +25,12 @@ data:
         image_pull_secret: ""
     keycloak:
       service: https://172.22.11.9:8443
-    clair:
-      url: "http://clair.registry-system.svc.cluster.local:6060"
-    elastic_search:
-      url: "http://elasticsearch.kube-logging.svc.cluster.local:9200"
+    scanning:
+      scanner:
+        url: "http://clair.registry-system.svc.cluster.local:6060"
+        insecure: false
+      report:
+        url: "http://elasticsearch.kube-logging.svc.cluster.local:9200"
     harbor:
       namespace: harbor
       core:

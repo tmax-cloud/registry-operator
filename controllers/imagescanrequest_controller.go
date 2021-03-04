@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
+	"os"
 	"time"
 
 	"github.com/genuinetools/reg/clair"
@@ -53,17 +53,38 @@ type ImageScanRequestReconciler struct {
 
 var (
 	worker *scanctl.ScanWorker
+	// FIXME: Remove clair library dependency
+	scanner *clair.Clair
+	verbose = false
 )
 
 const (
 	requestQueueSize = 100
 	nWorkers         = 5
+	timeout          = time.Second * 3
 )
 
 func init() {
 	// TODO: Load value from operator config
 	worker = scanctl.NewScanWorker(requestQueueSize, nWorkers)
 	worker.Start()
+
+	// FIXME: Promote using ENV env to operator scope
+	switch os.Getenv("ENV") {
+	case "dev":
+		verbose = true
+	case "prod":
+		verbose = false
+	default:
+		verbose = true
+	}
+
+	// FIXME: Regenerate instance on change manager config
+	scanner, _ = clair.New(config.Config.GetString(config.ConfigImageScanSvr), clair.Opt{
+		Debug:    verbose,
+		Timeout:  timeout,
+		Insecure: config.Config.GetBool("scanning.scanner.insecure"),
+	})
 }
 
 // +kubebuilder:rbac:groups=tmax.io,resources=imagescanrequests,verbs=get;list;watch;create;update;patch;delete
@@ -116,27 +137,8 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 
 	// validation phase
 	// TODO: Move this to validation webhook
-	for _, e := range instance.Spec.ScanTargets {
-		if !e.Insecure && !strings.HasPrefix(e.RegistryURL, "https:") {
-			return fmt.Errorf("Invalid url. Add prefix 'https' to registry URL")
-		}
-
-		if e.FixableThreshold < 0 {
-			return fmt.Errorf("fixable threshold must be a positive integer")
-		}
-	}
-
-	// XXX: Move this to global scope if operator only comuunicate with a single clair server
-	// -> then how to regenerate object when on manager.config changed?
-
-	// FIXME: Load clair connection settings from operator
-	clairCli, err := clair.New(config.Config.GetString(config.ConfigClairURL), clair.Opt{
-		Debug:    false,
-		Timeout:  time.Second,
-		Insecure: true,
-	})
-	if err != nil {
-		return err
+	if instance.Spec.MaxFixable < 0 {
+		return fmt.Errorf("fixable threshold must be a positive integer")
 	}
 
 	// preprocess phase
@@ -171,13 +173,11 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 
 		username := ""
 		password := ""
-		// XXX: Is it right to handle default docker.io when empty registry url?
+		// XXX: Is it right default docker.io when empty registry url?
 		regUrl := "https://registry-1.docker.io"
 
 		if len(e.RegistryURL) > 0 && e.RegistryURL != "docker.io" {
 			regUrl = e.RegistryURL
-		} else if len(e.AuthURL) > 0 {
-			regUrl = e.AuthURL
 		}
 
 		if len(e.ImagePullSecret) > 0 {
@@ -204,30 +204,27 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 			password = string(login.Password)
 		}
 
-		// get auth config
 		authCfg, err := repoutils.GetAuthConfig(username, password, regUrl)
 		if err != nil {
 			return err
 		}
 
-		// Create the registry client.
 		r, err := secureReg.New(context.TODO(), authCfg, registry.Opt{
-			Insecure: e.Insecure,
-			Debug:    e.Debug,
-			SkipPing: e.SkipPing,
-			NonSSL:   e.ForceNonSSL,
-			Timeout:  e.TimeOut,
+			Insecure: instance.Spec.Insecure,
+			Debug:    verbose,
+			SkipPing: false,
+			Timeout:  timeout,
 		}, tlsCertData)
 		if err != nil {
 			return err
 		}
 
-		job := scanctl.NewScanJob(r, clairCli, e.Images, e.FixableThreshold, e.ElasticSearch)
+		job := scanctl.NewScanJob(r, scanner, e.Images, instance.Spec.MaxFixable, instance.Spec.SendReport)
 		jobs = append(jobs, job)
 	}
 
 	// TODO: Load config value from operator config
-	es := scanctl.NewReportClient(config.Config.GetString(config.ConfigElasticSearchURL),
+	es := scanctl.NewReportClient(config.Config.GetString(config.ConfigImageReportSvr),
 		&http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,

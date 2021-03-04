@@ -331,7 +331,7 @@ func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultRespons
 	}
 
 	// Initialize clair client.
-	cr, err := clair.New(config.Config.GetString(config.ConfigClairURL), clair.Opt{
+	cr, err := clair.New(config.Config.GetString(config.ConfigImageScanSvr), clair.Opt{
 		Debug:    false,
 		Timeout:  time.Second * 3,
 		Insecure: false,
