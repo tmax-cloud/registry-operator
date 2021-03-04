@@ -34,6 +34,14 @@ func TestSetImage(t *testing.T) {
 	assert.Equal(t, "library/alpine", image.Name)
 	assert.Equal(t, "3", image.Tag)
 
+	if err := image.SetImage("registry-1.docker.io/alpine:3"); err != nil {
+		fmt.Println(err.Error())
+		t.Fatal()
+	}
+	assert.Equal(t, "registry-1.docker.io", image.Host)
+	assert.Equal(t, "library/alpine", image.Name)
+	assert.Equal(t, "3", image.Tag)
+
 	image, err = NewImage("docker.io/library/alpine:3", "", "", nil)
 	if err != nil {
 		fmt.Println(err.Error())
