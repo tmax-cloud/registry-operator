@@ -15,7 +15,7 @@ import (
 
 var logger = log.Log.WithName("replicate-copy")
 
-// Copy copies image between registires 
+// Copy copies image between registires
 func Copy(fromReplicate, toReplicate base.Replicatable, fromImage, toImage string) error {
 	fromNamed, err := reference.ParseNamed(fromImage)
 	if err != nil {
