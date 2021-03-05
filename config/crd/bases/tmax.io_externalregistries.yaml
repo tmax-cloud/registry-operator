@@ -55,12 +55,15 @@ spec:
               description: Certificate secret name for private registry. Secret's
                 data key must be 'ca.crt' or 'tls.crt'.
               type: string
-            imagePullSecret:
-              description: Login id and password secret object for registry
-              type: string
             insecure:
               description: Do not verify tls certificates
               type: boolean
+            loginId:
+              description: Login ID for registry
+              type: string
+            loginPassword:
+              description: Login password for registry
+              type: string
             registryType:
               description: Registry type like HarborV2
               enum:
@@ -69,7 +72,8 @@ spec:
               - Docker
               type: string
             registryUrl:
-              description: 'Registry URL (example: docker.io)'
+              description: 'Registry URL (example: https://192.168.6.100:5000) If
+                ReigstryType is DockerHub, this value must be "https://registry-1.docker.io"'
               type: string
             schedule:
               description: 'Schedule is a cron spec for periodic sync If you want
@@ -123,6 +127,9 @@ spec:
                 - type
                 type: object
               type: array
+            loginSecret:
+              description: Login id and password secret object for registry
+              type: string
             state:
               description: State is a status of external registry
               type: string

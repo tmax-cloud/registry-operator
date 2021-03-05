@@ -2,13 +2,14 @@ package exregctl
 
 import (
 	"context"
+	"errors"
 
 	"github.com/operator-framework/operator-lib/status"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,8 +27,12 @@ func (r *RegistryJob) Handle(c client.Client, exreg *regv1.ExternalRegistry, pat
 		return nil
 	}
 
+	if patchExreg.Status.LoginSecret == "" {
+		return errors.New("login secret is not found")
+	}
+
 	if err := r.get(c, exreg); err != nil {
-		if errors.IsNotFound(err) {
+		if k8serr.IsNotFound(err) {
 			if err := r.create(c, exreg, patchExreg, scheme); err != nil {
 				r.logger.Error(err, "create external registry job error")
 				return err

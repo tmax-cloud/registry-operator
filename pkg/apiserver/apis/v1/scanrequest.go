@@ -242,7 +242,7 @@ func newExtImageScanReq(name, ns string, reqBody *scan.Request) (*v1.ImageScanRe
 
 		targets = append(targets, v1.ScanTarget{
 			Images:            repoUrls,
-			ImagePullSecret:   regObj.Spec.ImagePullSecret,
+			ImagePullSecret:   regObj.Status.LoginSecret,
 			CertificateSecret: regObj.Spec.CertificateSecret,
 			RegistryURL:       strings.TrimPrefix(regObj.Spec.RegistryURL, "https://"),
 		})

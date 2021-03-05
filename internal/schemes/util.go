@@ -21,6 +21,7 @@ const (
 	NotarySignerPrefix     = "signer-"
 	NotaryDBPrefix         = "db-"
 	ExternalRegistryPrefix = "ext-"
+	LoginSecretPrefix      = "login-"
 	ImageReplicatePrefix   = "repl-"
 )
 
@@ -46,6 +47,7 @@ const (
 	SubTypeRegistryConfigmap
 	SubTypeRegistryIngress
 
+	SubTypeExternalRegistryLoginSecret
 	SubTypeExternalRegistryCronJob
 	SubTypeExternalRegistryJob
 
@@ -87,6 +89,8 @@ func SubresourceName(subresource interface{}, subresourceType SubresourceType) s
 
 	case *regv1.ExternalRegistry:
 		switch subresourceType {
+		case SubTypeExternalRegistryLoginSecret:
+			return regv1.K8sPrefix + ExternalRegistryPrefix + LoginSecretPrefix + res.Name
 		case SubTypeExternalRegistryCronJob:
 			return regv1.K8sPrefix + ExternalRegistryPrefix + res.Name
 		case SubTypeExternalRegistryJob:

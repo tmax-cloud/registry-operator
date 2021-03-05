@@ -42,8 +42,8 @@ func (h *ExternalRegistrySyncHandler) Handle(object types.NamespacedName) error 
 	}
 
 	username, password := "", ""
-	if exreg.Spec.ImagePullSecret != "" {
-		basic, err := utils.GetBasicAuth(exreg.Spec.ImagePullSecret, exreg.Namespace, exreg.Spec.RegistryURL)
+	if exreg.Status.LoginSecret != "" {
+		basic, err := utils.GetBasicAuth(exreg.Status.LoginSecret, exreg.Namespace, exreg.Spec.RegistryURL)
 		if err != nil {
 			log.Error(err, "failed to get basic auth")
 		}
