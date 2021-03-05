@@ -264,5 +264,9 @@ func DecodeBasicAuth(basic string) (username, password string) {
 
 // EncryptBasicAuth encrypt username and password by base64
 func EncryptBasicAuth(username, password string) string {
+	if username == "" || password == "" {
+		return ""
+	}
+
 	return base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 }

@@ -24,7 +24,7 @@ func GetFactory(registryType regv1.RegistryType, f *base.Factory) RegistryFactor
 	switch registryType {
 	case regv1.RegistryTypeHpcdRegistry:
 		return intfactory.NewRegistryFactory(f.K8sClient, f.NamespacedName, f.Scheme, f.HttpClient)
-	case regv1.RegistryTypeDockerHub:
+	case regv1.RegistryTypeDockerHub, regv1.RegistryTypeDocker, regv1.RegistryTypeHarborV2:
 		return extfactory.NewRegistryFactory(f.K8sClient, f.NamespacedName, f.Scheme, f.HttpClient)
 	}
 
@@ -72,6 +72,13 @@ func GetURL(client client.Client, registry types.NamespacedName, registryType re
 
 	case regv1.RegistryTypeDockerHub:
 		return image.DefaultServer, nil
+
+	case regv1.RegistryTypeDocker:
+		exreg := &regv1.ExternalRegistry{}
+		if err := client.Get(context.TODO(), registry, exreg); err != nil {
+			return "", err
+		}
+		return exreg.Spec.RegistryURL, nil
 	}
 
 	return "", fmt.Errorf("%s/%s(type:%s) registry url is not found", registry.Namespace, registry.Name, registryType)

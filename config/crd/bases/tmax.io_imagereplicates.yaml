@@ -65,6 +65,7 @@ spec:
                   enum:
                   - HpcdRegistry
                   - DockerHub
+                  - Docker
                   type: string
               required:
               - image
@@ -97,6 +98,7 @@ spec:
                   enum:
                   - HpcdRegistry
                   - DockerHub
+                  - Docker
                   type: string
               required:
               - image

@@ -4,6 +4,7 @@ import (
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/base"
+	"github.com/tmax-cloud/registry-operator/pkg/registry/ext/docker"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/ext/dockerhub"
 	harborv2 "github.com/tmax-cloud/registry-operator/pkg/registry/ext/harbor/v2"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,6 +41,8 @@ func (f *RegistryFactory) Create(registryType regv1.RegistryType) base.Registry 
 		return harborv2.NewClient(f.K8sClient, f.NamespacedName, f.Scheme, f.HttpClient)
 	case regv1.RegistryTypeDockerHub:
 		return dockerhub.NewClient(f.K8sClient, f.NamespacedName, f.Scheme, f.HttpClient)
+	case regv1.RegistryTypeDocker:
+		return docker.NewClient(f.K8sClient, f.NamespacedName, f.Scheme, f.HttpClient)
 	}
 
 	return nil
