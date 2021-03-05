@@ -21,6 +21,11 @@ func TestParseName(t *testing.T) {
 			expRepository: "tomcat",
 		},
 		{
+			fullName:      "tomcat:8.5",
+			expNamespace:  "library",
+			expRepository: "tomcat",
+		},
+		{
 			fullName:      "library/alpine",
 			expNamespace:  "library",
 			expRepository: "alpine",
@@ -66,4 +71,5 @@ func TestParseName(t *testing.T) {
 			assert.Equal(t, testCase.expRepository, repository)
 		}
 	}
+
 }

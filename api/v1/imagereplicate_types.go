@@ -17,11 +17,26 @@ limitations under the License.
 package v1
 
 import (
+	"github.com/operator-framework/operator-lib/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+
+// ImageReplicateStatusType is status type of external registry
+type ImageReplicateStatusType string
+
+const (
+	// ImageReplicateSuccess is a status that replicating image is finished successfully
+	ImageReplicateSuccess ImageReplicateStatusType = "Success"
+	// ImageReplicateFail is a failed status while copying image
+	ImageReplicateFail ImageReplicateStatusType = "Fail"
+	// ImageReplicatePending is an initial status
+	ImageReplicatePending ImageReplicateStatusType = "Pending"
+	// ImageReplicateProcessing is status that replicating is started
+	ImageReplicateProcessing ImageReplicateStatusType = "Processing"
+)
 
 // ImageReplicateSpec defines the desired state of ImageReplicate
 type ImageReplicateSpec struct {
@@ -48,8 +63,12 @@ type ImageInfo struct {
 
 // ImageReplicateStatus defines the observed state of ImageReplicate
 type ImageReplicateStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions are status of subresources
+	Conditions status.Conditions `json:"conditions,omitempty"`
+	// State is a status of external registry
+	State ImageReplicateStatusType `json:"state,omitempty"`
+	// StateChangedAt is the time when state was changed
+	StateChangedAt metav1.Time `json:"stateChangedAt,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -59,4 +59,13 @@ const (
 	ConditionTypeExRegistryInitialized = status.ConditionType("Initialized")
 	// ConditionTypeExRegistryCronJobExist is a condition that cronjob exists
 	ConditionTypeExRegistryCronJobExist = status.ConditionType("CronJobExist")
+
+	/* ImageReplicate conditions */
+
+	// ConditionTypeImageReplicateRegistryJobExist is a condition that registry job to replicate image exists
+	ConditionTypeImageReplicateRegistryJobExist = status.ConditionType("ImageReplicateJobExist")
+	// ConditionTypeImageReplicateRegistryJobProcessing is a condition that registry job to replicate image is processing
+	ConditionTypeImageReplicateRegistryJobProcessing = status.ConditionType("ImageReplicateProcessing")
+	// ConditionTypeImageReplicateRegistryJobSuccess is a condition that registry job to replicate image is succeeded
+	ConditionTypeImageReplicateRegistryJobSuccess = status.ConditionType("ImageReplicateSuccess")
 )
