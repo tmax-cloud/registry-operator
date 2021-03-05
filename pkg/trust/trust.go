@@ -259,7 +259,7 @@ func (n *notaryRepo) fetchToken() error {
 	if pingResp.StatusCode >= 200 && pingResp.StatusCode < 300 {
 		n.token = auth.Token{
 			Type:  "Basic",
-			Value: base64.StdEncoding.EncodeToString([]byte(n.image.BasicAuth)),
+			Value: n.image.BasicAuth,
 		}
 		return nil
 	}

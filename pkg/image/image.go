@@ -3,7 +3,6 @@ package image
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -272,7 +271,9 @@ func (r *Image) fetchToken(scope string) error {
 	if err != nil {
 		return err
 	}
-	pingReq.Header.Set("Authorization", fmt.Sprintf("Basic %s", r.BasicAuth))
+	if r.BasicAuth != "" {
+		pingReq.Header.Set("Authorization", fmt.Sprintf("Basic %s", r.BasicAuth))
+	}
 	pingResp, err := r.HttpClient.Do(pingReq)
 	if err != nil {
 		return err
@@ -283,7 +284,7 @@ func (r *Image) fetchToken(scope string) error {
 	if pingResp.StatusCode >= 200 && pingResp.StatusCode < 300 {
 		r.Token = auth.Token{
 			Type:  "Basic",
-			Value: base64.StdEncoding.EncodeToString([]byte(r.BasicAuth)),
+			Value: r.BasicAuth,
 		}
 		return nil
 	}
@@ -307,7 +308,9 @@ func (r *Image) fetchToken(scope string) error {
 	if err != nil {
 		return err
 	}
-	tokenReq.Header.Set("Authorization", fmt.Sprintf("Basic %s", r.BasicAuth))
+	if r.BasicAuth != "" {
+		tokenReq.Header.Set("Authorization", fmt.Sprintf("Basic %s", r.BasicAuth))
+	}
 	tokenQ := tokenReq.URL.Query()
 	for k, v := range param {
 		tokenQ.Add(k, v)

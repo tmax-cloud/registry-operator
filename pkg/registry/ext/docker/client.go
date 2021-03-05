@@ -1,4 +1,4 @@
-package inter
+package docker
 
 import (
 	"fmt"
@@ -6,10 +6,7 @@ import (
 	"os"
 	"path"
 
-	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/internal/common/certs"
 	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
-	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	"github.com/tmax-cloud/registry-operator/pkg/image"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/base"
@@ -20,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var Logger = log.Log.WithName("inter-registry")
+var Logger = log.Log.WithName("docker-registry")
 
 type Client struct {
 	Name, Namespace string
@@ -30,7 +27,7 @@ type Client struct {
 	scheme      *runtime.Scheme
 }
 
-// NewClient is api client of internal registry
+// NewClient is api client of docker registry
 func NewClient(c client.Client, registry types.NamespacedName, scheme *runtime.Scheme, httpClient *cmhttp.HttpClient) *Client {
 	img, err := image.NewImage("", httpClient.URL, utils.EncryptBasicAuth(httpClient.Login.Username, httpClient.Login.Password), httpClient.CA)
 	if err != nil {
@@ -44,39 +41,6 @@ func NewClient(c client.Client, registry types.NamespacedName, scheme *runtime.S
 		imageClient: img,
 		scheme:      scheme,
 	}
-}
-
-// GetClient returns client of internal registry
-func GetClient(c client.Client, reg *regv1.Registry, scheme *runtime.Scheme) (*Client, error) {
-	imagePullSecret := schemes.SubresourceName(reg, schemes.SubTypeRegistryDCJSecret)
-	basic, err := utils.GetBasicAuth(imagePullSecret, reg.Namespace, reg.Status.ServerURL)
-	if err != nil {
-		Logger.Error(err, "failed to get basic auth")
-		return nil, err
-	}
-
-	username, password := utils.DecodeBasicAuth(basic)
-	caSecret, err := certs.GetRootCert(reg.Namespace)
-	if err != nil {
-		Logger.Error(err, "failed to get root CA")
-		return nil, err
-	}
-	ca, _ := certs.CAData(caSecret)
-
-	caSecret, err = certs.GetSystemKeycloakCert(c)
-	if err == nil {
-		kca, _ := certs.CAData(caSecret)
-		ca = append(ca, kca...)
-	}
-
-	httpClient := cmhttp.NewHTTPClient(
-		reg.Status.ServerURL,
-		username, password,
-		ca,
-		len(ca) == 0,
-	)
-
-	return NewClient(c, types.NamespacedName{Name: reg.Name, Namespace: reg.Namespace}, scheme, httpClient), nil
 }
 
 // ListRepositories get repository list from registry server
@@ -104,7 +68,7 @@ func (c *Client) Synchronize() error {
 		repoList.AddRepository(*tags)
 	}
 
-	if err := sync.Registry(c.kClient, c.Name, c.Namespace, c.scheme, repoList); err != nil {
+	if err := sync.ExternalRegistry(c.kClient, c.Name, c.Namespace, c.scheme, repoList); err != nil {
 		Logger.Error(err, "failed to synchronize external registry")
 		return err
 	}

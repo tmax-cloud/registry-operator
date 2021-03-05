@@ -75,7 +75,7 @@ func (h *ExternalRegistrySyncHandler) Handle(object types.NamespacedName) error 
 	syncClient, ok := syncFactory.Create(exreg.Spec.RegistryType).(base.Synchronizable)
 	if !ok {
 		err := errors.New("unable to convert to synchronizable")
-		log.Error(err, "failed to create sync client")
+		log.Error(err, "failed to create sync client", "RegistryType", exreg.Spec.RegistryType)
 		return err
 	}
 	if err := syncClient.Synchronize(); err != nil {
