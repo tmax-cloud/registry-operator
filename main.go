@@ -34,7 +34,7 @@ import (
 
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/common/operatorlog"
-	regmgr "github.com/tmax-cloud/registry-operator/manager"
+	regmgr "github.com/tmax-cloud/registry-operator/pkg/manager"
 	"github.com/tmax-cloud/registry-operator/pkg/scheduler"
 
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"

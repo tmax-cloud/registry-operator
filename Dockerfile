@@ -15,7 +15,6 @@ COPY api/ api/
 COPY controllers/ controllers/
 COPY internal/ internal/
 COPY server/ server/
-COPY manager/ manager/
 COPY pkg/ pkg/
 
 # Build
