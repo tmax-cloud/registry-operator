@@ -14,8 +14,8 @@ COPY main.go main.go
 COPY api/ api/
 COPY controllers/ controllers/
 COPY internal/ internal/
-COPY registry/ registry/
 COPY server/ server/
+COPY manager/ manager/
 COPY pkg/ pkg/
 
 # Build
