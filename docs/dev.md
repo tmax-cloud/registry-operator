@@ -19,3 +19,7 @@ export DEV_IMG=tmaxcloudck/registry-operator:0.0.1-dev
 make docker-build-dev
 make docker-push-dev
 ```
+
+## About CRD Generate
+
+For Registry CRD, a field exists that requires oneOf to be used. But kubebuilder does not support it, so it needs to be modified in person. Do not create registry CRD yaml with `make manifests` command.

@@ -172,14 +172,17 @@ compare-sha-gen:
 
 # variable for test crd 
 CRD_DIR = config/crd/bases/
-CRD_1 = tmax.io_imagesignrequests.yaml
-CRD_2 = tmax.io_imagesigners.yaml
-CRD_3 = tmax.io_notaries.yaml
-CRD_4 = tmax.io_registries.yaml
-CRD_5 = tmax.io_repositories.yaml
-CRD_6 = tmax.io_signerkeys.yaml
-CRD_7 = tmax.io_imagescanrequests.yaml
-CRD_8 = tmax.io_signerpolicies.yaml
+CRD_1 = tmax.io_externalregistries.yaml
+CRD_2 = tmax.io_imagereplicates.yaml
+CRD_3 = tmax.io_imagescanrequests.yaml
+CRD_4 = tmax.io_imagesigners.yaml
+CRD_5 = tmax.io_imagesignrequests.yaml
+CRD_6 = tmax.io_notaries.yaml
+CRD_7 = tmax.io_registrycronjobs.yaml
+CRD_8 = tmax.io_registryjobs.yaml
+CRD_9 = tmax.io_repositories.yaml
+CRD_10 = tmax.io_signerkeys.yaml
+
 
 save-sha-crd:
 	$(eval CRDSHA_1=$(shell sha512sum $(CRD_DIR)$(CRD_1)))
@@ -190,7 +193,8 @@ save-sha-crd:
 	$(eval CRDSHA_6=$(shell sha512sum $(CRD_DIR)$(CRD_6)))
 	$(eval CRDSHA_7=$(shell sha512sum $(CRD_DIR)$(CRD_7)))
 	$(eval CRDSHA_8=$(shell sha512sum $(CRD_DIR)$(CRD_8)))
-	$(eval CRDSHA_ALL=$(foreach crd, $(CRD_DIR)*, $(shell sha512sum $(crd))))
+	$(eval CRDSHA_9=$(shell sha512sum $(CRD_DIR)$(CRD_9)))
+	$(eval CRDSHA_10=$(shell sha512sum $(CRD_DIR)$(CRD_10)))
 
 compare-sha-crd:
 	$(eval CRDSHA_1_AFTER=$(shell sha512sum $(CRD_DIR)$(CRD_1)))
@@ -201,7 +205,8 @@ compare-sha-crd:
 	$(eval CRDSHA_6_AFTER=$(shell sha512sum $(CRD_DIR)$(CRD_6)))
 	$(eval CRDSHA_7_AFTER=$(shell sha512sum $(CRD_DIR)$(CRD_7)))
 	$(eval CRDSHA_8_AFTER=$(shell sha512sum $(CRD_DIR)$(CRD_8)))
-	$(eval CRDSHA_ALL_AFTER=$(foreach crd, $(CRD_DIR)*, $(shell sha512sum $(crd))))
+	$(eval CRDSHA_9_AFTER=$(shell sha512sum $(CRD_DIR)$(CRD_9)))
+	$(eval CRDSHA_10_AFTER=$(shell sha512sum $(CRD_DIR)$(CRD_10)))
 	@if [ "${CRDSHA_1_AFTER}" = "${CRDSHA_1}" ]; then echo "$(CRD_1) is not changed"; else echo "$(CRD_1) file is changed"; exit 1; fi
 	@if [ "${CRDSHA_2_AFTER}" = "${CRDSHA_2}" ]; then echo "$(CRD_2) is not changed"; else echo "$(CRD_2) file is changed"; exit 1; fi
 	@if [ "${CRDSHA_3_AFTER}" = "${CRDSHA_3}" ]; then echo "$(CRD_3) is not changed"; else echo "$(CRD_3) file is changed"; exit 1; fi
@@ -210,7 +215,8 @@ compare-sha-crd:
 	@if [ "${CRDSHA_6_AFTER}" = "${CRDSHA_6}" ]; then echo "$(CRD_6) is not changed"; else echo "$(CRD_6) file is changed"; exit 1; fi
 	@if [ "${CRDSHA_7_AFTER}" = "${CRDSHA_7}" ]; then echo "$(CRD_7) is not changed"; else echo "$(CRD_7) file is changed"; exit 1; fi
 	@if [ "${CRDSHA_8_AFTER}" = "${CRDSHA_8}" ]; then echo "$(CRD_8) is not changed"; else echo "$(CRD_8) file is changed"; exit 1; fi
-	@if [ "${CRDSHA_ALL_AFTER}" = "${CRDSHA_ALL}" ]; then echo "all crds are not changed"; else echo "some crd types are added, but crd yaml file is not generated or included in specific test case"; exit 1; fi
+	@if [ "${CRDSHA_9_AFTER}" = "${CRDSHA_9}" ]; then echo "$(CRD_9) is not changed"; else echo "$(CRD_9) file is changed"; exit 1; fi
+	@if [ "${CRDSHA_10_AFTER}" = "${CRDSHA_10}" ]; then echo "$(CRD_10) is not changed"; else echo "$(CRD_10) file is changed"; exit 1; fi
 	
 # variable for mod
 GO_MOD_FILE = go.mod
