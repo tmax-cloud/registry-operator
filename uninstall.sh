@@ -49,9 +49,6 @@ DeleteManager() {
     kubectl delete -f config/rbac/image-signer-role.yaml
     kubectl delete -f config/rbac/role_binding.yaml
     kubectl delete -f config/rbac/role.yaml
-
-    # Delete registry-system namespace
-    kubectl delete -f config/manager/namespace.yaml
 }
 
 # Delete crds only
