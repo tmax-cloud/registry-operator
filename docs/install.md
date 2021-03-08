@@ -10,7 +10,7 @@
 1. On your local machine, get released source to install.
 
     ```bash
-    REG_OP_VERSION=v0.2.2
+    REG_OP_VERSION=v0.2.3
     mkdir registry-operator-${REG_OP_VERSION}
     wget -c https://github.com/tmax-cloud/registry-operator/archive/${REG_OP_VERSION}.tar.gz -O - |tar -xz -C registry-operator-${REG_OP_VERSION} --strip-components=1
     REG_OP_HOME=$(pwd)/registry-operator-${REG_OP_VERSION}
