@@ -82,6 +82,11 @@ spec:
                   description: Activate notary service to sign images
                   type: boolean
                 persistentVolumeClaim:
+                  oneOf:
+                  - required:
+                    - exist
+                  - required:
+                    - create
                   description: Settings for notary pvc. Either `Exist` or `Create`
                     must be entered.
                   properties:
@@ -135,6 +140,11 @@ spec:
               - serviceType
               type: object
             persistentVolumeClaim:
+              oneOf:
+              - required:
+                - exist
+              - required:
+                - create
               description: Settings for registry pvc. Either `Exist` or `Create` must
                 be entered.
               properties:
