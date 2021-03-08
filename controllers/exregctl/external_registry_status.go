@@ -114,6 +114,10 @@ func getCheckTypes(exreg *regv1.ExternalRegistry) []status.ConditionType {
 		regv1.ConditionTypeExRegistryInitialized,
 	}
 
+	if exreg.Spec.LoginID != "" || exreg.Spec.LoginPassword != "" || exreg.Status.LoginSecret != "" {
+		checkTypes = append(checkTypes, regv1.ConditionTypeExRegistryLoginSecretExist)
+	}
+
 	return checkTypes
 }
 

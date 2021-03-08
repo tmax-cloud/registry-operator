@@ -21,6 +21,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -77,6 +78,7 @@ func (r *ExternalRegistryReconciler) SetupWithManager(mgr ctrl.Manager, s *sched
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&regv1.ExternalRegistry{}).
+		Owns(&corev1.Secret{}).
 		Owns(&regv1.RegistryCronJob{}).
 		Complete(r)
 }
@@ -140,6 +142,10 @@ func (r *ExternalRegistryReconciler) update(origin, target *regv1.ExternalRegist
 
 func collectExRegSubController(exreg *regv1.ExternalRegistry) []exregctl.ExternalRegistrySubresource {
 	collection := []exregctl.ExternalRegistrySubresource{}
+
+	if exreg.Spec.LoginID != "" || exreg.Spec.LoginPassword != "" || exreg.Status.LoginSecret != "" {
+		collection = append(collection, &exregctl.LoginSecret{})
+	}
 
 	collection = append(collection, &exregctl.RegistryCronJob{}, &exregctl.RegistryJob{})
 

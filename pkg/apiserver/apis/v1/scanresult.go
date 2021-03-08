@@ -259,9 +259,9 @@ func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultRespons
 	}
 
 	imagePullSecret := &corev1.Secret{}
-	if err := k8sClient.Get(ctx, types.NamespacedName{Name: reg.Spec.ImagePullSecret, Namespace: namespace}, imagePullSecret); err != nil {
+	if err := k8sClient.Get(ctx, types.NamespacedName{Name: reg.Status.LoginSecret, Namespace: namespace}, imagePullSecret); err != nil {
 		log.Info(err.Error())
-		return nil, errors.NewInternalError(fmt.Errorf("Failed to get ImagePullSecret(%s)", reg.Spec.ImagePullSecret))
+		return nil, errors.NewInternalError(fmt.Errorf("Failed to get ImagePullSecret(%s)", reg.Status.LoginSecret))
 	}
 
 	imagePullSecretData, ok := imagePullSecret.Data[schemes.DockerConfigJson]
@@ -271,7 +271,7 @@ func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultRespons
 
 	dockerConfig := &schemes.DockerConfig{}
 	if err := json.Unmarshal(imagePullSecretData, dockerConfig); err != nil {
-		return nil, errors.NewInternalError(fmt.Errorf("Failed to unmarshal ImagePullSecret(%s)'s dockerconfig", reg.Spec.ImagePullSecret))
+		return nil, errors.NewInternalError(fmt.Errorf("Failed to unmarshal ImagePullSecret(%s)'s dockerconfig", reg.Status.LoginSecret))
 	}
 
 	registryHostname := strings.TrimPrefix(reg.Spec.RegistryURL, "https://")

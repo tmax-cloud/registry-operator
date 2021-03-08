@@ -59,6 +59,8 @@ const (
 	ConditionTypeExRegistryInitialized = status.ConditionType("Initialized")
 	// ConditionTypeExRegistryCronJobExist is a condition that cronjob exists
 	ConditionTypeExRegistryCronJobExist = status.ConditionType("CronJobExist")
+	// ConditionTypeExRegistryLoginSecretExist is a condition that login secret exists
+	ConditionTypeExRegistryLoginSecretExist = status.ConditionType("LoginSecretExist")
 
 	/* ImageReplicate conditions */
 

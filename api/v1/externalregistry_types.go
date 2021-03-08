@@ -53,14 +53,17 @@ type ExternalRegistrySpec struct {
 	// +kubebuilder:validation:Enum=HarborV2;DockerHub;Docker
 	// Registry type like HarborV2
 	RegistryType RegistryType `json:"registryType"`
-	// Registry URL (example: docker.io)
+	// Registry URL (example: https://192.168.6.100:5000)
+	// If ReigstryType is DockerHub, this value must be "https://registry-1.docker.io"
 	RegistryURL string `json:"registryUrl"`
 	// Certificate secret name for private registry. Secret's data key must be 'ca.crt' or 'tls.crt'.
 	CertificateSecret string `json:"certificateSecret,omitempty"`
 	// Do not verify tls certificates
 	Insecure bool `json:"insecure,omitempty"`
-	// Login id and password secret object for registry
-	ImagePullSecret string `json:"imagePullSecret,omitempty"`
+	// Login ID for registry
+	LoginID string `json:"loginId,omitempty"`
+	// Login password for registry
+	LoginPassword string `json:"loginPassword,omitempty"`
 	// Schedule is a cron spec for periodic sync
 	// If you want to synchronize repository every 5 minute, enter "*/5 * * * *".
 	// Cron spec ref: https://ko.wikipedia.org/wiki/Cron
@@ -69,6 +72,8 @@ type ExternalRegistrySpec struct {
 
 // ExternalRegistryStatus defines the observed state of ExternalRegistry
 type ExternalRegistryStatus struct {
+	// Login id and password secret object for registry
+	LoginSecret string `json:"loginSecret,omitempty"`
 	// Conditions are status of subresources
 	Conditions status.Conditions `json:"conditions,omitempty"`
 	// State is a status of external registry
