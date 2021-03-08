@@ -23,6 +23,12 @@ type RegistryJob struct {
 
 // Handle is to create external registry job.
 func (r *RegistryJob) Handle(c client.Client, exreg *regv1.ExternalRegistry, patchExreg *regv1.ExternalRegistry, scheme *runtime.Scheme) error {
+	loginCondition := exreg.Status.Conditions.GetCondition(regv1.ConditionTypeExRegistryLoginSecretExist)
+	if loginCondition != nil && !loginCondition.IsTrue() {
+		err := errors.New("login secret hasn't been made yet")
+		return err
+	}
+
 	if exreg.Status.Conditions.GetCondition(regv1.ConditionTypeExRegistryInitialized).Status == corev1.ConditionTrue {
 		return nil
 	}
