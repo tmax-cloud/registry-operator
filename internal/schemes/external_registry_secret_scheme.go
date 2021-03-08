@@ -2,7 +2,6 @@ package schemes
 
 import (
 	"encoding/json"
-	"errors"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -14,10 +13,6 @@ import (
 
 // ExternalRegistryLoginSecret scheme
 func ExternalRegistryLoginSecret(exreg *regv1.ExternalRegistry) (*corev1.Secret, error) {
-	if !exregBodyCheckForLoginSecret(exreg) {
-		return nil, errors.New("login info is empty")
-	}
-
 	registryURL := exreg.Spec.RegistryURL
 	// set RegistryURL if RegistryType is DockerHub
 	if exreg.Spec.RegistryType == regv1.RegistryTypeDockerHub {
@@ -49,13 +44,4 @@ func ExternalRegistryLoginSecret(exreg *regv1.ExternalRegistry) (*corev1.Secret,
 		Type: corev1.SecretTypeDockerConfigJson,
 		Data: data,
 	}, nil
-}
-
-func exregBodyCheckForLoginSecret(exreg *regv1.ExternalRegistry) bool {
-	if exreg.Status.LoginSecret == "" &&
-		exreg.Spec.LoginID == "" &&
-		exreg.Spec.LoginPassword == "" {
-		return false
-	}
-	return true
 }
