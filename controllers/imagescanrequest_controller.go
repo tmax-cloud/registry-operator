@@ -62,7 +62,7 @@ var (
 const (
 	requestQueueSize = 100
 	nWorkers         = 5
-	timeout          = time.Second * 3
+	timeout          = time.Second * 30
 )
 
 func init() {
