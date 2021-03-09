@@ -148,8 +148,8 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 
 		// FIXME: Is here the right place to get keyclock cert?
 		tlsSecret := &corev1.Secret{}
-		if err := r.Client.Get(ctx, types.NamespacedName{Name: tmaxiov1.KeycloakCASecretName, Namespace: config.Config.GetString("operator.namespace")}, tlsSecret); err != nil {
-			return fmt.Errorf("TLS Secret not found: %s\n", tmaxiov1.KeycloakCASecretName)
+		if err := r.Client.Get(ctx, types.NamespacedName{Name: tmaxiov1.RegistryRootCASecretName, Namespace: config.Config.GetString("operator.namespace")}, tlsSecret); err != nil {
+			return fmt.Errorf("TLS Secret not found: %s\n", tmaxiov1.RegistryRootCASecretName)
 		}
 		tlsCertData, err := secrethelper.GetCert(tlsSecret, certs.RootCACert)
 		if err != nil {
