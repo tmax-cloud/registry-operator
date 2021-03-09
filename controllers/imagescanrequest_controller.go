@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/genuinetools/reg/clair"
@@ -61,7 +62,7 @@ var (
 const (
 	requestQueueSize = 100
 	nWorkers         = 5
-	timeout          = time.Second * 3
+	timeout          = time.Second * 30
 )
 
 func init() {
@@ -196,7 +197,12 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 				return err
 			}
 
-			login, err := imagePullSecret.GetHostCredential(u.Hostname())
+			secretKey := u.Host
+			if len(u.Scheme) > 0 {
+				secretKey = strings.Join([]string{u.Scheme, u.Host}, "://")
+			}
+
+			login, err := imagePullSecret.GetHostCredential(secretKey)
 			if err != nil {
 				return err
 			}
