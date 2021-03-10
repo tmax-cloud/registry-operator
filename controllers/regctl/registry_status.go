@@ -149,7 +149,7 @@ func getCheckTypes(reg *regv1.Registry) []status.ConditionType {
 		regv1.ConditionTypeSecretDockerConfigJSON,
 		regv1.ConditionTypePvc,
 		regv1.ConditionTypeConfigMap,
-		regv1.ConditionTypeKeycloakRealm,
+		regv1.ConditionTypeKeycloakResources,
 	}
 
 	if reg.Spec.Notary.Enabled {
