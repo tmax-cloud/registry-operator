@@ -125,7 +125,7 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 	if r.kc == nil {
 		return fmt.Errorf("unable to get keycloak controller")
 	}
-	if err := r.kc.CreateRealm(reg, patchReg); err != nil {
+	if err := r.kc.CreateResources(reg, patchReg); err != nil {
 		return err
 	}
 

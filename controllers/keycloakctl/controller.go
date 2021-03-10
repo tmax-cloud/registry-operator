@@ -96,12 +96,12 @@ func (c *KeycloakController) GetAdminToken() (string, error) {
 	return token.AccessToken, nil
 }
 
-// CreateRealm is ...
-func (c *KeycloakController) CreateRealm(reg, patchReg *regv1.Registry) error {
+// CreateResources is ...
+func (c *KeycloakController) CreateResources(reg, patchReg *regv1.Registry) error {
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
-		Type:   regv1.ConditionTypeKeycloakRealm,
+		Type:   regv1.ConditionTypeKeycloakResources,
 	}
 
 	defer utils.SetCondition(err, patchReg, condition)
@@ -126,9 +126,13 @@ func (c *KeycloakController) CreateRealm(reg, patchReg *regv1.Registry) error {
 			condition.Message = err.Error()
 			return err
 		}
+	}
 
-		// make docker client
+	if !c.isExistClient() {
 		clientName := c.GetDockerV2ClientName()
+		c.logger.Info(fmt.Sprintf("%s client is not found", clientName))
+
+		// create docker-v2 client
 		protocol := "docker-v2"
 		_, err = c.client.CreateClient(context.Background(), c.token, c.name, gocloak.Client{
 			ClientID: &clientName,
@@ -158,8 +162,8 @@ func (c *KeycloakController) CreateRealm(reg, patchReg *regv1.Registry) error {
 		}
 	}
 
-	if !c.isExistRealm(c.name) || !c.isExistCertificate() || !c.isExistUser(reg.Spec.LoginID) {
-		return fmt.Errorf("failed to create realm/certificate/user")
+	if !c.isExistRealm(c.name) || !c.isExistClient() || !c.isExistCertificate() || !c.isExistUser(reg.Spec.LoginID) {
+		return fmt.Errorf("failed to create realm/client/certificate/user")
 	}
 
 	condition.Status = corev1.ConditionTrue
@@ -282,6 +286,40 @@ func (c *KeycloakController) componentURL() string {
 
 func (c *KeycloakController) isExistRealm(name string) bool {
 	if _, err := c.client.GetRealm(context.Background(), c.token, name); err != nil {
+		return false
+	}
+
+	return true
+}
+
+func (c *KeycloakController) isExistClient() bool {
+	clientName := c.GetDockerV2ClientName()
+	logger := c.logger.WithValues("realm", c.GetRealmName(), "clientName", clientName)
+	params := gocloak.GetClientsParams{
+		ClientID: &clientName,
+	}
+	clients, err := c.client.GetClients(context.Background(), c.token, c.GetRealmName(), params)
+	if err != nil {
+		logger.Error(err, "failed to get client")
+		return false
+	}
+
+	clientID := ""
+	for _, client := range clients {
+		logger.Info("debug", "*client.ClientID", *client.ClientID, "ID", *client.ID)
+		if *client.ClientID == clientName {
+			clientID = *client.ID
+			break
+		}
+	}
+
+	if clientID == "" {
+		return false
+	}
+
+	logger = logger.WithValues("client.ID", clientID)
+	if _, err := c.client.GetClient(context.Background(), c.token, c.GetRealmName(), clientID); err != nil {
+		logger.Error(err, "failed to get client")
 		return false
 	}
 
