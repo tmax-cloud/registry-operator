@@ -52,6 +52,7 @@ const (
 	SubTypeExternalRegistryJob
 
 	SubTypeImageReplicateJob
+	SubTypeImageReplicateImageSignRequest
 )
 
 // SubresourceName returns Notary's or Registry's subresource name
@@ -101,6 +102,11 @@ func SubresourceName(subresource interface{}, subresourceType SubresourceType) s
 		switch subresourceType {
 		case SubTypeImageReplicateJob:
 			return regv1.K8sPrefix + ImageReplicatePrefix + res.Name
+		case SubTypeImageReplicateImageSignRequest:
+			if res.Status.ImageSignRequestName != "" {
+				return res.Status.ImageSignRequestName
+			}
+			return regv1.K8sPrefix + ImageReplicatePrefix + res.Name + "-" + utils.RandomString(10)
 		}
 	}
 

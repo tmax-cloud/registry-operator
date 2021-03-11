@@ -84,6 +84,7 @@ func (r *ImageReplicateReconciler) SetupWithManager(mgr ctrl.Manager, s *schedul
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&tmaxiov1.ImageReplicate{}).
 		Owns(&tmaxiov1.RegistryJob{}).
+		Owns(&tmaxiov1.ImageSignRequest{}).
 		Complete(r)
 }
 
@@ -99,7 +100,7 @@ func (r *ImageReplicateReconciler) handleAllSubresources(repl *regv1.ImageReplic
 		}
 	}()
 
-	collectSubController := collectImageReplicateSubController()
+	collectSubController := collectImageReplicateSubController(repl)
 
 	// Check if subresources are created.
 	for _, sctl := range collectSubController {
@@ -144,10 +145,15 @@ func (r *ImageReplicateReconciler) update(origin, target *regv1.ImageReplicate) 
 	return nil
 }
 
-func collectImageReplicateSubController() []replicatectl.ImageReplicateSubresource {
+func collectImageReplicateSubController(repl *regv1.ImageReplicate) []replicatectl.ImageReplicateSubresource {
 	collection := []replicatectl.ImageReplicateSubresource{}
 
-	collection = append(collection, &replicatectl.RegistryJob{})
+	registryJob := replicatectl.RegistryJob{}
+	collection = append(collection, &registryJob)
+
+	if repl.Spec.Signer != "" {
+		collection = append(collection, replicatectl.NewImageSignRequest(&registryJob))
+	}
 
 	return collection
 }

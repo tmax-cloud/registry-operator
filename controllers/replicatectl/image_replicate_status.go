@@ -49,19 +49,39 @@ func UpdateImageReplicateStatus(c client.Client, repl *regv1.ImageReplicate) (bo
 		}
 
 	case regv1.ImageReplicateProcessing:
-		cond := repl.Status.Conditions.GetCondition(regv1.ConditionTypeImageReplicateRegistryJobSuccess)
-		if cond == nil {
+		rjCond := repl.Status.Conditions.GetCondition(regv1.ConditionTypeImageReplicateRegistryJobSuccess)
+		if rjCond == nil {
 			return false, fmt.Errorf("%s condition is not found", regv1.ConditionTypeImageReplicateRegistryJobSuccess)
 		}
-		if cond.IsUnknown() {
-			desiredStatus = regv1.ImageReplicateProcessing
+
+		if rjCond.IsUnknown() {
+			return false, nil
+		}
+
+		if rjCond.IsFalse() {
+			desiredStatus = regv1.ImageReplicateFail
 			break
 		}
-		if cond.IsTrue() {
+
+		isrCond := repl.Status.Conditions.GetCondition(regv1.ConditionTypeImageReplicateImageSigningSuccess)
+		if isrCond == nil && rjCond.IsTrue() {
 			desiredStatus = regv1.ImageReplicateSuccess
 			break
 		}
-		desiredStatus = regv1.ImageReplicateFail
+
+		if isrCond.IsUnknown() {
+			return false, nil
+		}
+
+		if isrCond.IsFalse() {
+			desiredStatus = regv1.ImageReplicateFail
+			break
+		}
+
+		if isrCond.IsTrue() {
+			desiredStatus = regv1.ImageReplicateSuccess
+			break
+		}
 
 	default:
 		return false, fmt.Errorf("invalid state: %s", repl.Status.State)
@@ -135,12 +155,13 @@ func getCheckTypes(repl *regv1.ImageReplicate) []status.ConditionType {
 		regv1.ConditionTypeImageReplicateRegistryJobSuccess,
 	}
 
-	// switch repl.Status.State {
-	// case regv1.ImageReplicatePending:
-	// 	checkTypes = append(checkTypes, regv1.ConditionTypeImageReplicateRegistryJobProcessing)
-	// case regv1.ImageReplicateProcessing:
-	// 	checkTypes = append(checkTypes, regv1.ConditionTypeImageReplicateRegistryJobSuccess)
-	// }
+	if repl.Spec.Signer != "" {
+		checkTypes = append(checkTypes,
+			regv1.ConditionTypeImageReplicateImageSignRequestExist,
+			regv1.ConditionTypeImageReplicateImageSigning,
+			regv1.ConditionTypeImageReplicateImageSigningSuccess,
+		)
+	}
 
 	return checkTypes
 }
