@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: registry-operator
+  name: registry-job-operator
   namespace: registry-system
   labels:
-    control-plane: registry-operator
+    control-plane: registry-job-operator
 spec:
   selector:
     matchLabels:
-      control-plane: registry-operator
+      control-plane: registry-job-operator
   replicas: 1
   template:
     metadata:
       labels:
-        control-plane: registry-operator
+        control-plane: registry-job-operator
     spec:
       containers:
       - command:
-        - /manager
+        - /bin/dev/manager
         args:
         - --enable-leader-election
-        image: tmaxcloudck/registry-operator:v0.2.5
+        image: tmaxcloudck/registry-job-operator:0.0.1-dev
         name: manager
         imagePullPolicy: Always
         env:
@@ -28,12 +28,12 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
-          - name: OPERATOR_NAME
-            value: "registry-operator"
           - name: OPERATOR_NAMESPACE
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: OPERATOR_NAME
+            value: "registry-operator"
           - name: TZ
             value: Asia/Seoul
           - name: KEYCLOAK_USERNAME
@@ -46,22 +46,26 @@ spec:
                 secretKeyRef:
                   name: keycloak-secret
                   key: password
+          - name: ENV
+            value: "dev"
         volumeMounts:
+        - name: manager-mnt
+          mountPath: /bin/dev
         - name: operator-log-mnt
           mountPath: /logs
         - name: registry-secret
           mountPath: /etc/ssl/certs/ca.crt
           subPath: ca.crt
-        - name: manager-config
-          mountPath: /registry-operator/config
       volumes:
+      - name: manager-mnt
+        hostPath:
+          path: "/root/go/src/github.com/tmax-cloud/registry-operator/bin/registry-job-operator"
       - name: operator-log-mnt
         hostPath:
-          path: /var/log/registry-operator/logs/registry-operator
+          path: "/root/go/src/github.com/tmax-cloud/registry-operator/logs/registry-job-operator"
       - name: registry-secret
         secret:
           secretName: registry-ca
-      - name: manager-config
-        configMap:
-          name: manager-config
+      nodeSelector:
+        kubernetes.io/hostname: node1
       terminationGracePeriodSeconds: 10

@@ -49,9 +49,15 @@ jobs:
       - name: build
         run: |
           docker login -u=tmaxcloudck -p=${{ secrets.DOCKER_HUB_PASSWORD }}
-          REPO=tmaxcloudck/registry-operator
-          IMG=${REPO}:${GITHUB_REF#refs/tags/}
-          docker build . -t ${IMG}
-          docker tag ${IMG} ${REPO}:latest
-          docker push ${IMG}
-          docker push ${REPO}:latest
+          REPO_REG=tmaxcloudck/registry-operator
+          REPO_JOB=tmaxcloudck/registry-job-operator
+          IMG_REG=${REPO_REG}:${GITHUB_REF#refs/tags/}
+          IMG_JOB=${REPO_JOB}:${GITHUB_REF#refs/tags/}
+          docker build . -t ${IMG_REG} -f images/registry-operator/Dockerfile
+          docker build . -t ${IMG_JOB} -f images/registry-job-operator/Dockerfile
+          docker tag ${IMG_REG} ${REPO_REG}:latest
+          docker tag ${IMG_JOB} ${REPO_JOB}:latest
+          docker push ${IMG_REG}
+          docker push ${IMG_JOB}
+          docker push ${REPO_REG}:latest
+          docker push ${REPO_JOB}:latest

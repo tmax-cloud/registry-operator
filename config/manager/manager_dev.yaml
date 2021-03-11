@@ -61,10 +61,10 @@ spec:
       volumes:
       - name: manager-mnt
         hostPath:
-          path: "/root/go/src/github.com/tmax-cloud/registry-operator/bin"
+          path: "/root/go/src/github.com/tmax-cloud/registry-operator/bin/registry-operator"
       - name: operator-log-mnt
         hostPath:
-          path: "/root/go/src/github.com/tmax-cloud/registry-operator/logs"
+          path: "/root/go/src/github.com/tmax-cloud/registry-operator/logs/registry-operator"
       - name: registry-secret
         secret:
           secretName: registry-ca
