@@ -89,6 +89,7 @@ func (r *RegistryJob) Ready(c client.Client, repl *regv1.ImageReplicate, patchRe
 }
 
 func (r *RegistryJob) create(c client.Client, repl *regv1.ImageReplicate, patchRepl *regv1.ImageReplicate, scheme *runtime.Scheme) error {
+	r.job = schemes.ImageReplicateJob(repl)
 	if err := controllerutil.SetControllerReference(repl, r.job, scheme); err != nil {
 		r.logger.Error(err, "SetOwnerReference Failed")
 		return err
@@ -111,8 +112,26 @@ func (r *RegistryJob) get(c client.Client, repl *regv1.ImageReplicate) error {
 	err := c.Get(context.TODO(), req, r.job)
 	if err != nil {
 		r.logger.Error(err, "Get image replicate registry job is failed")
+		r.job = nil
 		return err
 	}
 
 	return nil
+}
+
+func (r *RegistryJob) IsSuccessfullyCompleted(c client.Client, repl *regv1.ImageReplicate) bool {
+	if err := r.get(c, repl); err != nil {
+		r.logger.Error(err, "image replicate registry job error")
+		return false
+	}
+
+	if r.job == nil {
+		return false
+	}
+
+	if r.job.Status.State != regv1.RegistryJobStateCompleted {
+		return false
+	}
+
+	return true
 }

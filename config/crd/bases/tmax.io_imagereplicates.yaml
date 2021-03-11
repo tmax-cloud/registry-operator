@@ -153,6 +153,9 @@ spec:
                 - type
                 type: object
               type: array
+            imageSignRequestName:
+              description: ImageSignRequestName is ImageSignRequest's name if exists
+              type: string
             state:
               description: State is a status of external registry
               type: string

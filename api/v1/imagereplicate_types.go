@@ -65,6 +65,8 @@ type ImageInfo struct {
 type ImageReplicateStatus struct {
 	// Conditions are status of subresources
 	Conditions status.Conditions `json:"conditions,omitempty"`
+	// ImageSignRequestName is ImageSignRequest's name if exists
+	ImageSignRequestName string `json:"imageSignRequestName,omitempty"`
 	// State is a status of external registry
 	State ImageReplicateStatusType `json:"state,omitempty"`
 	// StateChangedAt is the time when state was changed

@@ -65,9 +65,15 @@ const (
 	/* ImageReplicate conditions */
 
 	// ConditionTypeImageReplicateRegistryJobExist is a condition that registry job to replicate image exists
-	ConditionTypeImageReplicateRegistryJobExist = status.ConditionType("ImageReplicateJobExist")
+	ConditionTypeImageReplicateRegistryJobExist = status.ConditionType("RegistryJobExist")
 	// ConditionTypeImageReplicateRegistryJobProcessing is a condition that registry job to replicate image is processing
-	ConditionTypeImageReplicateRegistryJobProcessing = status.ConditionType("ImageReplicateProcessing")
+	ConditionTypeImageReplicateRegistryJobProcessing = status.ConditionType("RegistryJobProcessing")
 	// ConditionTypeImageReplicateRegistryJobSuccess is a condition that registry job to replicate image is succeeded
-	ConditionTypeImageReplicateRegistryJobSuccess = status.ConditionType("ImageReplicateSuccess")
+	ConditionTypeImageReplicateRegistryJobSuccess = status.ConditionType("RegistryJobSuccess")
+	// ConditionTypeImageReplicateImageSignRequestExist is a condition that image sign request exists
+	ConditionTypeImageReplicateImageSignRequestExist = status.ConditionType("ImageSignRequestExist")
+	// ConditionTypeImageReplicateImageSigning is a condition that replicated image is being signed
+	ConditionTypeImageReplicateImageSigning = status.ConditionType("ImageSigning")
+	// ConditionTypeImageReplicateImageSigningSuccess is a condition that signing image is succeeded
+	ConditionTypeImageReplicateImageSigningSuccess = status.ConditionType("ImageSigningSuccess")
 )
