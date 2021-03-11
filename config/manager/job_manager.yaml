@@ -20,7 +20,7 @@ spec:
         - /manager
         args:
         - --enable-leader-election
-        image: tmaxcloudck/registry-operator:v0.2.5
+        image: tmaxcloudck/registry-job-operator:v0.3.0
         name: manager
         imagePullPolicy: Always
         env:
@@ -52,16 +52,11 @@ spec:
         - name: registry-secret
           mountPath: /etc/ssl/certs/ca.crt
           subPath: ca.crt
-        - name: manager-config
-          mountPath: /registry-operator/config
       volumes:
       - name: operator-log-mnt
         hostPath:
-          path: /var/log/registry-operator/logs/registry-operator
+          path: /var/log/registry-operator/logs/registry-job-operator
       - name: registry-secret
         secret:
           secretName: registry-ca
-      - name: manager-config
-        configMap:
-          name: manager-config
       terminationGracePeriodSeconds: 10

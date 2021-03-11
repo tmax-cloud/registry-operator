@@ -16,6 +16,9 @@ REGISTRY ?= tmaxcloudck
 IMG ?= $(REGISTRY)/registry-operator:$(VERSION)
 DEV_IMG ?= $(REGISTRY)/registry-operator:$(VERSION)-dev
 
+IMG_JOB ?= $(REGISTRY)/registry-job-operator:$(VERSION)
+DEV_IMG_JOB ?= $(REGISTRY)/registry-job-operator:$(VERSION)-dev
+
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -37,13 +40,16 @@ test: generate fmt vet manifests
 
 # Build manager binary
 manager: generate fmt vet
-	#go build -o bin/manager main.go
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/manager main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/registry-operator/manager cmd/registry-operator/main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/registry-job-operator/manager cmd/registry-job-operator/main.go
 
 # Build manager binary only
 manager-only:
-	#go build -o bin/manager main.go
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/manager main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/registry-operator/manager cmd/registry-operator/main.go
+
+# Build manager binary only
+job-manager-only:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/registry-job-operator/manager cmd/registry-job-operator/main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
@@ -80,19 +86,23 @@ generate: controller-gen
 
 # Build the docker image
 docker-build:
-	docker build . -t ${IMG}
+	docker build -t ${IMG} -f images/registry-operator/Dockerfile .
+	docker build -t ${IMG_JOB} -f images/registry-job-operator/Dockerfile .
 	
 # Build the docker image
 docker-build-dev:
-	docker build -t ${DEV_IMG} -f $(PWD)/Dockerfile.dev .
+	docker build -t ${DEV_IMG} -f images/registry-operator/Dockerfile.dev .
+	docker build -t ${DEV_IMG_JOB} -f images/registry-job-operator/Dockerfile.dev .
 
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+	docker push ${IMG_JOB}
 	
 # Push the docker image
 docker-push-dev:
 	docker push ${DEV_IMG}
+	docker push ${DEV_IMG_JOB}
 
 # find or download controller-gen
 # download controller-gen if necessary

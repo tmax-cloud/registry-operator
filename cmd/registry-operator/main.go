@@ -35,7 +35,6 @@ import (
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/common/operatorlog"
 	regmgr "github.com/tmax-cloud/registry-operator/pkg/manager"
-	"github.com/tmax-cloud/registry-operator/pkg/scheduler"
 
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/controllers"
@@ -90,14 +89,12 @@ func main() {
 		MetricsBindAddress: metricsAddr,
 		Port:               9443,
 		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "8f6e6509.io",
+		LeaderElectionID:   "8f6e6510.io",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-
-	s := scheduler.New(mgr.GetClient(), mgr.GetScheme())
 
 	if err = (&controllers.RegistryReconciler{
 		Client: mgr.GetClient(),
@@ -147,30 +144,19 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ImageScanRequest")
 		os.Exit(1)
 	}
-	if err = (&controllers.RegistryJobReconciler{
-		Client:    mgr.GetClient(),
-		Log:       ctrl.Log.WithName("controllers").WithName("RegistryJob"),
-		Scheme:    mgr.GetScheme(),
-		Scheduler: s,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "RegistryJob")
-		os.Exit(1)
-	}
-	controllers.StartRegistryCronJobController(mgr.GetClient(), ctrl.Log.WithName("controllers").WithName("RegistryCronJob"), mgr.GetScheme())
 	if err = (&controllers.ExternalRegistryReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ExternalRegistry"),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, s); err != nil {
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ExternalRegistry")
 		os.Exit(1)
 	}
-
 	if err = (&controllers.ImageReplicateReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ImageReplicate"),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, s); err != nil {
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ImageReplicate")
 		os.Exit(1)
 	}

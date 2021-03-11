@@ -11,13 +11,24 @@ import (
 	"github.com/tmax-cloud/registry-operator/pkg/registry"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/base"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/replicate"
+	"github.com/tmax-cloud/registry-operator/pkg/scheduler"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var logger = log.Log.WithName("replicate-handler")
+
+func RegisterHandler(mgr ctrl.Manager, s *scheduler.Scheduler) error {
+	h := NewReplicateHandler(mgr.GetClient(), mgr.GetScheme())
+	if err := s.RegisterHandler(v1.JobTypeImageReplicate, h); err != nil {
+		logger.Error(err, "unable to register handler", "type", v1.JobTypeImageReplicate)
+		return err
+	}
+	return nil
+}
 
 // NewReplicateHandler returns a new handler to replicate image
 func NewReplicateHandler(k8sClient client.Client, scheme *runtime.Scheme) *ReplicateHandler {
