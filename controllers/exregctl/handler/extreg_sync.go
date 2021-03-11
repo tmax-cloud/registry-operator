@@ -9,13 +9,24 @@ import (
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/base"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/ext/factory"
+	"github.com/tmax-cloud/registry-operator/pkg/scheduler"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var logger = log.Log.WithName("extregctl-handler")
+
+func RegisterHandler(mgr ctrl.Manager, s *scheduler.Scheduler) error {
+	h := NewExternalRegistrySyncHandler(mgr.GetClient(), mgr.GetScheme())
+	if err := s.RegisterHandler(v1.JobTypeSynchronizeExtReg, h); err != nil {
+		logger.Error(err, "unable to register handler", "type", v1.JobTypeSynchronizeExtReg)
+		return err
+	}
+	return nil
+}
 
 // NewExternalRegistrySyncHandler returns a new handler to synchronize external registry
 func NewExternalRegistrySyncHandler(k8sClient client.Client, scheme *runtime.Scheme) *ExternalRegistrySyncHandler {

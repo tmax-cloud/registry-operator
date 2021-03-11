@@ -28,8 +28,6 @@ import (
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/controllers/replicatectl"
-	"github.com/tmax-cloud/registry-operator/controllers/replicatectl/handler"
-	"github.com/tmax-cloud/registry-operator/pkg/scheduler"
 )
 
 // ImageReplicateReconciler reconciles a ImageReplicate object
@@ -75,12 +73,7 @@ func (r *ImageReplicateReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	return ctrl.Result{}, nil
 }
 
-func (r *ImageReplicateReconciler) SetupWithManager(mgr ctrl.Manager, s *scheduler.Scheduler) error {
-	h := handler.NewReplicateHandler(mgr.GetClient(), mgr.GetScheme())
-	if err := s.RegisterHandler(regv1.JobTypeImageReplicate, h); err != nil {
-		r.Log.Error(err, "unable to register handler", "type", regv1.JobTypeImageReplicate)
-		return err
-	}
+func (r *ImageReplicateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&tmaxiov1.ImageReplicate{}).
 		Owns(&tmaxiov1.RegistryJob{}).
