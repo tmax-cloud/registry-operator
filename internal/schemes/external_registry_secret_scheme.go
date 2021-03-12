@@ -2,6 +2,7 @@ package schemes
 
 import (
 	"encoding/json"
+	"errors"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -13,10 +14,19 @@ import (
 
 // ExternalRegistryLoginSecret scheme
 func ExternalRegistryLoginSecret(exreg *regv1.ExternalRegistry) (*corev1.Secret, error) {
-	registryURL := exreg.Spec.RegistryURL
+	registryURLs := []string{}
+
 	// set RegistryURL if RegistryType is DockerHub
 	if exreg.Spec.RegistryType == regv1.RegistryTypeDockerHub {
-		registryURL = image.DefaultServer
+		registryURLs = append(registryURLs, image.LegacyV1Server+"/", image.LegacyV2Server+"/")
+	}
+
+	if len(registryURLs) == 0 && exreg.Spec.RegistryURL != "" {
+		registryURLs = append(registryURLs, exreg.Spec.RegistryURL)
+	}
+
+	if len(registryURLs) == 0 {
+		return nil, errors.New("registry url is empty")
 	}
 
 	data := map[string][]byte{}
@@ -25,7 +35,9 @@ func ExternalRegistryLoginSecret(exreg *regv1.ExternalRegistry) (*corev1.Secret,
 	}
 
 	auth := AuthValue{utils.EncryptBasicAuth(exreg.Spec.LoginID, exreg.Spec.LoginPassword)}
-	config.Auths[registryURL] = auth
+	for _, url := range registryURLs {
+		config.Auths[url] = auth
+	}
 
 	configBytes, err := json.Marshal(config)
 	if err != nil {

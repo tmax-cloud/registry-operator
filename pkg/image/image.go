@@ -26,8 +26,13 @@ const (
 	DefaultServer = "https://" + DefaultServerHostName
 	// DefaultHostname is the default built-in hostname
 	DefaultHostname = "docker.io"
+
 	// LegacyDefaultDomain is ...
 	LegacyDefaultDomain = "index.docker.io"
+	// LegacyV1Server is FQDN of legacy v1 server
+	LegacyV1Server = "https://index.docker.io/v1"
+	// LegacyV2Server is FQDN of legacy v2 server
+	LegacyV2Server = "https://index.docker.io/v2"
 )
 
 type Image struct {

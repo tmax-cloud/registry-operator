@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -155,14 +156,17 @@ func GetCAData(secretName, namespace string) ([]byte, error) {
 // ParseBasicAuth returns `username:password` as string encrypted by base64
 func ParseBasicAuth(sec *corev1.Secret, host string) (string, error) {
 	if sec == nil {
-		return "", fmt.Errorf("cannot get secret")
+		return "", errors.New("cannot get secret")
 	}
-	// if sec.Type != corev1.SecretTypeDockerConfigJson {
-	// 	return "", fmt.Errorf("secret is not a docker config type")
-	// }
+	log := logger.WithValues("secret namespace", sec.Namespace, "secret name", sec.Name)
+
+	if sec.Type != corev1.SecretTypeDockerConfigJson {
+		return "", errors.New("secret is not a docker config json type")
+	}
+
 	data, ok := sec.Data[corev1.DockerConfigJsonKey]
 	if !ok {
-		return "", fmt.Errorf("secret is not a docker config type")
+		return "", errors.New("secret is not a docker config json type. \".dockerconfigjson\" key not found")
 	}
 
 	cfg := &dockerConfigJson{}
@@ -170,15 +174,12 @@ func ParseBasicAuth(sec *corev1.Secret, host string) (string, error) {
 		return "", err
 	}
 
-	host = strings.TrimPrefix(host, "https://")
-	host = strings.TrimPrefix(host, "http://")
+	host = TrimHTTPScheme(host)
 	hosts := []string{host}
 
-	if host == "docker.io" {
+	if host == "docker.io" || host == "registry-1.docker.io" {
 		hosts = append(hosts, "index.docker.io/v1/")
-		hosts = append(hosts, "index.docker.io/v1")
-		hosts = append(hosts, "registry-1.docker.io/")
-		hosts = append(hosts, "registry-1.docker.io")
+		hosts = append(hosts, "index.docker.io/v2/")
 	}
 
 	// set default port 443
@@ -186,19 +187,23 @@ func ParseBasicAuth(sec *corev1.Secret, host string) (string, error) {
 		hosts[i] = setDefaultPort(hosts[i])
 	}
 
-	logger.Info("parse imagepullsecret", "auths", fmt.Sprintf("%+v", cfg.Auths), "hosts", fmt.Sprintf("%v", hosts))
+	log.Info("parse imagepullsecret", "host list", fmt.Sprintf("%v", hosts))
+
 	for k, v := range cfg.Auths {
-		k = strings.TrimPrefix(k, "https://")
-		k = strings.TrimPrefix(k, "http://")
+		k = TrimHTTPScheme(k)
 		k = setDefaultPort(k)
+		log.Info("parse imagepullsecret", "searching host", k)
 		for _, host := range hosts {
-			if k == host {
-				if v.Auth != "" {
-					return v.Auth, nil
-				} else if v.Username != "" && v.Password != "" {
-					return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", v.Username, v.Password))), nil
-				}
-				return "", fmt.Errorf("cannot find docker credential for %s", host)
+			if k != host {
+				continue
+			}
+
+			if v.Auth != "" {
+				return v.Auth, nil
+			}
+
+			if v.Username != "" && v.Password != "" {
+				return EncryptBasicAuth(v.Username, v.Password), nil
 			}
 		}
 	}
