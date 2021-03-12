@@ -1,12 +1,27 @@
 apiVersion: tmax.io/v1
 kind: ExternalRegistry
 metadata:
-  name: externalregistry-sample
+  name: dockerhub-sample
+  namespace: reg-test
+spec:
+  registryType: "DockerHub"
+  registryUrl: "https://registry-1.docker.io"
+  loginId: "username"
+  loginPassword: "secret"
+  schedule: "*/5 * * * *"
+
+---
+
+apiVersion: tmax.io/v1
+kind: ExternalRegistry
+metadata:
+  name: harborv2-sample
   namespace: reg-test
 spec:
   registryType: "HarborV2"
-  registryUrl: "core.harbor.220.90.208.239.nip.io"
-  imagePullSecret: "harbor-image-pull-secret"
-  certificateSecret: "harbor-ca"
+  registryUrl: "https://core.harbor.220.90.208.239.nip.io"
+  loginId: "username"
+  loginPassword: "secret"
+  # certificateSecret: "harbor-ca"
   insecure: false
   schedule: "*/5 * * * *"
