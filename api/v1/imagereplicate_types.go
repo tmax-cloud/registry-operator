@@ -40,11 +40,15 @@ const (
 
 // ImageReplicateSpec defines the desired state of ImageReplicate
 type ImageReplicateSpec struct {
+	// Source image information
 	FromImage ImageInfo `json:"fromImage"`
-	ToImage   ImageInfo `json:"toImage"`
-	Signer    string    `json:"signer,omitempty"`
+	// Destination image information
+	ToImage ImageInfo `json:"toImage"`
+	// The name of the signer to sign the image you moved. This field is available only if destination registry's `RegistryType` is `HpcdRegistry`
+	Signer string `json:"signer,omitempty"`
 }
 
+// ImageInfo consists of registry information and image information.
 type ImageInfo struct {
 	// +kubebuilder:validation:Enum=HpcdRegistry;DockerHub;Docker
 	// Registry type like HarborV2

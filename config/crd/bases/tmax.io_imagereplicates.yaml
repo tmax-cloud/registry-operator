@@ -43,6 +43,7 @@ spec:
           description: ImageReplicateSpec defines the desired state of ImageReplicate
           properties:
             fromImage:
+              description: Source image information
               properties:
                 certificateSecret:
                   description: Certificate secret name for private registry. Secret's
@@ -74,8 +75,12 @@ spec:
               - registryType
               type: object
             signer:
+              description: The name of the signer to sign the image you moved. This
+                field is available only if destination registry's `RegistryType` is
+                `HpcdRegistry`
               type: string
             toImage:
+              description: Destination image information
               properties:
                 certificateSecret:
                   description: Certificate secret name for private registry. Secret's
