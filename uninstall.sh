@@ -26,6 +26,7 @@ DeleteManager() {
     # Delete operator
     kubectl delete -f config/manager/service.yaml
     kubectl delete -f config/manager/manager.yaml
+    kubectl delete -f config/manager/job_manager.yaml
 
     # Delete ca secret
     kubectl delete secret registry-ca -n registry-system

@@ -51,6 +51,7 @@ fi
 
 # Deploy operator
 kubectl apply -f config/manager/manager.yaml
+kubectl apply -f config/manager/job_manager.yaml
 kubectl apply -f config/manager/service.yaml
 
 echo
