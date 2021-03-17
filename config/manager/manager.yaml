@@ -20,7 +20,7 @@ spec:
         - /manager
         args:
         - --enable-leader-election
-        image: tmaxcloudck/registry-operator:v0.3.0
+        image: tmaxcloudck/registry-operator:v0.3.1
         name: manager
         imagePullPolicy: Always
         env:
@@ -46,6 +46,13 @@ spec:
                 secretKeyRef:
                   name: keycloak-secret
                   key: password
+        resources:
+          limits:
+            cpu: "200m"
+            memory: "512Mi"
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
         volumeMounts:
         - name: operator-log-mnt
           mountPath: /logs

@@ -1,10 +1,11 @@
 # Contents
 
+- [ExternalRegistry](./externalregistry.md)
+- [ImageReplicate](./imagereplicate.md)
 - [ImageScanRequest](./imagescanrequest.md)
 - [ImageSigner](./imagesigner.md)
 - [ImageSignRequest](./imagesignrequest.md)
 - [Registry](./registry.md)
-- [Repository](./repository.md)
-- [RegistryJob](./registryjob.md)
 - [RegistryCronJob](./registrycronjob.md)
-- [ExternalRegistry](./externalregistry.md)
+- [RegistryJob](./registryjob.md)
+- [Repository](./repository.md)
