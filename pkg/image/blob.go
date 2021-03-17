@@ -94,7 +94,7 @@ func (r *Image) ExistBlob() (bool, error) {
 			return false, nil
 		}
 
-		Logger.Error(err, "failed to pull blob")
+		Logger.Error(err, "failed to check if blob exists")
 		err := client.HandleErrorResponse(res)
 		return false, err
 	}
