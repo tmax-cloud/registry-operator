@@ -73,7 +73,7 @@ func GetURL(client client.Client, registry types.NamespacedName, registryType re
 	case regv1.RegistryTypeDockerHub:
 		return image.DefaultServer, nil
 
-	case regv1.RegistryTypeDocker:
+	case regv1.RegistryTypeDocker, regv1.RegistryTypeHarborV2:
 		exreg := &regv1.ExternalRegistry{}
 		if err := client.Get(context.TODO(), registry, exreg); err != nil {
 			return "", err

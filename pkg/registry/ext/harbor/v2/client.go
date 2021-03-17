@@ -2,13 +2,17 @@ package v2
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"path"
 	"strings"
 
 	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	"github.com/tmax-cloud/registry-operator/pkg/image"
+	"github.com/tmax-cloud/registry-operator/pkg/registry/base"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/ext"
 	"github.com/tmax-cloud/registry-operator/pkg/registry/sync"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,12 +22,18 @@ import (
 
 // NewClient is api client of harbor v2 registry
 func NewClient(c client.Client, namespacedName types.NamespacedName, scheme *runtime.Scheme, httpClient *cmhttp.HttpClient) *Client {
+	img, err := image.NewImage("", httpClient.URL, utils.EncryptBasicAuth(httpClient.Login.Username, httpClient.Login.Password), httpClient.CA)
+	if err != nil {
+		ext.Logger.Error(err, "failed to create image client")
+		return nil
+	}
 	return &Client{
-		Name:       namespacedName.Name,
-		Namespace:  namespacedName.Namespace,
-		HttpClient: httpClient,
-		kClient:    c,
-		scheme:     scheme,
+		Name:        namespacedName.Name,
+		Namespace:   namespacedName.Namespace,
+		HttpClient:  httpClient,
+		kClient:     c,
+		imageClient: img,
+		scheme:      scheme,
 	}
 }
 
@@ -31,8 +41,9 @@ type Client struct {
 	Name, Namespace string
 
 	*cmhttp.HttpClient
-	kClient client.Client
-	scheme  *runtime.Scheme
+	imageClient *image.Image
+	kClient     client.Client
+	scheme      *runtime.Scheme
 }
 
 // SetAuth sets Authorization header
@@ -184,6 +195,101 @@ func (c *Client) Synchronize() error {
 
 	if err := sync.ExternalRegistry(c.kClient, c.Name, c.Namespace, c.scheme, repoList); err != nil {
 		ext.Logger.Error(err, "failed to synchronize external registry")
+		return err
+	}
+
+	return nil
+}
+
+// GetManifest gets manifests of image in the registry
+func (c *Client) GetManifest(image string) (*image.ImageManifest, error) {
+	if err := c.imageClient.SetImage(image); err != nil {
+		ext.Logger.Error(err, "failed to set image")
+		return nil, err
+	}
+	return c.imageClient.GetManifest()
+}
+
+// DeleteManifest deletes manifest in the registry
+func (c *Client) DeleteManifest(image string, manifest *image.ImageManifest) error {
+	if err := c.imageClient.SetImage(image); err != nil {
+		ext.Logger.Error(err, "failed to set image")
+		return err
+	}
+	return c.imageClient.DeleteManifest(manifest)
+}
+
+// PutManifest updates manifest in the registry
+func (c *Client) PutManifest(image string, manifest *image.ImageManifest) error {
+	if err := c.imageClient.SetImage(image); err != nil {
+		ext.Logger.Error(err, "failed to set image")
+		return err
+	}
+	return c.imageClient.PutManifest(manifest)
+}
+
+// ExistBlob checks if blob exists
+func (c *Client) ExistBlob(repository, digest string) (bool, error) {
+	image := fmt.Sprintf("%s@%s", repository, digest)
+	if err := c.imageClient.SetImage(image); err != nil {
+		ext.Logger.Error(err, "failed to set image")
+		return false, err
+	}
+	return c.imageClient.ExistBlob()
+}
+
+// PullBlob pulls and stores blob
+func (c *Client) PullBlob(repository, digest string) (string, int64, error) {
+	image := fmt.Sprintf("%s@%s", repository, digest)
+	if err := c.imageClient.SetImage(image); err != nil {
+		ext.Logger.Error(err, "failed to set image")
+		return "", 0, err
+	}
+	blob, size, err := c.imageClient.PullBlob()
+	if err != nil {
+		ext.Logger.Error(err, "failed to pull blob")
+		return "", 0, err
+	}
+
+	defer blob.Close()
+	data, err := ioutil.ReadAll(blob)
+	if err != nil {
+		ext.Logger.Error(err, "")
+		return "", 0, err
+	}
+
+	file := path.Join(base.TempBlobsDir, repository, digest)
+	if err := os.MkdirAll(path.Dir(file), os.ModePerm); err != nil {
+		ext.Logger.Error(err, "failed to make directory", "dir", path.Dir(file))
+		return "", 0, err
+	}
+	ext.Logger.Info("debug", "mkdir path", file)
+
+	if err := ioutil.WriteFile(file, data, 0644); err != nil {
+		ext.Logger.Error(err, "failed to write file", "file", file)
+		return "", 0, err
+	}
+
+	return file, size, nil
+}
+
+// PushBlob pushes and stores blob
+func (c *Client) PushBlob(repository, digest, blobPath string, size int64) error {
+	data, err := ioutil.ReadFile(blobPath)
+	if err != nil {
+		ext.Logger.Error(err, "failed to read file", "file", blobPath)
+		return err
+	}
+
+	image := fmt.Sprintf("%s@%s", repository, digest)
+	if err := c.imageClient.SetImage(image); err != nil {
+		ext.Logger.Error(err, "failed to set image")
+		return err
+	}
+
+	_, _, err = c.imageClient.PushBlob(data, size)
+	if err != nil {
+		ext.Logger.Error(err, "failed to push blob")
 		return err
 	}
 

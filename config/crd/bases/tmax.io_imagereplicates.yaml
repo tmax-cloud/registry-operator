@@ -67,6 +67,7 @@ spec:
                   - HpcdRegistry
                   - DockerHub
                   - Docker
+                  - HarborV2
                   type: string
               required:
               - image
@@ -104,6 +105,7 @@ spec:
                   - HpcdRegistry
                   - DockerHub
                   - Docker
+                  - HarborV2
                   type: string
               required:
               - image
