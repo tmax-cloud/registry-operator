@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: registry-operator
+  name: registry-job-operator
   namespace: registry-system
   labels:
-    control-plane: registry-operator
+    control-plane: registry-job-operator
 spec:
   selector:
     matchLabels:
-      control-plane: registry-operator
+      control-plane: registry-job-operator
   replicas: 1
   template:
     metadata:
       labels:
-        control-plane: registry-operator
+        control-plane: registry-job-operator
     spec:
       containers:
       - command:
         - /manager
         args:
         - --enable-leader-election
-        image: tmaxcloudck/registry-job-operator:v0.3.0
+        image: tmaxcloudck/registry-job-operator:v0.3.1
         name: manager
         imagePullPolicy: Always
         env:
@@ -46,6 +46,13 @@ spec:
                 secretKeyRef:
                   name: keycloak-secret
                   key: password
+        resources:
+          limits:
+            cpu: "200m"
+            memory: "512Mi"
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
         volumeMounts:
         - name: operator-log-mnt
           mountPath: /logs
