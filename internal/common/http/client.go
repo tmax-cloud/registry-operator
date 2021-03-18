@@ -48,6 +48,7 @@ func NewHTTPClient(url, username, password string, ca []byte, insecure bool) *Ht
 	}
 
 	caCertPool, err := x509.SystemCertPool()
+	caData := []byte{}
 	if err != nil {
 		logger.Error(err, "failed to get system X509 cert pool")
 		caCertPool = x509.NewCertPool()
@@ -57,6 +58,7 @@ func NewHTTPClient(url, username, password string, ca []byte, insecure bool) *Ht
 		if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
 			logger.Info("failed to append registry ca cert", "ca", string(caCert))
 		}
+		caData = append(caData, caCert...)
 	}
 
 	// add keycloak cert
@@ -66,12 +68,14 @@ func NewHTTPClient(url, username, password string, ca []byte, insecure bool) *Ht
 		if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
 			logger.Info("failed to append keycloak ca cert", "ca", string(caCert))
 		}
+		caData = append(caData, caCert...)
 	}
 
 	if len(ca) > 0 {
 		if ok := caCertPool.AppendCertsFromPEM(ca); !ok {
 			logger.Info("failed to append ca cert", "ca", string(ca))
 		}
+		caData = append(caData, ca...)
 	}
 
 	c := &http.Client{
@@ -85,7 +89,7 @@ func NewHTTPClient(url, username, password string, ca []byte, insecure bool) *Ht
 	return &HttpClient{
 		URL:      url,
 		Login:    regv1.Authorizer{Username: username, Password: password},
-		CA:       ca,
+		CA:       caData,
 		Insecure: insecure,
 		Client:   c,
 	}

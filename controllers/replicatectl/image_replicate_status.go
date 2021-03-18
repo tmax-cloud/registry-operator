@@ -155,6 +155,10 @@ func getCheckTypes(repl *regv1.ImageReplicate) []status.ConditionType {
 		regv1.ConditionTypeImageReplicateRegistryJobSuccess,
 	}
 
+	if repl.Spec.ToImage.RegistryType != regv1.RegistryTypeHpcdRegistry {
+		checkTypes = append(checkTypes, regv1.ConditionTypeImageReplicateSynchronized)
+	}
+
 	if repl.Spec.Signer != "" {
 		checkTypes = append(checkTypes,
 			regv1.ConditionTypeImageReplicateImageSignRequestExist,

@@ -83,8 +83,16 @@ func NewImage(uri, registryServer, basicAuth string, ca []byte) (*Image, error) 
 	if len(ca) == 0 {
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
 	} else {
-		caPool := x509.NewCertPool()
-		caPool.AppendCertsFromPEM(ca)
+		caPool, err := x509.SystemCertPool()
+		if err != nil {
+			Logger.Error(err, "failed to get system cert")
+			return nil, err
+		}
+
+		ok := caPool.AppendCertsFromPEM(ca)
+		if !ok {
+			Logger.Error(err, "failed to append cert")
+		}
 		tlsConfig = &tls.Config{
 			RootCAs: caPool,
 		}

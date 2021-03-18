@@ -69,6 +69,20 @@ func GetHTTPClient(client client.Client, image *regv1.ImageInfo) (*cmhttp.HttpCl
 		ca = data
 	}
 
+	// if image.RegistryType == regv1.RegistryTypeHpcdRegistry {
+	// 	secret, err := certs.GetSystemKeycloakCert(client)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	base.Logger.Info("get", "certificateSecret", secret.Name, "namespace", secret.Namespace)
+	// 	if secret != nil {
+	// 		data, err := utils.GetCAData(secret.Name, secret.Namespace)
+	// 		if err != nil {
+	// 			return nil, err
+	// 		}
+	// 		ca = append(ca, data...)
+	// 	}
+	// }
 	return cmhttp.NewHTTPClient(
 		url,
 		username, password,
