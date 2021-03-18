@@ -2,7 +2,10 @@ package base
 
 import (
 	"github.com/tmax-cloud/registry-operator/pkg/image"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var Logger = log.Log.WithName("registry")
 
 type Registry interface {
 }

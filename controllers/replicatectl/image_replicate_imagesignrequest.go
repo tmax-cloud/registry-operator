@@ -111,9 +111,23 @@ func (r *ImageSignRequest) create(c client.Client, repl *regv1.ImageReplicate, p
 	if r.isr == nil {
 		image, err := r.getImageFullName(c, repl)
 		if err != nil {
+			r.logger.Error(err, "failed to get image full name")
 			return err
 		}
-		r.isr = schemes.ImageReplicateImageSignRequest(repl, image, repl.Spec.ToImage.ImagePullSecret, repl.Spec.ToImage.CertificateSecret)
+
+		reg := types.NamespacedName{Namespace: repl.Spec.ToImage.RegistryNamespace, Name: repl.Spec.ToImage.RegistryName}
+		imagePullSecret, err := registry.GetLoginSecret(c, reg, repl.Spec.ToImage.RegistryType)
+		if err != nil {
+			r.logger.Error(err, "failed to get login secret")
+			return err
+		}
+		certificate, err := registry.GetCertSecret(c, reg, repl.Spec.ToImage.RegistryType)
+		if err != nil {
+			r.logger.Error(err, "failed to get certificate")
+			return err
+		}
+
+		r.isr = schemes.ImageReplicateImageSignRequest(repl, image, imagePullSecret, certificate)
 	}
 
 	if err := controllerutil.SetControllerReference(repl, r.isr, scheme); err != nil {
@@ -136,9 +150,25 @@ func (r *ImageSignRequest) get(c client.Client, repl *regv1.ImageReplicate) erro
 	r.logger = utils.NewRegistryLogger(*r, repl.Namespace, schemes.SubresourceName(repl, schemes.SubTypeImageReplicateImageSignRequest))
 	image, err := r.getImageFullName(c, repl)
 	if err != nil {
+		r.logger.Error(err, "failed to get image full name")
 		return err
 	}
-	r.isr = schemes.ImageReplicateImageSignRequest(repl, image, repl.Spec.ToImage.ImagePullSecret, repl.Spec.ToImage.CertificateSecret)
+
+	reg := types.NamespacedName{Namespace: repl.Spec.ToImage.RegistryNamespace, Name: repl.Spec.ToImage.RegistryName}
+	imagePullSecret, err := registry.GetLoginSecret(c, reg, repl.Spec.ToImage.RegistryType)
+	if err != nil {
+		r.logger.Error(err, "failed to get login secret")
+		return err
+	}
+	r.logger.Info("get", "imagePullSecret", imagePullSecret, "namespace", reg.Namespace)
+	certificate, err := registry.GetCertSecret(c, reg, repl.Spec.ToImage.RegistryType)
+	if err != nil {
+		r.logger.Error(err, "failed to get certificate")
+		return err
+	}
+	r.logger.Info("get", "certificate", certificate, "namespace", reg.Namespace)
+
+	r.isr = schemes.ImageReplicateImageSignRequest(repl, image, imagePullSecret, certificate)
 
 	req := types.NamespacedName{Name: r.isr.Name, Namespace: r.isr.Namespace}
 	if err := c.Get(context.TODO(), req, r.isr); err != nil {

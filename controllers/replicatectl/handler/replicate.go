@@ -83,13 +83,11 @@ func (h *ReplicateHandler) Handle(object types.NamespacedName) error {
 // GetReplicate returns replicable registry client
 func (h *ReplicateHandler) GetReplicate(image *v1.ImageInfo) (base.Replicatable, string, error) {
 	regNames := types.NamespacedName{Name: image.RegistryName, Namespace: image.RegistryNamespace}
-	url, err := registry.GetURL(h.k8sClient, regNames, image.RegistryType)
+	httpClient, err := registry.GetHTTPClient(h.k8sClient, image)
 	if err != nil {
-		logger.Error(err, "failed to get url")
+		logger.Error(err, "failed to get http client", "image", fmt.Sprintf("%+v", image))
 		return nil, "", err
 	}
-
-	httpClient := registry.GetHTTPClient(url, image.RegistryNamespace, image.ImagePullSecret, image.CertificateSecret)
 	baseFactory := &base.Factory{
 		K8sClient:      h.k8sClient,
 		NamespacedName: regNames,
@@ -102,5 +100,5 @@ func (h *ReplicateHandler) GetReplicate(image *v1.ImageInfo) (base.Replicatable,
 		return nil, "", errors.New("failed to create replicatable registry client")
 	}
 
-	return replicate, url, nil
+	return replicate, httpClient.URL, nil
 }
