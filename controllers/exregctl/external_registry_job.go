@@ -33,10 +33,6 @@ func (r *RegistryJob) Handle(c client.Client, exreg *regv1.ExternalRegistry, pat
 		return nil
 	}
 
-	if patchExreg.Status.LoginSecret == "" {
-		return errors.New("login secret is not found")
-	}
-
 	if err := r.get(c, exreg); err != nil {
 		if k8serr.IsNotFound(err) {
 			if err := r.create(c, exreg, patchExreg, scheme); err != nil {

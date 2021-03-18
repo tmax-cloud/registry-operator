@@ -59,10 +59,6 @@ type ImageInfo struct {
 	RegistryNamespace string `json:"registryNamespace"`
 	// Image path (example: library/alpine:3)
 	Image string `json:"image"`
-	// Certificate secret name for private registry. Secret's data key must be 'ca.crt' or 'tls.crt'.
-	CertificateSecret string `json:"certificateSecret,omitempty"`
-	// Login id and password secret object for registry
-	ImagePullSecret string `json:"imagePullSecret,omitempty"`
 }
 
 // ImageReplicateStatus defines the observed state of ImageReplicate
@@ -80,6 +76,7 @@ type ImageReplicateStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=imgrepl
+// +kubebuilder:printcolumn:name="STATUS",type=string,JSONPath=`.status.state`
 // +kubebuilder:printcolumn:name="AGE",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // ImageReplicate is the Schema for the imagereplicates API

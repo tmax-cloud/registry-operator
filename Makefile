@@ -46,9 +46,14 @@ manager: generate fmt vet
 # Build manager binary only
 manager-only:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/registry-operator/manager cmd/registry-operator/main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/registry-job-operator/manager cmd/registry-job-operator/main.go
 
-# Build manager binary only
-job-manager-only:
+# Build registry-operator binary only
+manager-only-reg:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/registry-operator/manager cmd/registry-operator/main.go
+
+# Build registry-job-operator manager binary only
+manager-only-job:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/registry-job-operator/manager cmd/registry-job-operator/main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config

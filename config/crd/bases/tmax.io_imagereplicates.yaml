@@ -9,6 +9,9 @@ metadata:
   name: imagereplicates.tmax.io
 spec:
   additionalPrinterColumns:
+  - JSONPath: .status.state
+    name: STATUS
+    type: string
   - JSONPath: .metadata.creationTimestamp
     name: AGE
     type: date
@@ -45,15 +48,8 @@ spec:
             fromImage:
               description: Source image information
               properties:
-                certificateSecret:
-                  description: Certificate secret name for private registry. Secret's
-                    data key must be 'ca.crt' or 'tls.crt'.
-                  type: string
                 image:
                   description: 'Image path (example: library/alpine:3)'
-                  type: string
-                imagePullSecret:
-                  description: Login id and password secret object for registry
                   type: string
                 registryName:
                   description: metadata name of external registry or hpcd registry
@@ -83,15 +79,8 @@ spec:
             toImage:
               description: Destination image information
               properties:
-                certificateSecret:
-                  description: Certificate secret name for private registry. Secret's
-                    data key must be 'ca.crt' or 'tls.crt'.
-                  type: string
                 image:
                   description: 'Image path (example: library/alpine:3)'
-                  type: string
-                imagePullSecret:
-                  description: Login id and password secret object for registry
                   type: string
                 registryName:
                   description: metadata name of external registry or hpcd registry
