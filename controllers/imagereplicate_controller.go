@@ -144,6 +144,12 @@ func collectImageReplicateSubController(repl *regv1.ImageReplicate) []replicatec
 	registryJob := replicatectl.RegistryJob{}
 	collection = append(collection, &registryJob)
 
+	// if destination registry is external registry
+	if repl.Spec.ToImage.RegistryType != tmaxiov1.RegistryTypeHpcdRegistry {
+		collection = append(collection, replicatectl.NewRegistrySyncJob(&registryJob))
+	}
+
+	// if signer exists
 	if repl.Spec.Signer != "" {
 		collection = append(collection, replicatectl.NewImageSignRequest(&registryJob))
 	}

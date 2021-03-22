@@ -23,6 +23,7 @@ const (
 	ExternalRegistryPrefix = "ext-"
 	LoginSecretPrefix      = "login-"
 	ImageReplicatePrefix   = "repl-"
+	SynchronizePrefix      = "sync-"
 )
 
 const (
@@ -52,6 +53,7 @@ const (
 	SubTypeExternalRegistryJob
 
 	SubTypeImageReplicateJob
+	SubTypeImageReplicateSyncJob
 	SubTypeImageReplicateImageSignRequest
 )
 
@@ -102,6 +104,8 @@ func SubresourceName(subresource interface{}, subresourceType SubresourceType) s
 		switch subresourceType {
 		case SubTypeImageReplicateJob:
 			return regv1.K8sPrefix + ImageReplicatePrefix + res.Name
+		case SubTypeImageReplicateSyncJob:
+			return regv1.K8sPrefix + ImageReplicatePrefix + SynchronizePrefix + res.Name
 		case SubTypeImageReplicateImageSignRequest:
 			if res.Status.ImageSignRequestName != "" {
 				return res.Status.ImageSignRequestName

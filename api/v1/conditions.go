@@ -76,4 +76,6 @@ const (
 	ConditionTypeImageReplicateImageSigning = status.ConditionType("ImageSigning")
 	// ConditionTypeImageReplicateImageSigningSuccess is a condition that signing image is succeeded
 	ConditionTypeImageReplicateImageSigningSuccess = status.ConditionType("ImageSigningSuccess")
+	// ConditionTypeImageReplicateSynchronized is a condition that repository list is synchronized
+	ConditionTypeImageReplicateSynchronized = status.ConditionType("Synchronized")
 )

@@ -33,7 +33,7 @@ type ImageSignRequest struct {
 // Handle is to create image sign request.
 func (r *ImageSignRequest) Handle(c client.Client, repl *regv1.ImageReplicate, patchExreg *regv1.ImageReplicate, scheme *runtime.Scheme) error {
 	if !r.dependentJob.IsSuccessfullyCompleted(c, repl) {
-		return errors.New("registry job is not completed succesfully")
+		return errors.New("ImageSignRequest: registry job is not completed succesfully")
 	}
 
 	if err := r.get(c, repl); err != nil {
