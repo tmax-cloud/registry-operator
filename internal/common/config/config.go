@@ -16,14 +16,44 @@ var Config *viper.Viper
 
 const (
 	configFilePath = "/registry-operator/config/manager_config.yaml"
-
-	defaultImageRegistry     = "registry:2.7.1"
-	defaultImageNotaryServer = "tmaxcloudck/notary_server:0.6.2-rc1"
-	defaultImageNotarySigner = "tmaxcloudck/notary_signer:0.6.2-rc1"
-	defaultImageNotaryDB     = "tmaxcloudck/notary_mysql:0.6.2-rc1"
-
-	defaultExternalRegistrySyncPeriod = "*/5 * * * *"
 )
+
+func defaultValues() map[string]string {
+	values := map[string]string{}
+
+	values[ConfigRegistryImage] = "registry:2.7.1"
+	values[ConfigNotaryServerImage] = "tmaxcloudck/notary_server:0.6.2-rc1"
+	values[ConfigNotarySignerImage] = "tmaxcloudck/notary_signer:0.6.2-rc1"
+	values[ConfigNotaryDBImage] = "tmaxcloudck/notary_mysql:0.6.2-rc1"
+	values[ConfigRegistryCPU] = "0.1"
+	values[ConfigRegistryMemory] = "512Mi"
+	values[ConfigNotaryServerCPU] = "0.1"
+	values[ConfigNotaryServerMemory] = "128Mi"
+	values[ConfigNotarySignerCPU] = "0.1"
+	values[ConfigNotarySignerMemory] = "128Mi"
+	values[ConfigNotaryDBCPU] = "0.1"
+	values[ConfigNotaryDBMemory] = "256Mi"
+	values[ConfigExternalRegistrySyncPeriod] = "*/5 * * * *"
+
+	// If IMAGE_REGISTRY is set, it assumes the necessary images are in the registry.
+	registry := Config.GetString(ConfigImageRegistry)
+	if registry != "" {
+		values[ConfigRegistryImage] = fmt.Sprintf("%s/%s", registry, values[ConfigRegistryImage])
+		values[ConfigNotaryServerImage] = fmt.Sprintf("%s/%s", registry, values[ConfigNotaryServerImage])
+		values[ConfigNotarySignerImage] = fmt.Sprintf("%s/%s", registry, values[ConfigNotarySignerImage])
+		values[ConfigNotaryDBImage] = fmt.Sprintf("%s/%s", registry, values[ConfigNotaryDBImage])
+	}
+
+	imagePullSecret := Config.GetString(ConfigImageRegistryPullRequest)
+	if imagePullSecret != "" {
+		values[ConfigRegistryImagePullSecret] = imagePullSecret
+		values[ConfigNotaryServerImagePullSecret] = imagePullSecret
+		values[ConfigNotarySignerImagePullSecret] = imagePullSecret
+		values[ConfigNotaryDBImagePullSecret] = imagePullSecret
+	}
+
+	return values
+}
 
 func init() {
 	var configFile string
@@ -50,32 +80,12 @@ func init() {
 }
 
 // InitEnv sets undefined environments.
-// If IMAGE_REGISTRY is set, it assumes the necessary images are in the registry.
 func InitEnv() {
 	Config.SetDefault("operator.namespace", "registry-system")
-
-	registry := Config.GetString(ConfigImageRegistry)
-	if registry != "" {
-		Config.SetDefault(ConfigRegistryImage, fmt.Sprintf("%s/%s", registry, defaultImageRegistry))
-		Config.SetDefault(ConfigNotaryServerImage, fmt.Sprintf("%s/%s", registry, defaultImageNotaryServer))
-		Config.SetDefault(ConfigNotarySignerImage, fmt.Sprintf("%s/%s", registry, defaultImageNotarySigner))
-		Config.SetDefault(ConfigNotaryDBImage, fmt.Sprintf("%s/%s", registry, defaultImageNotaryDB))
-
-		imagePullSecret := Config.GetString(ConfigImageRegistryPullRequest)
-		Config.SetDefault(ConfigRegistryImagePullSecret, imagePullSecret)
-		Config.SetDefault(ConfigNotaryServerImagePullSecret, imagePullSecret)
-		Config.SetDefault(ConfigNotarySignerImagePullSecret, imagePullSecret)
-		Config.SetDefault(ConfigNotaryDBImagePullSecret, imagePullSecret)
-
-		return
+	defaults := defaultValues()
+	for key, val := range defaults {
+		Config.SetDefault(key, val)
 	}
-
-	Config.SetDefault(ConfigRegistryImage, defaultImageRegistry)
-	Config.SetDefault(ConfigNotaryServerImage, defaultImageNotaryServer)
-	Config.SetDefault(ConfigNotarySignerImage, defaultImageNotarySigner)
-	Config.SetDefault(ConfigNotaryDBImage, defaultImageNotaryDB)
-
-	Config.SetDefault(ConfigExternalRegistrySyncPeriod, defaultExternalRegistrySyncPeriod)
 }
 
 // ReadInConfig is read config file

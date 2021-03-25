@@ -23,11 +23,7 @@ const (
 	// RegistryEnvValueStorageMaintenance sets readonly
 	RegistryEnvValueStorageMaintenance = `{"readonly":{"enabled":true}}`
 
-	// DefaultResourceCPU is default resource cpu requirement
-	DefaultResourceCPU = "0.1"
-	// DefaultResourceMemory is default resource memory requirement
-	DefaultResourceMemory = "512Mi"
-	configMapMountPath    = "/etc/docker/registry"
+	configMapMountPath = "/etc/docker/registry"
 
 	registryTLSCrtPath = "/certs/registry/tls.crt"
 	registryTLSKeyPath = "/certs/registry/tls.key"
@@ -87,6 +83,23 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment
 		registryImage = config.Config.GetString(config.ConfigRegistryImage)
 	}
 
+	cpuRequest := *reg.Spec.RegistryDeployment.Resources.Requests.Cpu()
+	memoryRequest := *reg.Spec.RegistryDeployment.Resources.Requests.Memory()
+	cpuLimit := *reg.Spec.RegistryDeployment.Resources.Limits.Cpu()
+	memoryLimit := *reg.Spec.RegistryDeployment.Resources.Limits.Memory()
+	if cpuRequest.IsZero() {
+		cpuRequest = resource.MustParse(config.Config.GetString(config.ConfigRegistryCPU))
+	}
+	if memoryRequest.IsZero() {
+		memoryRequest = resource.MustParse(config.Config.GetString(config.ConfigRegistryMemory))
+	}
+	if cpuLimit.IsZero() {
+		cpuLimit = resource.MustParse(config.Config.GetString(config.ConfigRegistryCPU))
+	}
+	if memoryLimit.IsZero() {
+		memoryLimit = resource.MustParse(config.Config.GetString(config.ConfigRegistryMemory))
+	}
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      resName,
@@ -111,12 +124,12 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment
 							Name:  "registry",
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse(DefaultResourceCPU),
-									corev1.ResourceMemory: resource.MustParse(DefaultResourceMemory),
+									corev1.ResourceCPU:    cpuLimit,
+									corev1.ResourceMemory: memoryLimit,
 								},
 								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse(DefaultResourceCPU),
-									corev1.ResourceMemory: resource.MustParse(DefaultResourceMemory),
+									corev1.ResourceCPU:    cpuRequest,
+									corev1.ResourceMemory: memoryRequest,
 								},
 							},
 							Ports: []corev1.ContainerPort{
@@ -254,19 +267,6 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment
 				Value: RegistryEnvValueStorageMaintenance,
 			},
 		)
-	}
-
-	if !reg.Spec.RegistryDeployment.Resources.Limits.Cpu().IsZero() {
-		deployment.Spec.Template.Spec.Containers[0].Resources.Limits[corev1.ResourceCPU] = *reg.Spec.RegistryDeployment.Resources.Limits.Cpu()
-	}
-	if !reg.Spec.RegistryDeployment.Resources.Limits.Memory().IsZero() {
-		deployment.Spec.Template.Spec.Containers[0].Resources.Limits[corev1.ResourceMemory] = *reg.Spec.RegistryDeployment.Resources.Limits.Memory()
-	}
-	if !reg.Spec.RegistryDeployment.Resources.Requests.Cpu().IsZero() {
-		deployment.Spec.Template.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU] = *reg.Spec.RegistryDeployment.Resources.Requests.Cpu()
-	}
-	if !reg.Spec.RegistryDeployment.Resources.Requests.Memory().IsZero() {
-		deployment.Spec.Template.Spec.Containers[0].Resources.Requests[corev1.ResourceMemory] = *reg.Spec.RegistryDeployment.Resources.Requests.Memory()
 	}
 
 	if config.Config.GetString(config.ConfigRegistryImagePullSecret) != "" {

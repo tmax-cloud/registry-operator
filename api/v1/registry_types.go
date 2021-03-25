@@ -61,6 +61,12 @@ type RegistryNotary struct {
 	ServiceType NotaryServiceType `json:"serviceType"`
 	// Settings for notary pvc. Either `Exist` or `Create` must be entered.
 	PersistentVolumeClaim NotaryPVC `json:"persistentVolumeClaim"`
+	// Settings for notary server
+	Server NotaryServer `json:"server,omitempty"`
+	// Settings for notary signer
+	Signer NotarySigner `json:"signer,omitempty"`
+	// Settings for notary database
+	DB NotaryDB `json:"db,omitempty"`
 }
 
 // RegistryDeployment is deployment settings of registry server

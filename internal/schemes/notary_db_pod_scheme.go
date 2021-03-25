@@ -4,6 +4,7 @@ import (
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -23,6 +24,24 @@ func NotaryDBPod(notary *regv1.Notary) *corev1.Pod {
 
 	DBImage := config.Config.GetString(config.ConfigNotaryDBImage)
 
+	litmitCPU := *notary.Spec.DB.Resources.Limits.Cpu()
+	litmitMemory := *notary.Spec.DB.Resources.Limits.Memory()
+	requestCPU := *notary.Spec.DB.Resources.Requests.Cpu()
+	requestMemory := *notary.Spec.DB.Resources.Requests.Memory()
+
+	if litmitCPU.IsZero() {
+		litmitCPU = resource.MustParse(config.Config.GetString(config.ConfigNotaryDBCPU))
+	}
+	if litmitMemory.IsZero() {
+		litmitMemory = resource.MustParse(config.Config.GetString(config.ConfigNotaryDBMemory))
+	}
+	if requestCPU.IsZero() {
+		requestCPU = resource.MustParse(config.Config.GetString(config.ConfigNotaryDBCPU))
+	}
+	if requestMemory.IsZero() {
+		requestMemory = resource.MustParse(config.Config.GetString(config.ConfigNotaryDBMemory))
+	}
+
 	pod := &corev1.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      resName,
@@ -35,6 +54,16 @@ func NotaryDBPod(notary *regv1.Notary) *corev1.Pod {
 					Name:  "notary-server",
 					Image: DBImage,
 					Args:  []string{"mysqld", "--innodb_file_per_table"},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    litmitCPU,
+							corev1.ResourceMemory: litmitMemory,
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    requestCPU,
+							corev1.ResourceMemory: requestMemory,
+						},
+					},
 					Env: []corev1.EnvVar{
 						{
 							Name:  "TERM",

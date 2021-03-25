@@ -413,16 +413,16 @@ func (r *RegistryDeployment) compare(reg *regv1.Registry) []utils.Diff {
 	regRequestMemory := *reg.Spec.RegistryDeployment.Resources.Requests.Memory()
 
 	if regLitmitCPU.IsZero() {
-		regLitmitCPU = resource.MustParse(schemes.DefaultResourceCPU)
+		regLitmitCPU = resource.MustParse(config.Config.GetString(config.ConfigRegistryCPU))
 	}
 	if regLitmitMemory.IsZero() {
-		regLitmitMemory = resource.MustParse(schemes.DefaultResourceMemory)
+		regLitmitMemory = resource.MustParse(config.Config.GetString(config.ConfigRegistryMemory))
 	}
 	if regRequestCPU.IsZero() {
-		regRequestCPU = resource.MustParse(schemes.DefaultResourceCPU)
+		regRequestCPU = resource.MustParse(config.Config.GetString(config.ConfigRegistryCPU))
 	}
 	if regRequestMemory.IsZero() {
-		regRequestMemory = resource.MustParse(schemes.DefaultResourceMemory)
+		regRequestMemory = resource.MustParse(config.Config.GetString(config.ConfigRegistryMemory))
 	}
 
 	if !deployContainer.Resources.Limits.Cpu().Equal(regLitmitCPU) {

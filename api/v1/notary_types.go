@@ -18,6 +18,7 @@ package v1
 
 import (
 	"github.com/operator-framework/operator-lib/status"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -36,6 +37,13 @@ type NotarySpec struct {
 	// +kubebuilder:validation:Enum=Ingress;LoadBalancer
 	ServiceType           NotaryServiceType `json:"serviceType"`
 	PersistentVolumeClaim NotaryPVC         `json:"persistentVolumeClaim"`
+
+	// Settings for notary server
+	Server NotaryServer `json:"server,omitempty"`
+	// Settings for notary signer
+	Signer NotarySigner `json:"signer,omitempty"`
+	// Settings for notary database
+	DB NotaryDB `json:"db,omitempty"`
 }
 
 type NotaryServiceType string
@@ -59,6 +67,19 @@ type AuthConfig struct {
 	Realm   string `json:"realm"`
 	Service string `json:"service"`
 	Issuer  string `json:"issuer"`
+}
+
+type NotaryServer struct {
+	// resource requirements
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+}
+type NotarySigner struct {
+	// resource requirements
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+}
+type NotaryDB struct {
+	// resource requirements
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // NotaryStatus defines the observed state of Notary

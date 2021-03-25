@@ -37,4 +37,21 @@ const (
 	ConfigNotaryDBImagePullSecret = "notary.db.image_pull_secret"
 	// ConfigExternalRegistrySyncPeriod is the key to get external_registry.sync_period config
 	ConfigExternalRegistrySyncPeriod = "external_registry.sync_period"
+
+	// ConfigRegistryCPU is the key to get registry.cpu config
+	ConfigRegistryCPU = "registry.cpu"
+	// ConfigRegistryMemory is the key to get registry.memory config
+	ConfigRegistryMemory = "registry.memory"
+	// ConfigNotaryServerCPU is the key to get notary.server.cpu config
+	ConfigNotaryServerCPU = "notary.server.cpu"
+	// ConfigNotaryServerMemory is the key to get notary.server.memory config
+	ConfigNotaryServerMemory = "notary.server.memory"
+	// ConfigNotarySignerCPU is the key to get notary.signer.cpu config
+	ConfigNotarySignerCPU = "notary.signer.cpu"
+	// ConfigNotarySignerMemory is the key to get notary.signer.memory config
+	ConfigNotarySignerMemory = "notary.signer.memory"
+	// ConfigNotaryDBCPU is the key to get notary.db.cpu config
+	ConfigNotaryDBCPU = "notary.db.cpu"
+	// ConfigNotaryDBMemory is the key to get notary.db.memory config
+	ConfigNotaryDBMemory = "notary.db.memory"
 )
