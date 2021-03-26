@@ -28,6 +28,9 @@
 |`spec.notary.enabled`                        | Yes | bool              | Activate notary service to sign images |
 |`spec.notary.serviceType`                    | Yes | string            | Use Ingress or LoadBalancer |
 |`spec.notary.persistentVolumeClaim`          | Yes | object            | Settings for notary pvc |
+|`spec.notary.server`                         | No  | object            | Settings for notary server |
+|`spec.notary.signer`                         | No  | object            | Settings for notary signer |
+|`spec.notary.db`                             | No  | object            | Settings for notary db |
 
 ### spec.notary.persistentVolumeClaim fields
 
@@ -79,6 +82,24 @@
 |`spec.persistentVolumeClaim.create.storageSize`             | Yes | string            | Desired storage size like "10Gi" |
 |`spec.persistentVolumeClaim.create.storageClassName`        | Yes | string            | StorageClassName like "csi-cephfs-sc" |
 |`spec.persistentVolumeClaim.create.deleteWithPvc`           | No  | bool              | Delete the pvc as well when this registry is deleted (default: false) |
+
+### spec.notary.server fields
+
+|Key|Required|Type|Description|
+|:-------------------------------------------:|-----|-------------------|-----|
+|`spec.notary.server.resources`               | No  | [corev1.ResourceRequirements](https://pkg.go.dev/k8s.io/api/core/v1#ResourceRequirements) | notary server's resource requirements |
+
+### spec.notary.signer fields
+
+|Key|Required|Type|Description|
+|:-------------------------------------------:|-----|-------------------|-----|
+|`spec.notary.signer.resources`               | No  | [corev1.ResourceRequirements](https://pkg.go.dev/k8s.io/api/core/v1#ResourceRequirements) | notary signer's resource requirements |
+
+### spec.notary.db fields
+
+|Key|Required|Type|Description|
+|:-------------------------------------------:|-----|-------------------|-----|
+|`spec.notary.db.resources`                   | No  | [corev1.ResourceRequirements](https://pkg.go.dev/k8s.io/api/core/v1#ResourceRequirements) | notary db's resource requirements |
 
 ## Example
 
