@@ -46,6 +46,8 @@ const (
 	SubTypeRegistryTLSSecret
 	SubTypeRegistryDeployment
 	SubTypeRegistryConfigmap
+	SubTypeRegistryRole
+	SubTypeRegistryRoleBinding
 	SubTypeRegistryIngress
 
 	SubTypeExternalRegistryLoginSecret
