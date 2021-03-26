@@ -30,6 +30,9 @@ func Notary(reg *regv1.Registry, auth *regv1.AuthConfig) (*regv1.Notary, error) 
 				Service: auth.Service,
 			},
 			ServiceType: reg.Spec.Notary.ServiceType,
+			Server:      reg.Spec.Notary.Server,
+			Signer:      reg.Spec.Notary.Signer,
+			DB:          reg.Spec.Notary.DB,
 		},
 	}
 

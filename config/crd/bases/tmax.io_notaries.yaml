@@ -56,6 +56,36 @@ spec:
               - realm
               - service
               type: object
+            db:
+              description: Settings for notary database
+              properties:
+                resources:
+                  description: resource requirements
+                  properties:
+                    limits:
+                      additionalProperties:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      description: 'Limits describes the maximum amount of compute
+                        resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                      type: object
+                    requests:
+                      additionalProperties:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      description: 'Requests describes the minimum amount of compute
+                        resources required. If Requests is omitted for a container,
+                        it defaults to Limits if that is explicitly specified, otherwise
+                        to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                      type: object
+                  type: object
+              type: object
             persistentVolumeClaim:
               properties:
                 create:
@@ -101,12 +131,72 @@ spec:
                 Important: Run "make" to regenerate code after modifying this file
                 Root CA certificate secret for notary'
               type: string
+            server:
+              description: Settings for notary server
+              properties:
+                resources:
+                  description: resource requirements
+                  properties:
+                    limits:
+                      additionalProperties:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      description: 'Limits describes the maximum amount of compute
+                        resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                      type: object
+                    requests:
+                      additionalProperties:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      description: 'Requests describes the minimum amount of compute
+                        resources required. If Requests is omitted for a container,
+                        it defaults to Limits if that is explicitly specified, otherwise
+                        to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                      type: object
+                  type: object
+              type: object
             serviceType:
               description: Service type to expose notary
               enum:
               - Ingress
               - LoadBalancer
               type: string
+            signer:
+              description: Settings for notary signer
+              properties:
+                resources:
+                  description: resource requirements
+                  properties:
+                    limits:
+                      additionalProperties:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      description: 'Limits describes the maximum amount of compute
+                        resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                      type: object
+                    requests:
+                      additionalProperties:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      description: 'Requests describes the minimum amount of compute
+                        resources required. If Requests is omitted for a container,
+                        it defaults to Limits if that is explicitly specified, otherwise
+                        to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                      type: object
+                  type: object
+              type: object
           required:
           - authConfig
           - persistentVolumeClaim

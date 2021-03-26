@@ -7,6 +7,7 @@ import (
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,6 +27,23 @@ func NotarySignerPod(notary *regv1.Notary) *corev1.Pod {
 	mode := int32(511)
 
 	signerImage := config.Config.GetString(config.ConfigNotarySignerImage)
+	litmitCPU := *notary.Spec.Signer.Resources.Limits.Cpu()
+	litmitMemory := *notary.Spec.Signer.Resources.Limits.Memory()
+	requestCPU := *notary.Spec.Signer.Resources.Requests.Cpu()
+	requestMemory := *notary.Spec.Signer.Resources.Requests.Memory()
+
+	if litmitCPU.IsZero() {
+		litmitCPU = resource.MustParse(config.Config.GetString(config.ConfigNotarySignerCPU))
+	}
+	if litmitMemory.IsZero() {
+		litmitMemory = resource.MustParse(config.Config.GetString(config.ConfigNotarySignerMemory))
+	}
+	if requestCPU.IsZero() {
+		requestCPU = resource.MustParse(config.Config.GetString(config.ConfigNotarySignerCPU))
+	}
+	if requestMemory.IsZero() {
+		requestMemory = resource.MustParse(config.Config.GetString(config.ConfigNotarySignerMemory))
+	}
 
 	pod := &corev1.Pod{
 		ObjectMeta: v1.ObjectMeta{
@@ -41,6 +59,16 @@ func NotarySignerPod(notary *regv1.Notary) *corev1.Pod {
 					ImagePullPolicy: corev1.PullAlways,
 					Command:         []string{"/usr/bin/env", "sh"},
 					Args:            []string{"-c", "/var/lib/notary/migrations/migrate.sh && notary-signer -config=/var/lib/notary/fixtures/custom/signer-config.json"},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    litmitCPU,
+							corev1.ResourceMemory: litmitMemory,
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    requestCPU,
+							corev1.ResourceMemory: requestMemory,
+						},
+					},
 					Env: []corev1.EnvVar{
 						{
 							Name:  "NOTARY_SIGNER_LOGGING_LEVEL",
