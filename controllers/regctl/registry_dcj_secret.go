@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"time"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 
@@ -13,31 +15,58 @@ import (
 
 	"github.com/operator-framework/operator-lib/status"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// NewRegistryDCJSecret creates new registry docker config json secret controller
+// deps: service
+func NewRegistryDCJSecret(deps ...Dependent) *RegistryDCJSecret {
+	return &RegistryDCJSecret{
+		deps: deps,
+	}
+}
+
 // RegistryDCJSecret contains things to handle docker config json secret resource
 type RegistryDCJSecret struct {
+	deps      []Dependent
 	secretDCJ *corev1.Secret
 	logger    *utils.RegistryLogger
 }
 
 // Handle makes docker config json secret to be in the desired state
 func (r *RegistryDCJSecret) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
-	err := r.get(c, reg)
-	if err != nil {
-		if createError := r.create(c, reg, patchReg, scheme); createError != nil {
-			r.logger.Error(createError, "Create failed in Handle")
-			return createError
+	for _, dep := range r.deps {
+		if !dep.IsSuccessfullyCompleted(reg) {
+			err := fmt.Errorf("unable to handle %s: %s condition is not satisfied", r.Condition(), dep.Condition())
+			return err
 		}
 	}
 
+	if err := r.get(c, reg); err != nil {
+		r.notReady(patchReg, err)
+		if errors.IsNotFound(err) {
+			if createError := r.create(c, reg, patchReg, scheme); createError != nil {
+				r.logger.Error(createError, "Create failed in Handle")
+				r.notReady(patchReg, createError)
+				return createError
+			}
+			r.logger.Info("Create Succeeded")
+		} else {
+			r.logger.Error(err, "docker config json secret error")
+			return err
+		}
+		return nil
+	}
+
 	if isValid := r.compare(reg); isValid == nil {
+		r.notReady(patchReg, nil)
 		if deleteError := r.delete(c, patchReg); deleteError != nil {
 			r.logger.Error(deleteError, "Delete failed in Handle")
+			r.notReady(patchReg, deleteError)
 			return deleteError
 		}
 	}
@@ -49,12 +78,12 @@ func (r *RegistryDCJSecret) Handle(c client.Client, reg *regv1.Registry, patchRe
 // Ready checks that docker config json secret is ready
 func (r *RegistryDCJSecret) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
-	condition := status.Condition{
+	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
 		Type:   regv1.ConditionTypeSecretDockerConfigJSON,
 	}
 
-	defer utils.SetCondition(err, patchReg, &condition)
+	defer utils.SetErrorConditionIfChanged(patchReg, reg, condition, err)
 
 	if useGet {
 		if err = r.get(c, reg); err != nil {
@@ -132,6 +161,17 @@ func (r *RegistryDCJSecret) delete(c client.Client, patchReg *regv1.Registry) er
 }
 
 func (r *RegistryDCJSecret) compare(reg *regv1.Registry) []utils.Diff {
+	diff := []utils.Diff{}
+	cond := reg.Status.Conditions.GetCondition(regv1.ConditionTypeSecretDockerConfigJSON)
+
+	for _, dep := range r.deps {
+		for _, depTime := range dep.ModifiedTime(reg) {
+			if depTime.After(cond.LastTransitionTime.Time) {
+				return nil
+			}
+		}
+	}
+
 	data := r.secretDCJ.Data
 	val, ok := data[schemes.DockerConfigJson]
 	if !ok {
@@ -163,5 +203,38 @@ func (r *RegistryDCJSecret) compare(reg *regv1.Registry) []utils.Diff {
 	}
 
 	r.logger.Info("Succeed")
-	return []utils.Diff{}
+	return diff
+}
+
+// IsSuccessfullyCompleted returns true if condition is satisfied
+func (r *RegistryDCJSecret) IsSuccessfullyCompleted(reg *regv1.Registry) bool {
+	cond := reg.Status.Conditions.GetCondition(regv1.ConditionTypeSecretDockerConfigJSON)
+	if cond == nil {
+		return false
+	}
+
+	return cond.IsTrue()
+}
+
+func (r *RegistryDCJSecret) notReady(patchReg *regv1.Registry, err error) {
+	condition := &status.Condition{
+		Status: corev1.ConditionFalse,
+		Type:   regv1.ConditionTypeSecretDockerConfigJSON,
+	}
+	utils.SetCondition(err, patchReg, condition)
+}
+
+// Condition returns dependent subresource's condition type
+func (r *RegistryDCJSecret) Condition() string {
+	return string(regv1.ConditionTypeSecretDockerConfigJSON)
+}
+
+// ModifiedTime returns the modified time of the subresource condition
+func (r *RegistryDCJSecret) ModifiedTime(patchReg *regv1.Registry) []time.Time {
+	cond := patchReg.Status.Conditions.GetCondition(regv1.ConditionTypeSecretDockerConfigJSON)
+	if cond == nil {
+		return nil
+	}
+
+	return []time.Time{cond.LastTransitionTime.Time}
 }

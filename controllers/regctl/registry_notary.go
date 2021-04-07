@@ -3,6 +3,7 @@ package regctl
 import (
 	"context"
 	"path"
+	"time"
 
 	"github.com/operator-framework/operator-lib/status"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -18,32 +19,60 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// NewRegistryNotary creates new registry notary controller
+func NewRegistryNotary(kcCtl *keycloakctl.KeycloakController) *RegistryNotary {
+	return &RegistryNotary{
+		kcCtl: kcCtl,
+	}
+}
+
 // RegistryNotary contains things to handle notary resource
 type RegistryNotary struct {
-	KcCtl  *keycloakctl.KeycloakController
+	kcCtl  *keycloakctl.KeycloakController
 	not    *regv1.Notary
 	logger *utils.RegistryLogger
 }
 
+func (r *RegistryNotary) mustCreated(reg *regv1.Registry) bool {
+	return reg.Status.Conditions.GetCondition(regv1.ConditionTypeNotary) != nil
+}
+
 // Handle makes notary to be in the desired state
 func (r *RegistryNotary) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+	if !r.mustCreated(reg) {
+		if err := r.get(c, reg); err != nil {
+			return nil
+		}
+		if err := r.delete(c, reg); err != nil {
+			r.logger.Error(err, "failed to delete notary")
+			return err
+		}
+		return nil
+	}
+
 	if err := r.get(c, reg); err != nil {
+		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
 			if err := r.create(c, reg, patchReg, scheme); err != nil {
 				r.logger.Error(err, "create notary error")
+				r.notReady(patchReg, err)
 				return err
 			}
+			r.logger.Info("Create Succeeded")
 		} else {
 			r.logger.Error(err, "notary is error")
 			return err
 		}
+		return nil
 	}
 
 	r.logger.Info("Check if patch exists.")
 	diff := r.compare(reg)
 	if len(diff) > 0 {
 		r.logger.Info("patch exists.")
+		r.notReady(patchReg, nil)
 		if err := r.patch(c, reg, patchReg, diff); err != nil {
+			r.notReady(patchReg, err)
 			return err
 		}
 	}
@@ -53,13 +82,17 @@ func (r *RegistryNotary) Handle(c client.Client, reg *regv1.Registry, patchReg *
 
 // Ready checks that notary is ready
 func (r *RegistryNotary) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+	if !r.mustCreated(reg) {
+		return nil
+	}
+
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
 		Type:   regv1.ConditionTypeNotary,
 	}
 
-	defer utils.SetCondition(err, patchReg, condition)
+	defer utils.SetErrorConditionIfChanged(patchReg, reg, condition, err)
 
 	if r.not == nil || useGet {
 		err := r.get(c, reg)
@@ -120,9 +153,9 @@ func (r *RegistryNotary) create(c client.Client, reg *regv1.Registry, patchReg *
 func (r *RegistryNotary) getAuthConfig() *regv1.AuthConfig {
 	auth := &regv1.AuthConfig{}
 	KeycloakServer := config.Config.GetString(config.ConfigKeycloakService)
-	auth.Realm = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCtl.GetRealmName(), "protocol", "docker-v2", "auth")
-	auth.Service = r.KcCtl.GetDockerV2ClientName()
-	auth.Issuer = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCtl.GetRealmName())
+	auth.Realm = KeycloakServer + "/" + path.Join("auth", "realms", r.kcCtl.GetRealmName(), "protocol", "docker-v2", "auth")
+	auth.Service = r.kcCtl.GetDockerV2ClientName()
+	auth.Issuer = KeycloakServer + "/" + path.Join("auth", "realms", r.kcCtl.GetRealmName())
 
 	return auth
 }
@@ -155,15 +188,42 @@ func (r *RegistryNotary) delete(c client.Client, patchReg *regv1.Registry) error
 		return err
 	}
 
-	condition := status.Condition{
-		Type:   regv1.ConditionTypeNotary,
-		Status: corev1.ConditionFalse,
-	}
-
-	patchReg.Status.Conditions.SetCondition(condition)
 	return nil
 }
 
 func (r *RegistryNotary) compare(reg *regv1.Registry) []utils.Diff {
 	return nil
+}
+
+// IsSuccessfullyCompleted returns true if condition is satisfied
+func (r *RegistryNotary) IsSuccessfullyCompleted(reg *regv1.Registry) bool {
+	cond := reg.Status.Conditions.GetCondition(regv1.ConditionTypeNotary)
+	if cond == nil {
+		return false
+	}
+
+	return cond.IsTrue()
+}
+
+func (r *RegistryNotary) notReady(patchReg *regv1.Registry, err error) {
+	condition := &status.Condition{
+		Status: corev1.ConditionFalse,
+		Type:   regv1.ConditionTypeNotary,
+	}
+	utils.SetCondition(err, patchReg, condition)
+}
+
+// Condition returns dependent subresource's condition type
+func (r *RegistryNotary) Condition() string {
+	return string(regv1.ConditionTypeNotary)
+}
+
+// ModifiedTime returns the modified time of the subresource condition
+func (r *RegistryNotary) ModifiedTime(patchReg *regv1.Registry) []time.Time {
+	cond := patchReg.Status.Conditions.GetCondition(regv1.ConditionTypeNotary)
+	if cond == nil {
+		return nil
+	}
+
+	return []time.Time{cond.LastTransitionTime.Time}
 }

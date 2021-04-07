@@ -2,6 +2,8 @@ package regctl
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 
@@ -12,36 +14,80 @@ import (
 	"github.com/operator-framework/operator-lib/status"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// NewRegistryIngress creates new registry ingress controller
+// deps: cert
+func NewRegistryIngress(deps ...Dependent) *RegistryIngress {
+	return &RegistryIngress{
+		deps: deps,
+	}
+}
+
 // RegistryIngress contains things to handle ingress resource
 type RegistryIngress struct {
+	deps    []Dependent
 	ingress *v1beta1.Ingress
 	logger  *utils.RegistryLogger
 }
 
+func (r *RegistryIngress) mustCreated(reg *regv1.Registry) bool {
+	return reg.Status.Conditions.GetCondition(regv1.ConditionTypeIngress) != nil
+}
+
 // Handle makes ingress to be in the desired state
 func (r *RegistryIngress) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
-	if err := r.get(c, reg); err != nil {
-		r.logger.Error(err, "get failed in Handle")
-		if r.ingress == nil {
+	if !r.mustCreated(reg) {
+		if err := r.get(c, reg); err != nil {
+			return nil
+		}
+		if err := r.delete(c, reg); err != nil {
+			r.logger.Error(err, "failed to delete ingress")
 			return err
 		}
+		return nil
+	}
 
-		if createError := r.create(c, reg, patchReg, scheme); createError != nil {
-			r.logger.Error(createError, "Create failed in Handle")
-			return createError
+	for _, dep := range r.deps {
+		if !dep.IsSuccessfullyCompleted(reg) {
+			err := fmt.Errorf("unable to handle %s: %s condition is not satisfied", r.Condition(), dep.Condition())
+			r.notReady(patchReg, err)
+			return err
 		}
 	}
 
+	if err := r.get(c, reg); err != nil {
+		// if r.ingress == nil {
+		// 	r.notReady(patchReg, err)
+		// 	return err
+		// }
+
+		if errors.IsNotFound(err) {
+			r.notReady(patchReg, err)
+			if createError := r.create(c, reg, patchReg, scheme); createError != nil {
+				r.logger.Error(createError, "Create failed in Handle")
+				r.notReady(patchReg, createError)
+				return createError
+			}
+			r.logger.Info("Create Succeeded")
+		} else {
+			r.logger.Error(err, "ingress is error")
+			return err
+		}
+		return nil
+	}
+
 	if isValid := r.compare(reg); isValid == nil {
-		if deleteError := r.delete(c, patchReg); deleteError != nil {
-			r.logger.Error(deleteError, "Delete failed in Handle")
-			return deleteError
+		r.notReady(patchReg, nil)
+		if err := r.delete(c, patchReg); err != nil {
+			r.logger.Error(err, "Delete failed in Handle")
+			r.notReady(patchReg, nil)
+			return err
 		}
 	}
 
@@ -51,14 +97,17 @@ func (r *RegistryIngress) Handle(c client.Client, reg *regv1.Registry, patchReg 
 
 // Ready checks that ingress is ready
 func (r *RegistryIngress) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+	if !r.mustCreated(reg) {
+		return nil
+	}
+
 	var err error = nil
-	condition := status.Condition{
+	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
 		Type:   regv1.ConditionTypeIngress,
 	}
 
-	defer utils.SetCondition(err, patchReg, &condition)
-
+	defer utils.SetErrorConditionIfChanged(patchReg, reg, condition, err)
 	if useGet {
 		if err = r.get(c, reg); err != nil {
 			r.logger.Error(err, "Get failed")
@@ -108,20 +157,18 @@ func (r *RegistryIngress) Ready(c client.Client, reg *regv1.Registry, patchReg *
 }
 
 func (r *RegistryIngress) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
-	condition := status.Condition{
-		Status: corev1.ConditionFalse,
-		Type:   regv1.ConditionTypeIngress,
+	r.ingress = schemes.Ingress(reg)
+	if r.ingress == nil {
+		return regv1.MakeRegistryError("Registry has no fields Ingress required")
 	}
 
 	if err := controllerutil.SetControllerReference(reg, r.ingress, scheme); err != nil {
 		r.logger.Error(err, "Controller reference failed")
-		utils.SetCondition(err, patchReg, &condition)
 		return err
 	}
 
 	if err := c.Create(context.TODO(), r.ingress); err != nil {
 		r.logger.Error(err, "Create failed")
-		utils.SetCondition(err, patchReg, &condition)
 		return err
 	}
 
@@ -151,14 +198,8 @@ func (r *RegistryIngress) patch(c client.Client, reg *regv1.Registry, patchReg *
 }
 
 func (r *RegistryIngress) delete(c client.Client, patchReg *regv1.Registry) error {
-	condition := &status.Condition{
-		Status: corev1.ConditionFalse,
-		Type:   regv1.ConditionTypeIngress,
-	}
-
 	if err := c.Delete(context.TODO(), r.ingress); err != nil {
 		r.logger.Error(err, "Delete failed")
-		utils.SetCondition(err, patchReg, condition)
 		return err
 	}
 
@@ -166,6 +207,8 @@ func (r *RegistryIngress) delete(c client.Client, patchReg *regv1.Registry) erro
 }
 
 func (r *RegistryIngress) compare(reg *regv1.Registry) []utils.Diff {
+	diff := []utils.Diff{}
+
 	if reg.Spec.RegistryService.ServiceType != "Ingress" {
 		return nil
 	}
@@ -186,5 +229,38 @@ func (r *RegistryIngress) compare(reg *regv1.Registry) []utils.Diff {
 	}
 
 	r.logger.Info("Succeed")
-	return []utils.Diff{}
+	return diff
+}
+
+// IsSuccessfullyCompleted returns true if condition is satisfied
+func (r *RegistryIngress) IsSuccessfullyCompleted(reg *regv1.Registry) bool {
+	cond := reg.Status.Conditions.GetCondition(regv1.ConditionTypeIngress)
+	if cond == nil {
+		return false
+	}
+
+	return cond.IsTrue()
+}
+
+func (r *RegistryIngress) notReady(patchReg *regv1.Registry, err error) {
+	condition := &status.Condition{
+		Status: corev1.ConditionFalse,
+		Type:   regv1.ConditionTypeIngress,
+	}
+	utils.SetCondition(err, patchReg, condition)
+}
+
+// Condition returns dependent subresource's condition type
+func (r *RegistryIngress) Condition() string {
+	return string(regv1.ConditionTypeIngress)
+}
+
+// ModifiedTime returns the modified time of the subresource condition
+func (r *RegistryIngress) ModifiedTime(patchReg *regv1.Registry) []time.Time {
+	cond := patchReg.Status.Conditions.GetCondition(regv1.ConditionTypeIngress)
+	if cond == nil {
+		return nil
+	}
+
+	return []time.Time{cond.LastTransitionTime.Time}
 }
