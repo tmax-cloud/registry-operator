@@ -1,5 +1,10 @@
 package v1
 
+import (
+	"errors"
+	"fmt"
+)
+
 const (
 	// PodNotFound is an error that pod is not found
 	PodNotFound = "PodNotFound"
@@ -47,4 +52,12 @@ func IsPodError(err error) bool {
 	}
 
 	return false
+}
+
+func AppendError(err error, appendMessage string) error {
+	if err == nil || err.Error() == "" {
+		return errors.New(appendMessage)
+	}
+
+	return fmt.Errorf("%s, %s", err.Error(), appendMessage)
 }

@@ -3,6 +3,7 @@ package regctl
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 
@@ -21,6 +22,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// NewRegistryPVC creates new registry pvc controller
+func NewRegistryPVC() *RegistryPVC {
+	return &RegistryPVC{}
+}
+
 // RegistryPVC things to handle pvc resource
 type RegistryPVC struct {
 	pvc    *corev1.PersistentVolumeClaim
@@ -31,15 +37,19 @@ type RegistryPVC struct {
 // Handle makes pvc to be in the desired state
 func (r *RegistryPVC) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	if err := r.get(c, reg); err != nil {
+		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
 			if err := r.create(c, reg, patchReg, scheme); err != nil {
 				r.logger.Error(err, "create pvc error")
+				r.notReady(patchReg, err)
 				return err
 			}
+			r.logger.Info("Create Succeeded")
 		} else {
 			r.logger.Error(err, "pvc is error")
 			return err
 		}
+		return nil
 	}
 
 	r.scheme = scheme
@@ -48,7 +58,10 @@ func (r *RegistryPVC) Handle(c client.Client, reg *regv1.Registry, patchReg *reg
 	diff := r.compare(reg)
 	if len(diff) > 0 {
 		r.logger.Info("patch exists.")
+		r.notReady(patchReg, nil)
 		if err := r.patch(c, reg, patchReg, diff); err != nil {
+			r.logger.Error(err, "failed to patch pvc")
+			r.notReady(patchReg, err)
 			return err
 		}
 	}
@@ -64,7 +77,7 @@ func (r *RegistryPVC) Ready(c client.Client, reg *regv1.Registry, patchReg *regv
 		Type:   regv1.ConditionTypePvc,
 	}
 
-	defer utils.SetCondition(err, patchReg, condition)
+	defer utils.SetErrorConditionIfChanged(patchReg, reg, condition, err)
 
 	if r.pvc == nil || useGet {
 		err := r.get(c, reg)
@@ -96,27 +109,12 @@ func (r *RegistryPVC) create(c client.Client, reg *regv1.Registry, patchReg *reg
 	if reg.Spec.PersistentVolumeClaim.Create.DeleteWithPvc {
 		if err := controllerutil.SetControllerReference(reg, r.pvc, scheme); err != nil {
 			r.logger.Error(err, "SetOwnerReference Failed")
-			condition := status.Condition{
-				Status:  corev1.ConditionFalse,
-				Type:    regv1.ConditionTypePvc,
-				Message: err.Error(),
-			}
-
-			patchReg.Status.Conditions.SetCondition(condition)
 			return err
 		}
 	}
 
 	r.logger.Info("Create registry pvc")
-	err := c.Create(context.TODO(), r.pvc)
-	if err != nil {
-		condition := status.Condition{
-			Status:  corev1.ConditionFalse,
-			Type:    regv1.ConditionTypePvc,
-			Message: err.Error(),
-		}
-
-		patchReg.Status.Conditions.SetCondition(condition)
+	if err := c.Create(context.TODO(), r.pvc); err != nil {
 		r.logger.Error(err, "Creating registry pvc is failed.")
 		return err
 	}
@@ -181,12 +179,6 @@ func (r *RegistryPVC) delete(c client.Client, patchReg *regv1.Registry) error {
 		return err
 	}
 
-	condition := status.Condition{
-		Type:   regv1.ConditionTypePvc,
-		Status: corev1.ConditionFalse,
-	}
-
-	patchReg.Status.Conditions.SetCondition(condition)
 	return nil
 }
 
@@ -207,4 +199,36 @@ func (r *RegistryPVC) compare(reg *regv1.Registry) []utils.Diff {
 	}
 
 	return diff
+}
+
+func (r *RegistryPVC) IsSuccessfullyCompleted(reg *regv1.Registry) bool {
+	cond := reg.Status.Conditions.GetCondition(regv1.ConditionTypePvc)
+	if cond == nil {
+		return false
+	}
+
+	return cond.IsTrue()
+}
+
+func (r *RegistryPVC) notReady(patchReg *regv1.Registry, err error) {
+	condition := &status.Condition{
+		Status: corev1.ConditionFalse,
+		Type:   regv1.ConditionTypePvc,
+	}
+	utils.SetCondition(err, patchReg, condition)
+}
+
+// Condition returns dependent subresource's condition type
+func (r *RegistryPVC) Condition() string {
+	return string(regv1.ConditionTypePvc)
+}
+
+// ModifiedTime returns the modified time of the subresource condition
+func (r *RegistryPVC) ModifiedTime(patchReg *regv1.Registry) []time.Time {
+	cond := patchReg.Status.Conditions.GetCondition(regv1.ConditionTypePvc)
+	if cond == nil {
+		return nil
+	}
+
+	return []time.Time{cond.LastTransitionTime.Time}
 }

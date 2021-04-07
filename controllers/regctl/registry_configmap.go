@@ -2,6 +2,7 @@ package regctl
 
 import (
 	"context"
+	"time"
 
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -18,6 +19,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// NewRegistryConfigMap creates new registry configmap controller
+func NewRegistryConfigMap() *RegistryConfigMap {
+	return &RegistryConfigMap{}
+}
+
 // RegistryConfigMap contains things to handle deployment resource
 type RegistryConfigMap struct {
 	cm     *corev1.ConfigMap
@@ -27,15 +33,19 @@ type RegistryConfigMap struct {
 // Handle makes configmap to be in the desired state
 func (r *RegistryConfigMap) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	if err := r.get(c, reg); err != nil {
+		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
 			if err := r.create(c, reg, patchReg, scheme); err != nil {
 				r.logger.Error(err, "create configmap error")
+				r.notReady(patchReg, err)
 				return err
 			}
+			r.logger.Info("Create Succeeded")
 		} else {
 			r.logger.Error(err, "configmap error")
 			return err
 		}
+		return nil
 	}
 
 	return nil
@@ -48,7 +58,7 @@ func (r *RegistryConfigMap) Ready(c client.Client, reg *regv1.Registry, patchReg
 		Status: corev1.ConditionFalse,
 		Type:   regv1.ConditionTypeConfigMap,
 	}
-	defer utils.SetCondition(err, patchReg, condition)
+	defer utils.SetErrorConditionIfChanged(patchReg, reg, condition, err)
 
 	if useGet {
 		err = r.get(c, reg)
@@ -150,4 +160,37 @@ func (r *RegistryConfigMap) delete(c client.Client, patchReg *regv1.Registry) er
 
 func (r *RegistryConfigMap) compare(reg *regv1.Registry) []utils.Diff {
 	return nil
+}
+
+// IsSuccessfullyCompleted returns true if condition is satisfied
+func (r *RegistryConfigMap) IsSuccessfullyCompleted(reg *regv1.Registry) bool {
+	cond := reg.Status.Conditions.GetCondition(regv1.ConditionTypeConfigMap)
+	if cond == nil {
+		return false
+	}
+
+	return cond.IsTrue()
+}
+
+func (r *RegistryConfigMap) notReady(patchReg *regv1.Registry, err error) {
+	condition := &status.Condition{
+		Status: corev1.ConditionFalse,
+		Type:   regv1.ConditionTypeConfigMap,
+	}
+	utils.SetCondition(err, patchReg, condition)
+}
+
+// Condition returns dependent subresource's condition type
+func (r *RegistryConfigMap) Condition() string {
+	return string(regv1.ConditionTypeConfigMap)
+}
+
+// ModifiedTime returns the modified time of the subresource condition
+func (r *RegistryConfigMap) ModifiedTime(patchReg *regv1.Registry) []time.Time {
+	cond := patchReg.Status.Conditions.GetCondition(regv1.ConditionTypeConfigMap)
+	if cond == nil {
+		return nil
+	}
+
+	return []time.Time{cond.LastTransitionTime.Time}
 }

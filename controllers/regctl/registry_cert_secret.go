@@ -2,6 +2,8 @@ package regctl
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/operator-framework/operator-lib/status"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -18,8 +20,17 @@ import (
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 )
 
+// NewRegistryCertSecret creates new registry cert secret controller
+// deps: service
+func NewRegistryCertSecret(deps ...Dependent) *RegistryCertSecret {
+	return &RegistryCertSecret{
+		deps: deps,
+	}
+}
+
 // RegistryCertSecret contains things to handle tls and opaque secret resource
 type RegistryCertSecret struct {
+	deps         []Dependent
 	secretOpaque *corev1.Secret
 	secretTLS    *corev1.Secret
 	logger       *utils.RegistryLogger
@@ -27,24 +38,38 @@ type RegistryCertSecret struct {
 
 // Handle makes secret to be in the desired state
 func (r *RegistryCertSecret) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
-	err := r.get(c, reg)
-	if err != nil && errors.IsNotFound(err) {
-		// resource is not exist : have to create
-		if createError := r.create(c, reg, patchReg, scheme); createError != nil {
-			r.logger.Error(createError, "Create failed in Handle")
-			return createError
+	for _, dep := range r.deps {
+		if !dep.IsSuccessfullyCompleted(reg) {
+			err := fmt.Errorf("unable to handle %s: %s condition is not satisfied", r.Condition(), dep.Condition())
+			return err
 		}
-		// patchReg.Status.PodRecreateRequired = true
+	}
+
+	if err := r.get(c, reg); err != nil {
+		r.notReady(patchReg, err)
+		if errors.IsNotFound(err) {
+			if createError := r.create(c, reg, patchReg, scheme); createError != nil {
+				r.logger.Error(createError, "Create failed in Handle")
+				r.notReady(patchReg, createError)
+				return createError
+			}
+			r.logger.Info("Create Succeeded")
+		} else {
+			r.logger.Error(err, "cert secret is error")
+			return err
+		}
+		return nil
 	}
 
 	if isValid := r.compare(reg); isValid == nil {
+		r.notReady(patchReg, nil)
 		if deleteError := r.delete(c, patchReg); deleteError != nil {
 			r.logger.Error(deleteError, "Delete failed in Handle")
+			r.notReady(patchReg, deleteError)
 			return deleteError
 		}
 	}
 
-	r.logger.Info("Succeed")
 	return nil
 }
 
@@ -63,7 +88,8 @@ func (r *RegistryCertSecret) Ready(c client.Client, reg *regv1.Registry, patchRe
 		Type:   regv1.ConditionTypeSecretTLS,
 	}
 
-	defer utils.SetCondition(opaqueErr, patchReg, opCondition)
+	defer utils.SetErrorConditionIfChanged(patchReg, reg, opCondition, opaqueErr)
+	defer utils.SetErrorConditionIfChanged(patchReg, reg, tlsCondition, tlsErr)
 
 	if useGet {
 		if opaqueErr = r.get(c, reg); opaqueErr != nil {
@@ -73,8 +99,6 @@ func (r *RegistryCertSecret) Ready(c client.Client, reg *regv1.Registry, patchRe
 	}
 
 	opCondition.Status = corev1.ConditionTrue
-
-	defer utils.SetCondition(tlsErr, patchReg, tlsCondition)
 
 	if _, ok := r.secretTLS.Data[schemes.TLSCert]; !ok {
 		tlsErr = regv1.MakeRegistryError("Secret TLS Error")
@@ -107,35 +131,21 @@ func (r *RegistryCertSecret) GetUserSecret(c client.Client, reg *regv1.Registry)
 }
 
 func (r *RegistryCertSecret) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
-	condition := &status.Condition{
-		Status: corev1.ConditionFalse,
-		Type:   regv1.ConditionTypeSecretOpaque,
-	}
-
-	tlsCondition := &status.Condition{
-		Status: corev1.ConditionFalse,
-		Type:   regv1.ConditionTypeSecretTLS,
-	}
-
 	if err := controllerutil.SetControllerReference(reg, r.secretOpaque, scheme); err != nil {
-		utils.SetCondition(err, patchReg, condition)
+		r.logger.Error(err, "failed to set controller reference")
 		return err
 	}
 
 	if err := controllerutil.SetControllerReference(reg, r.secretTLS, scheme); err != nil {
-		utils.SetCondition(err, patchReg, tlsCondition)
+		r.logger.Error(err, "failed to set controller reference")
 		return err
 	}
-
 	if err := c.Create(context.TODO(), r.secretOpaque); err != nil {
 		r.logger.Error(err, "Create failed")
-		utils.SetCondition(err, patchReg, condition)
 		return err
 	}
-
 	if err := c.Create(context.TODO(), r.secretTLS); err != nil {
 		r.logger.Error(err, "Create failed")
-		utils.SetCondition(err, patchReg, tlsCondition)
 		return err
 	}
 
@@ -172,6 +182,52 @@ func (r *RegistryCertSecret) patch(c client.Client, reg *regv1.Registry, patchRe
 }
 
 func (r *RegistryCertSecret) delete(c client.Client, patchReg *regv1.Registry) error {
+	if err := c.Delete(context.TODO(), r.secretOpaque); err != nil {
+		r.logger.Error(err, "Delete failed")
+		return err
+	}
+
+	if err := c.Delete(context.TODO(), r.secretTLS); err != nil {
+		r.logger.Error(err, "Delete failed")
+		return err
+	}
+
+	return nil
+}
+
+func (r *RegistryCertSecret) compare(reg *regv1.Registry) []utils.Diff {
+	diff := []utils.Diff{}
+	cond1 := reg.Status.Conditions.GetCondition(regv1.ConditionTypeSecretOpaque)
+	cond2 := reg.Status.Conditions.GetCondition(regv1.ConditionTypeSecretTLS)
+
+	for _, dep := range r.deps {
+		for _, depTime := range dep.ModifiedTime(reg) {
+			if depTime.After(cond1.LastTransitionTime.Time) ||
+				depTime.After(cond2.LastTransitionTime.Time) {
+				return nil
+			}
+		}
+	}
+
+	return diff
+}
+
+// IsSuccessfullyCompleted returns true if condition is satisfied
+func (r *RegistryCertSecret) IsSuccessfullyCompleted(reg *regv1.Registry) bool {
+	cond1 := reg.Status.Conditions.GetCondition(regv1.ConditionTypeSecretOpaque)
+	if cond1 == nil {
+		return false
+	}
+
+	cond2 := reg.Status.Conditions.GetCondition(regv1.ConditionTypeSecretTLS)
+	if cond2 == nil {
+		return false
+	}
+
+	return cond1.IsTrue() && cond2.IsTrue()
+}
+
+func (r *RegistryCertSecret) notReady(patchReg *regv1.Registry, err error) {
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
 		Type:   regv1.ConditionTypeSecretOpaque,
@@ -182,21 +238,25 @@ func (r *RegistryCertSecret) delete(c client.Client, patchReg *regv1.Registry) e
 		Type:   regv1.ConditionTypeSecretTLS,
 	}
 
-	if err := c.Delete(context.TODO(), r.secretOpaque); err != nil {
-		r.logger.Error(err, "Delete failed")
-		utils.SetCondition(err, patchReg, condition)
-		return err
-	}
-
-	if err := c.Delete(context.TODO(), r.secretTLS); err != nil {
-		r.logger.Error(err, "Delete failed")
-		utils.SetCondition(err, patchReg, tlsCondition)
-		return err
-	}
-
-	return nil
+	utils.SetCondition(err, patchReg, condition)
+	utils.SetCondition(err, patchReg, tlsCondition)
 }
 
-func (r *RegistryCertSecret) compare(reg *regv1.Registry) []utils.Diff {
-	return []utils.Diff{}
+// Condition returns dependent subresource's condition type
+func (r *RegistryCertSecret) Condition() string {
+	return fmt.Sprintf("%s and %s", string(regv1.ConditionTypeSecretOpaque), string(regv1.ConditionTypeSecretTLS))
+}
+
+// ModifiedTime returns the modified time of the subresource condition
+func (r *RegistryCertSecret) ModifiedTime(patchReg *regv1.Registry) []time.Time {
+	cond1 := patchReg.Status.Conditions.GetCondition(regv1.ConditionTypeSecretOpaque)
+	if cond1 == nil {
+		return nil
+	}
+	cond2 := patchReg.Status.Conditions.GetCondition(regv1.ConditionTypeSecretTLS)
+	if cond2 == nil {
+		return nil
+	}
+
+	return []time.Time{cond1.LastTransitionTime.Time, cond2.LastTransitionTime.Time}
 }

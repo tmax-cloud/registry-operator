@@ -2,6 +2,8 @@ package regctl
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 
@@ -19,6 +21,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+const (
+	serviceTypeDiffKey = "ServiceType"
+)
+
+// NewRegistryService creates new registry service
+func NewRegistryService() *RegistryService {
+	return &RegistryService{}
+}
+
 // RegistryService things to handle service resource
 type RegistryService struct {
 	svc    *corev1.Service
@@ -27,20 +38,29 @@ type RegistryService struct {
 
 // Handle makes service to be in the desired state
 func (r *RegistryService) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
-	err := r.get(c, reg)
-	if err != nil && errors.IsNotFound(err) {
-		// resource is not exist : have to create
-		if createError := r.create(c, reg, patchReg, scheme); createError != nil {
-			r.logger.Error(createError, "Create failed in Handle")
-			return createError
+	if err := r.get(c, reg); err != nil {
+		r.notReady(patchReg, err)
+		if errors.IsNotFound(err) {
+			if createError := r.create(c, reg, patchReg, scheme); createError != nil {
+				r.logger.Error(createError, "Create failed in Handle")
+				r.notReady(patchReg, createError)
+				return createError
+			}
+			r.logger.Info("Create Succeeded")
+		} else {
+			r.logger.Error(err, "service is error")
+			return err
 		}
+		return nil
 	}
 
-	if isValid := r.compare(reg); isValid == nil {
-		r.logger.Info("Service is not Valid")
-		if deleteError := r.delete(c, reg); deleteError != nil {
-			r.logger.Error(deleteError, "Delete failed in Handle")
-			return deleteError
+	diff := r.compare(reg)
+	if len(diff) > 0 {
+		r.logger.Info("service must be patched")
+		r.notReady(patchReg, nil)
+		if err := r.patch(c, reg, patchReg, diff); err != nil {
+			r.notReady(patchReg, err)
+			return err
 		}
 	}
 
@@ -55,7 +75,7 @@ func (r *RegistryService) Ready(c client.Client, reg *regv1.Registry, patchReg *
 		Status: corev1.ConditionFalse,
 		Type:   regv1.ConditionTypeService,
 	}
-	defer utils.SetCondition(err, patchReg, condition)
+	defer utils.SetErrorConditionIfChanged(patchReg, reg, condition, err)
 
 	if useGet {
 		if err = r.get(c, reg); err != nil {
@@ -79,7 +99,7 @@ func (r *RegistryService) Ready(c client.Client, reg *regv1.Registry, patchReg *
 			err = regv1.MakeRegistryError("NotReady")
 			return err
 		}
-		reg.Status.LoadBalancerIP = lbIP
+		patchReg.Status.LoadBalancerIP = lbIP
 		patchReg.Status.ServerURL = "https://" + lbIP
 		r.logger.Info("LoadBalancer info", "LoadBalancer IP", lbIP)
 	} else if r.svc.Spec.Type == corev1.ServiceTypeClusterIP {
@@ -90,27 +110,20 @@ func (r *RegistryService) Ready(c client.Client, reg *regv1.Registry, patchReg *
 		r.logger.Info("Service Type is ClusterIP(Ingress)")
 		// [TODO]
 	}
-	reg.Status.ClusterIP = r.svc.Spec.ClusterIP
+	patchReg.Status.ClusterIP = r.svc.Spec.ClusterIP
 	condition.Status = corev1.ConditionTrue
 	r.logger.Info("Succeed")
 	return nil
 }
 
 func (r *RegistryService) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
-	condition := &status.Condition{
-		Status: corev1.ConditionFalse,
-		Type:   regv1.ConditionTypeService,
-	}
-
 	if err := controllerutil.SetControllerReference(reg, r.svc, scheme); err != nil {
 		r.logger.Error(err, "Set owner reference failed")
-		utils.SetCondition(err, patchReg, condition)
 		return err
 	}
 
 	if err := c.Create(context.TODO(), r.svc); err != nil {
 		r.logger.Error(err, "Create failed")
-		utils.SetCondition(err, patchReg, condition)
 		return err
 	}
 
@@ -134,19 +147,32 @@ func (r *RegistryService) get(c client.Client, reg *regv1.Registry) error {
 }
 
 func (r *RegistryService) patch(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
-	// [TODO]
+	target := r.svc.DeepCopy()
+	originObject := client.MergeFrom(r.svc)
+
+	r.logger.Info("Get", "Patch", fmt.Sprintf("%+v\n", diff))
+
+	for _, d := range diff {
+		switch d.Key {
+		case serviceTypeDiffKey:
+			switch d.Type {
+			case utils.Replace:
+				target.Spec.Type = d.Value.(corev1.ServiceType)
+			}
+		}
+	}
+
+	// Patch
+	if err := c.Patch(context.TODO(), target, originObject); err != nil {
+		r.logger.Error(err, "Unknown error patch")
+		return err
+	}
 	return nil
 }
 
 func (r *RegistryService) delete(c client.Client, patchReg *regv1.Registry) error {
-	condition := &status.Condition{
-		Status: corev1.ConditionFalse,
-		Type:   regv1.ConditionTypeService,
-	}
-
 	if err := c.Delete(context.TODO(), r.svc); err != nil {
 		r.logger.Error(err, "Delete failed")
-		utils.SetCondition(err, patchReg, condition)
 		return err
 	}
 
@@ -155,26 +181,51 @@ func (r *RegistryService) delete(c client.Client, patchReg *regv1.Registry) erro
 }
 
 func (r *RegistryService) compare(reg *regv1.Registry) []utils.Diff {
-	regServiceSpec := reg.Spec.RegistryService
-	if string(regServiceSpec.ServiceType) == "Ingress" && string(r.svc.Spec.Type) != "ClusterIP" {
-		r.logger.Error(regv1.MakeRegistryError("Type is different"), "Service Type is different")
+	diff := []utils.Diff{}
+	switch reg.Spec.RegistryService.ServiceType {
+	case "LoadBalancer":
+		if r.svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
+			diff = append(diff, utils.Diff{Type: utils.Replace, Key: serviceTypeDiffKey, Value: corev1.ServiceTypeLoadBalancer})
+		}
+	case "Ingress":
+		if r.svc.Spec.Type != corev1.ServiceTypeClusterIP {
+			diff = append(diff, utils.Diff{Type: utils.Replace, Key: serviceTypeDiffKey, Value: corev1.ServiceTypeClusterIP})
+		}
+	}
+
+	r.logger.Info("Succeed")
+	return diff
+}
+
+// IsSuccessfullyCompleted returns true if condition is satisfied
+func (r *RegistryService) IsSuccessfullyCompleted(reg *regv1.Registry) bool {
+	cond := reg.Status.Conditions.GetCondition(regv1.ConditionTypeService)
+	if cond == nil {
+		return false
+	}
+
+	return cond.IsTrue()
+}
+
+func (r *RegistryService) notReady(patchReg *regv1.Registry, err error) {
+	condition := &status.Condition{
+		Status: corev1.ConditionFalse,
+		Type:   regv1.ConditionTypeService,
+	}
+	utils.SetCondition(err, patchReg, condition)
+}
+
+// Condition returns dependent subresource's condition type
+func (r *RegistryService) Condition() string {
+	return string(regv1.ConditionTypeService)
+}
+
+// ModifiedTime returns the modified time of the subresource condition
+func (r *RegistryService) ModifiedTime(patchReg *regv1.Registry) []time.Time {
+	cond := patchReg.Status.Conditions.GetCondition(regv1.ConditionTypeService)
+	if cond == nil {
 		return nil
 	}
 
-	// isPortValid := false
-	// for _, port := range r.svc.Spec.Ports {
-	// 	if (regServiceSpec.ServiceType == regv1.RegServiceTypeLoadBalancer &&
-	// 		regServiceSpec.LoadBalancer.Port == int(port.Port)) ||
-	// 		(string(regServiceSpec.ServiceType) == "Ingress" && int(port.Port) == 443) {
-	// 		isPortValid = true
-	// 	}
-	// }
-
-	// if !isPortValid {
-	// 	r.logger.Error(regv1.MakeRegistryError("Port is invalid"), "Port is not valid")
-	// 	return nil
-	// }
-
-	r.logger.Info("Succeed")
-	return []utils.Diff{}
+	return []time.Time{cond.LastTransitionTime.Time}
 }

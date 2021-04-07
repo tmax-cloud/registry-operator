@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"time"
 
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
@@ -35,8 +36,18 @@ const (
 	requestMemoryDiffKey = "requestMemory"
 )
 
+// NewRegistryDeployment creates new registry deployment controller
+// deps: pvc, svc, cm
+func NewRegistryDeployment(kcCli *keycloakctl.KeycloakClient, deps ...Dependent) *RegistryDeployment {
+	return &RegistryDeployment{
+		deps:  deps,
+		KcCli: kcCli,
+	}
+}
+
 // RegistryDeployment contains things to handle deployment resource
 type RegistryDeployment struct {
+	deps   []Dependent
 	KcCli  *keycloakctl.KeycloakClient
 	deploy *appsv1.Deployment
 	logger *utils.RegistryLogger
@@ -44,27 +55,42 @@ type RegistryDeployment struct {
 
 // Handle makes deployment to be in the desired state
 func (r *RegistryDeployment) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+	for _, dep := range r.deps {
+		if !dep.IsSuccessfullyCompleted(reg) {
+			err := fmt.Errorf("unable to handle %s: %s condition is not satisfied", r.Condition(), dep.Condition())
+			return err
+		}
+	}
+
 	if err := r.get(c, reg); err != nil {
+		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
 			if err := r.create(c, reg, patchReg, scheme); err != nil {
 				r.logger.Error(err, "create Deployment error")
+				r.notReady(patchReg, err)
 				return err
 			}
+			r.logger.Info("Create Succeeded")
 		} else {
 			r.logger.Error(err, "Deployment error")
 			return err
 		}
+		return nil
 	}
 
 	r.logger.Info("Check if patch exists.")
 	diff := r.compare(reg)
 	if diff == nil {
 		r.logger.Error(nil, "Invalid deployment!!!")
+		r.notReady(patchReg, nil)
 		if err := r.delete(c, patchReg); err != nil {
+			r.notReady(patchReg, appsv1.ErrIntOverflowGenerated)
 			return err
 		}
 	} else if len(diff) > 0 {
+		r.notReady(patchReg, nil)
 		if err := r.patch(c, reg, patchReg, diff); err != nil {
+			r.notReady(patchReg, err)
 			return err
 		}
 	}
@@ -79,7 +105,7 @@ func (r *RegistryDeployment) Ready(c client.Client, reg *regv1.Registry, patchRe
 		Status: corev1.ConditionFalse,
 		Type:   regv1.ConditionTypeDeployment,
 	}
-	defer utils.SetCondition(err, patchReg, condition)
+	defer utils.SetErrorConditionIfChanged(patchReg, reg, condition, err)
 	if useGet {
 		err = r.get(c, reg)
 		if err != nil {
@@ -439,4 +465,37 @@ func (r *RegistryDeployment) compare(reg *regv1.Registry) []utils.Diff {
 	}
 
 	return diff
+}
+
+// IsSuccessfullyCompleted returns true if condition is satisfied
+func (r *RegistryDeployment) IsSuccessfullyCompleted(reg *regv1.Registry) bool {
+	cond := reg.Status.Conditions.GetCondition(regv1.ConditionTypeDeployment)
+	if cond == nil {
+		return false
+	}
+
+	return cond.IsTrue()
+}
+
+func (r *RegistryDeployment) notReady(patchReg *regv1.Registry, err error) {
+	condition := &status.Condition{
+		Status: corev1.ConditionFalse,
+		Type:   regv1.ConditionTypeDeployment,
+	}
+	utils.SetCondition(err, patchReg, condition)
+}
+
+// Condition returns dependent subresource's condition type
+func (r *RegistryDeployment) Condition() string {
+	return string(regv1.ConditionTypeDeployment)
+}
+
+// ModifiedTime returns the modified time of the subresource condition
+func (r *RegistryDeployment) ModifiedTime(patchReg *regv1.Registry) []time.Time {
+	cond := patchReg.Status.Conditions.GetCondition(regv1.ConditionTypeDeployment)
+	if cond == nil {
+		return nil
+	}
+
+	return []time.Time{cond.LastTransitionTime.Time}
 }

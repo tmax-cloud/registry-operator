@@ -51,6 +51,76 @@ func SetCondition(error error, patch interface{}, condition *status.Condition) {
 	}
 }
 
+func conditionIsChanged(target, origin interface{}, condition *status.Condition) bool {
+	targetCond := GetCondition(target, condition.Type)
+	originCond := GetCondition(origin, condition.Type)
+
+	if targetCond == nil || originCond == nil {
+		return false
+	}
+
+	if originCond.Status == targetCond.Status &&
+		targetCond.Status == condition.Status {
+		return false
+	}
+
+	return true
+}
+
+// SetErrorConditionIfChanged sets target's condition
+// If target's condition, origin's condition and condtion is same, don't set target's condition
+// If not, set target's condition
+func SetErrorConditionIfChanged(target, origin interface{}, condition *status.Condition, err error) {
+	if target == nil || origin == nil {
+		return
+	}
+
+	switch t := target.(type) {
+	case *regv1.Registry:
+		if conditionIsChanged(target, origin, condition) {
+			if err != nil {
+				condition.Message = err.Error()
+			}
+			t.Status.Conditions.SetCondition(*condition)
+		}
+	case *regv1.Notary:
+		if conditionIsChanged(target, origin, condition) {
+			if err != nil {
+				condition.Message = err.Error()
+			}
+			t.Status.Conditions.SetCondition(*condition)
+		}
+	case *regv1.ExternalRegistry:
+		if conditionIsChanged(target, origin, condition) {
+			if err != nil {
+				condition.Message = err.Error()
+			}
+			t.Status.Conditions.SetCondition(*condition)
+		}
+	case *regv1.ImageReplicate:
+		if conditionIsChanged(target, origin, condition) {
+			if err != nil {
+				condition.Message = err.Error()
+			}
+			t.Status.Conditions.SetCondition(*condition)
+		}
+	}
+}
+
+func GetCondition(obj interface{}, conditionType status.ConditionType) *status.Condition {
+	switch o := obj.(type) {
+	case *regv1.Registry:
+		return o.Status.Conditions.GetCondition(conditionType)
+	case *regv1.Notary:
+		return o.Status.Conditions.GetCondition(conditionType)
+	case *regv1.ExternalRegistry:
+		return o.Status.Conditions.GetCondition(conditionType)
+	case *regv1.ImageReplicate:
+		return o.Status.Conditions.GetCondition(conditionType)
+	}
+	return nil
+}
+
 type RegistryLogger struct {
 	subresource           interface{}
 	resNamespace, resName string
