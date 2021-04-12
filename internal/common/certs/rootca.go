@@ -115,6 +115,9 @@ func GetSystemKeycloakCert(c client.Client) (*corev1.Secret, error) {
 
 	sysKeycloakCA := &corev1.Secret{}
 	if err := c.Get(context.TODO(), types.NamespacedName{Name: regv1.KeycloakCASecretName, Namespace: opNamespace}, sysKeycloakCA); err != nil {
+		if errors.IsNotFound(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 

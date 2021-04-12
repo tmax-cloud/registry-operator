@@ -14,6 +14,7 @@ import (
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/opencontainers/go-digest"
 	"github.com/tmax-cloud/registry-operator/internal/common/auth"
+	"github.com/tmax-cloud/registry-operator/internal/common/certs"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -89,7 +90,23 @@ func NewImage(uri, registryServer, basicAuth string, ca []byte) (*Image, error) 
 			return nil, err
 		}
 
+		secret, err := certs.GetSystemKeycloakCert(nil)
+		if err != nil {
+			Logger.Error(err, "failed to get keycloak cert")
+			return nil, err
+		}
+
+		if secret != nil {
+			keyclockCA, _ := certs.CAData(secret)
+			caPool.AppendCertsFromPEM(keyclockCA)
+		}
+
 		ok := caPool.AppendCertsFromPEM(ca)
+		if !ok {
+			Logger.Error(err, "failed to append cert")
+		}
+
+		ok = caPool.AppendCertsFromPEM(ca)
 		if !ok {
 			Logger.Error(err, "failed to append cert")
 		}

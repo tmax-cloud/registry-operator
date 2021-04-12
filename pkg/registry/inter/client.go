@@ -1,6 +1,7 @@
 package inter
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -88,7 +89,7 @@ func (c *Client) ListRepositories() *image.APIRepositories {
 func (c *Client) ListTags(repository string) *image.APIRepository {
 	if err := c.imageClient.SetImage(repository); err != nil {
 		Logger.Error(err, "failed to set image")
-		return &image.APIRepository{}
+		return nil
 	}
 	return c.imageClient.Tags()
 
@@ -101,6 +102,9 @@ func (c *Client) Synchronize() error {
 
 	for _, repo := range repos.Repositories {
 		tags := c.ListTags(repo)
+		if tags == nil {
+			return errors.New("failed to get tag list")
+		}
 		repoList.AddRepository(*tags)
 	}
 
