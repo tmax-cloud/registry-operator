@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -59,6 +60,9 @@ func sweepRegistryRepo(c client.Client, reg *regv1.Registry, scheme *runtime.Sch
 	}
 
 	tags := regClient.ListTags(repoName)
+	if tags == nil {
+		return errors.New("failed to get tag list")
+	}
 
 	log.Info("delete_images")
 	deletedTags, err := deleteImagesInRepo(c, reg, scheme, repoName, tags.Tags)
