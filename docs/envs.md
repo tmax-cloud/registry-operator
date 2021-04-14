@@ -31,7 +31,7 @@
 |`REGISTRY_IMAGE`                  | No  | The URL of `Registry image`              | registry:2.7.1 |
 |`NOTARY_SERVER_IMAGE`             | No  | The URL of `Notray server image`         | tmaxcloudck/notary_server:0.6.2-rc1 |
 |`NOTARY_SIGNER_IMAGE`             | No  | The URL of `Notray signer image`         | tmaxcloudck/notary_signer:0.6.2-rc1 |
-|`NOTARY_DB_IMAGE`                 | No  | The URL of `Notray db image`             | tmaxcloudck/notary_mysql:0.6.2-rc1 |
+|`NOTARY_DB_IMAGE`                 | No  | The URL of `Notray db image`             | tmaxcloudck/notary_mysql:0.6.2-rc2 |
 |`REGISTRY_IMAGE_PULL_SECRET`      | No  | ImagePullSecret of `Registry image`      | |
 |`NOTARY_SERVER_IMAGE_PULL_SECRET` | No  | ImagePullSecret of `Notary server image` | |
 |`NOTARY_SIGNER_IMAGE_PULL_SECRET` | No  | ImagePullSecret of `Notary signer image` | |
