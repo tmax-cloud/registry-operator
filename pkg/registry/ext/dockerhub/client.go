@@ -3,6 +3,7 @@ package dockerhub
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -211,13 +212,13 @@ func (c *Client) listTags(namespace, repo string, page, page_size int) ([]string
 	req, err := http.NewRequest(http.MethodGet, listTagsURL(namespace, repo, page, page_size), nil)
 	if err != nil {
 		Logger.Error(err, "")
-		return []string{}, ""
+		return nil, ""
 	}
 
 	if c.dockerClient.Token.Type == "" || c.dockerClient.Token.Value == "" {
 		if err := c.LoginDockerHub(); err != nil {
 			Logger.Error(err, "")
-			return []string{}, ""
+			return nil, ""
 		}
 	}
 
@@ -226,19 +227,19 @@ func (c *Client) listTags(namespace, repo string, page, page_size int) ([]string
 	res, err := c.dockerClient.Do(req)
 	if err != nil {
 		Logger.Error(err, "")
-		return []string{}, ""
+		return nil, ""
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		Logger.Error(err, "")
-		return []string{}, ""
+		return nil, ""
 	}
 
 	tagsRes := &TagsResponse{}
 	if err := json.Unmarshal(body, tagsRes); err != nil {
 		Logger.Error(err, "failed to unmarshal")
-		return []string{}, ""
+		return nil, ""
 	}
 
 	tags := []string{}
@@ -254,13 +255,16 @@ func (c *Client) ListTags(repository string) *image.APIRepository {
 	namespace, repo, err := ParseName(repository)
 	if err != nil {
 		Logger.Error(err, "failed to parse repository name", "repository", repository)
-		return &image.APIRepository{}
+		return nil
 	}
 
 	tags := &image.APIRepository{Name: repository}
 	page := 1
 	for {
 		list, next := c.listTags(namespace, repo, page, 100)
+		if list == nil {
+			return nil
+		}
 		tags.Tags = append(tags.Tags, list...)
 		if next == "" {
 			break
@@ -273,10 +277,16 @@ func (c *Client) ListTags(repository string) *image.APIRepository {
 // Synchronize synchronizes repository list between tmax.io.Repository resource and Registry server
 func (c *Client) Synchronize() error {
 	repos := c.ListRepositories()
+	if repos == nil {
+		return errors.New("failed to get repository list")
+	}
 	repoList := &image.APIRepositoryList{}
 
 	for _, repo := range repos.Repositories {
 		tags := c.ListTags(repo)
+		if tags == nil {
+			return errors.New("failed to get tag list")
+		}
 		repoList.AddRepository(*tags)
 	}
 

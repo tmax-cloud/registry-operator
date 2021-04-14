@@ -2,6 +2,7 @@ package v2
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -57,7 +58,7 @@ func (c *Client) ListRepositories() *image.APIRepositories {
 	req, err := http.NewRequest(http.MethodGet, listProjectsURL(c.URL), nil)
 	if err != nil {
 		ext.Logger.Error(err, "")
-		return &image.APIRepositories{}
+		return nil
 	}
 
 	if c.Login.Username != "" && c.Login.Password != "" {
@@ -67,20 +68,20 @@ func (c *Client) ListRepositories() *image.APIRepositories {
 	res, err := c.Client.Do(req)
 	if err != nil {
 		ext.Logger.Error(err, "")
-		return &image.APIRepositories{}
+		return nil
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		ext.Logger.Error(err, "")
-		return &image.APIRepositories{}
+		return nil
 	}
 
 	// ext.Logger.Info("contents", "projects", string(body))
 	projects := []Project{}
 	if err := json.Unmarshal(body, &projects); err != nil {
 		ext.Logger.Error(err, "failed to unmarshal project", "body", string(body))
-		return &image.APIRepositories{}
+		return nil
 	}
 
 	extRepos := &image.APIRepositories{}
@@ -89,7 +90,7 @@ func (c *Client) ListRepositories() *image.APIRepositories {
 		req, err := http.NewRequest(http.MethodGet, listRepositoriessURL(c.URL, proj.Name), nil)
 		if err != nil {
 			ext.Logger.Error(err, "")
-			return &image.APIRepositories{}
+			return nil
 		}
 
 		c.SetAuth(req)
@@ -97,13 +98,13 @@ func (c *Client) ListRepositories() *image.APIRepositories {
 		res, err := c.Client.Do(req)
 		if err != nil {
 			ext.Logger.Error(err, "")
-			return &image.APIRepositories{}
+			return nil
 		}
 
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			ext.Logger.Error(err, "")
-			return &image.APIRepositories{}
+			return nil
 		}
 
 		// ext.Logger.Info("contents", "repositories", string(body))
@@ -112,7 +113,7 @@ func (c *Client) ListRepositories() *image.APIRepositories {
 
 		if err := json.Unmarshal(body, &repos); err != nil {
 			ext.Logger.Error(err, "failed to unmarshal registry's repository")
-			return &image.APIRepositories{}
+			return nil
 		}
 
 		for _, repo := range repos {
@@ -186,10 +187,16 @@ func (c *Client) ListTags(repository string) *image.APIRepository {
 // Synchronize synchronizes repository list between tmax.io.Repository resource and Registry server
 func (c *Client) Synchronize() error {
 	repos := c.ListRepositories()
+	if repos == nil {
+		return errors.New("failed to get repository list")
+	}
 	repoList := &image.APIRepositoryList{}
 
 	for _, repo := range repos.Repositories {
 		tags := c.ListTags(repo)
+		if tags == nil {
+			return errors.New("failed to get tag list")
+		}
 		repoList.AddRepository(*tags)
 	}
 

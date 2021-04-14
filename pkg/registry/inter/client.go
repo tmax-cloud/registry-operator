@@ -98,6 +98,9 @@ func (c *Client) ListTags(repository string) *image.APIRepository {
 // Synchronize synchronizes repository list between tmax.io.Repository resource and Registry server
 func (c *Client) Synchronize() error {
 	repos := c.ListRepositories()
+	if repos == nil {
+		return errors.New("failed to get repository list")
+	}
 	repoList := &image.APIRepositoryList{}
 
 	for _, repo := range repos.Repositories {

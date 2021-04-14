@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
@@ -12,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type SubresourceType int
@@ -123,7 +125,7 @@ const (
 )
 
 func getRootCACertificate(c client.Client) (*x509.Certificate, *rsa.PrivateKey) {
-	logger := utils.GetRegistryLogger(corev1.Secret{}, "CertScheme", "secret")
+	logger := logf.Log.WithName("cert-util")
 
 	opNamespace := config.Config.GetString("operator.namespace")
 	if opNamespace == "" {
@@ -140,6 +142,11 @@ func getRootCACertificate(c client.Client) (*x509.Certificate, *rsa.PrivateKey) 
 	block, rest := pem.Decode(rootSecret.Data[RootCACert])
 	if len(rest) != 0 {
 		logger.Info("Cert is not PEM format", "Rest", rest)
+		return nil, nil
+	}
+
+	if block == nil {
+		logger.Error(errors.New("failed to decode pem data"), "maybe there is no pem data")
 		return nil, nil
 	}
 
