@@ -24,7 +24,7 @@ func defaultValues() map[string]string {
 	values[ConfigRegistryImage] = "registry:2.7.1"
 	values[ConfigNotaryServerImage] = "tmaxcloudck/notary_server:0.6.2-rc1"
 	values[ConfigNotarySignerImage] = "tmaxcloudck/notary_signer:0.6.2-rc1"
-	values[ConfigNotaryDBImage] = "tmaxcloudck/notary_mysql:0.6.2-rc1"
+	values[ConfigNotaryDBImage] = "tmaxcloudck/notary_mysql:0.6.2-rc2"
 	values[ConfigRegistryCPU] = "0.1"
 	values[ConfigRegistryMemory] = "512Mi"
 	values[ConfigNotaryServerCPU] = "0.1"
