@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -177,6 +178,10 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 
 		if len(e.RegistryURL) > 0 && e.RegistryURL != "docker.io" {
 			regUrl = e.RegistryURL
+			u, _ := url.Parse(regUrl)
+			if len(u.Scheme) == 0 {
+				return fmt.Errorf("no protocol presented: %s\n", regUrl)
+			}
 		}
 
 		if len(e.ImagePullSecret) > 0 {
