@@ -58,7 +58,7 @@ func (s *ImagePullSecret) GetHostCredential(host string) (*LoginCredential, erro
 
 	loginAuth, ok := s.json.Auths[host]
 	if !ok {
-		return nil, fmt.Errorf("Secret(%s)'s dockerconfig host(%s) not found ", s.secret.Name, host)
+		return nil, fmt.Errorf("Secret(%s)'s dockerconfig host not found ", s.secret.Name)
 	}
 
 	basicAuth, isBasicPresent := loginAuth[DockerConfigAuthKey]

@@ -21,9 +21,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/genuinetools/reg/clair"
@@ -192,17 +190,7 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 				return err
 			}
 
-			u, err := url.Parse(regUrl)
-			if err != nil {
-				return err
-			}
-
-			secretKey := u.Host
-			if len(u.Scheme) > 0 {
-				secretKey = strings.Join([]string{u.Scheme, u.Host}, "://")
-			}
-
-			login, err := imagePullSecret.GetHostCredential(secretKey)
+			login, err := imagePullSecret.GetHostCredential(regUrl)
 			if err != nil {
 				return err
 			}
