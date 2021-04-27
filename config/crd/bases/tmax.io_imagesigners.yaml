@@ -48,9 +48,6 @@ spec:
             email:
               description: ImageSigner's email
               type: string
-            name:
-              description: ImageSigner's name
-              type: string
             owner:
               description: Don't deal with thie field. If Owner field is set or manipulated,
                 could not be recovered.
