@@ -20,16 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // ImageSignerSpec defines the desired state of ImageSigner
 type ImageSignerSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// ImageSigner's name
-	Name string `json:"name,omitempty"`
 	// ImageSigner's email
 	Email string `json:"email,omitempty"`
 	// ImageSigner's phone number
@@ -44,9 +36,6 @@ type ImageSignerSpec struct {
 
 // ImageSignerStatus defines the observed state of ImageSigner
 type ImageSignerStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	*SignerKeyState `json:"signerKeyState,omitempty"`
 }
 
