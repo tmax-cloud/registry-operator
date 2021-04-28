@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -55,10 +56,13 @@ func NewImagePullSecret(secret *corev1.Secret) (*ImagePullSecret, error) {
 }
 
 func (s *ImagePullSecret) GetHostCredential(host string) (*LoginCredential, error) {
-
 	loginAuth, ok := s.json.Auths[host]
 	if !ok {
-		return nil, fmt.Errorf("Secret(%s)'s dockerconfig host(%s) not found ", s.secret.Name, host)
+		u, _ := url.Parse(host)
+		loginAuth, ok = s.json.Auths[u.Host]
+		if !ok {
+			return nil, fmt.Errorf("url(%s) not found in dockerconfigjson", host)
+		}
 	}
 
 	basicAuth, isBasicPresent := loginAuth[DockerConfigAuthKey]

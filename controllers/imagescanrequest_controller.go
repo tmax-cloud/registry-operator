@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/genuinetools/reg/clair"
@@ -175,10 +174,13 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 		username := ""
 		password := ""
 		// XXX: Is it right default docker.io when empty registry url?
-		regUrl := "https://registry-1.docker.io"
+		if len(e.RegistryURL) == 0 || e.RegistryURL == "docker.io" {
+			e.RegistryURL = "https://registry-1.docker.io"
+		}
 
-		if len(e.RegistryURL) > 0 && e.RegistryURL != "docker.io" {
-			regUrl = e.RegistryURL
+		_, err = url.ParseRequestURI(e.RegistryURL)
+		if err != nil {
+			return err
 		}
 
 		if len(e.ImagePullSecret) > 0 {
@@ -192,17 +194,7 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 				return err
 			}
 
-			u, err := url.Parse(regUrl)
-			if err != nil {
-				return err
-			}
-
-			secretKey := u.Host
-			if len(u.Scheme) > 0 {
-				secretKey = strings.Join([]string{u.Scheme, u.Host}, "://")
-			}
-
-			login, err := imagePullSecret.GetHostCredential(secretKey)
+			login, err := imagePullSecret.GetHostCredential(e.RegistryURL)
 			if err != nil {
 				return err
 			}
@@ -210,7 +202,7 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 			password = string(login.Password)
 		}
 
-		authCfg, err := repoutils.GetAuthConfig(username, password, regUrl)
+		authCfg, err := repoutils.GetAuthConfig(username, password, e.RegistryURL)
 		if err != nil {
 			return err
 		}
