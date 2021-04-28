@@ -61,7 +61,7 @@ func (s *ImagePullSecret) GetHostCredential(host string) (*LoginCredential, erro
 		u, _ := url.Parse(host)
 		loginAuth, ok = s.json.Auths[u.Host]
 		if !ok {
-			return nil, fmt.Errorf("registry(%s) not found in dockerconfigjson", host)
+			return nil, fmt.Errorf("url(%s) not found in dockerconfigjson", host)
 		}
 	}
 

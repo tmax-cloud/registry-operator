@@ -174,14 +174,13 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 		username := ""
 		password := ""
 		// XXX: Is it right default docker.io when empty registry url?
-		regUrl := "https://registry-1.docker.io"
+		if len(e.RegistryURL) == 0 || e.RegistryURL == "docker.io" {
+			e.RegistryURL = "https://registry-1.docker.io"
+		}
 
-		if len(e.RegistryURL) > 0 && e.RegistryURL != "docker.io" {
-			regUrl = e.RegistryURL
-			u, _ := url.Parse(regUrl)
-			if len(u.Scheme) == 0 {
-				return fmt.Errorf("no protocol presented: %s\n", regUrl)
-			}
+		_, err = url.ParseRequestURI(e.RegistryURL)
+		if err != nil {
+			return err
 		}
 
 		if len(e.ImagePullSecret) > 0 {
@@ -195,7 +194,7 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 				return err
 			}
 
-			login, err := imagePullSecret.GetHostCredential(regUrl)
+			login, err := imagePullSecret.GetHostCredential(e.RegistryURL)
 			if err != nil {
 				return err
 			}
@@ -203,7 +202,7 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 			password = string(login.Password)
 		}
 
-		authCfg, err := repoutils.GetAuthConfig(username, password, regUrl)
+		authCfg, err := repoutils.GetAuthConfig(username, password, e.RegistryURL)
 		if err != nil {
 			return err
 		}
