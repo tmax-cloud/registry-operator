@@ -229,8 +229,6 @@ spec:
                   type: object
               required:
               - enabled
-              - persistentVolumeClaim
-              - serviceType
               type: object
             persistentVolumeClaim:
               oneOf:

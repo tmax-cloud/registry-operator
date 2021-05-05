@@ -58,9 +58,9 @@ type RegistryNotary struct {
 	Enabled bool `json:"enabled"`
 	// Use Ingress or LoadBalancer
 	// +kubebuilder:validation:Enum=Ingress;LoadBalancer
-	ServiceType NotaryServiceType `json:"serviceType"`
+	ServiceType NotaryServiceType `json:"serviceType,omitempty"`
 	// Settings for notary pvc. Either `Exist` or `Create` must be entered.
-	PersistentVolumeClaim NotaryPVC `json:"persistentVolumeClaim"`
+	PersistentVolumeClaim NotaryPVC `json:"persistentVolumeClaim,omitempty"`
 	// Settings for notary server
 	Server NotaryServer `json:"server,omitempty"`
 	// Settings for notary signer
