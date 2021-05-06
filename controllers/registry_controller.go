@@ -114,8 +114,10 @@ func (r *RegistryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *RegistryReconciler) validate(reg *regv1.Registry) error {
+	// this is for checking if field is empty
+	emptyPvc := regv1.NotaryPVC{}
 	if reg.Spec.Notary.Enabled &&
-		(len(reg.Spec.Notary.ServiceType) == 0 || &reg.Spec.Notary.PersistentVolumeClaim == nil) {
+		(len(reg.Spec.Notary.ServiceType) == 0 || reg.Spec.Notary.PersistentVolumeClaim == emptyPvc) {
 		return fmt.Errorf("notary's service type or pvc field missing")
 	}
 	return nil
