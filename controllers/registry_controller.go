@@ -80,7 +80,7 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, err
 	}
 
-	// FIXME: should be in validating webhook
+	// FIXME: move to validating webhook
 	if err = r.validate(reg); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -116,7 +116,7 @@ func (r *RegistryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *RegistryReconciler) validate(reg *regv1.Registry) error {
 	if reg.Spec.Notary.Enabled &&
 		(len(reg.Spec.Notary.ServiceType) == 0 || &reg.Spec.Notary.PersistentVolumeClaim == nil) {
-		return fmt.Errorf("notary is enabled but service and pvc is empty")
+		return fmt.Errorf("notary's service type or pvc field missing")
 	}
 	return nil
 }
