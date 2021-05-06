@@ -80,6 +80,11 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, err
 	}
 
+	// FIXME: move to validating webhook
+	if err = r.validate(reg); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	updated, err := regctl.UpdateRegistryStatus(r.Client, reg)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -106,6 +111,16 @@ func (r *RegistryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}).
 		Owns(&exv1beta1.Ingress{}).
 		Complete(r)
+}
+
+func (r *RegistryReconciler) validate(reg *regv1.Registry) error {
+	// this is for checking if field is empty
+	emptyPvc := regv1.NotaryPVC{}
+	if reg.Spec.Notary.Enabled &&
+		(len(reg.Spec.Notary.ServiceType) == 0 || reg.Spec.Notary.PersistentVolumeClaim == emptyPvc) {
+		return fmt.Errorf("notary's service type or pvc field missing")
+	}
+	return nil
 }
 
 func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { // if want to requeue, return true
