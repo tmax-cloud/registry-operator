@@ -226,10 +226,7 @@ type notaryRepo struct {
 }
 
 func (n *notaryRepo) GetToken() (*auth.Token, error) {
-	if n.image.BasicAuth == "" {
-		return nil, nil
-	}
-	if n.token.Type == "" || n.token.Value == "" {
+	if n.token == nil || n.token.Type == "" || n.token.Value == "" {
 		if err := n.fetchToken(); err != nil {
 			log.Error(err, "")
 			return nil, err
@@ -251,7 +248,9 @@ func (n *notaryRepo) fetchToken() error {
 	if err != nil {
 		return err
 	}
-	pingReq.Header.Set("Authorization", fmt.Sprintf("Basic %s", n.image.BasicAuth))
+	if n.image.BasicAuth != "" {
+		pingReq.Header.Set("Authorization", fmt.Sprintf("Basic %s", n.image.BasicAuth))
+	}
 	pingResp, err := n.image.HttpClient.Do(pingReq)
 	if err != nil {
 		return err
@@ -260,9 +259,13 @@ func (n *notaryRepo) fetchToken() error {
 
 	// If 200, use basic auth
 	if pingResp.StatusCode >= 200 && pingResp.StatusCode < 300 {
-		n.token = &auth.Token{
-			Type:  "Basic",
-			Value: n.image.BasicAuth,
+		if n.image.BasicAuth == "" {
+			n.token = nil
+		} else {
+			n.token = &auth.Token{
+				Type:  "Basic",
+				Value: n.image.BasicAuth,
+			}
 		}
 		return nil
 	}
@@ -288,7 +291,9 @@ func (n *notaryRepo) fetchToken() error {
 	if err != nil {
 		return err
 	}
-	tokenReq.Header.Set("Authorization", fmt.Sprintf("Basic %s", n.image.BasicAuth))
+	if n.image.BasicAuth != "" {
+		tokenReq.Header.Set("Authorization", fmt.Sprintf("Basic %s", n.image.BasicAuth))
+	}
 	tokenQ := tokenReq.URL.Query()
 	for k, v := range param {
 		tokenQ.Add(k, v)
