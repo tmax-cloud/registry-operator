@@ -88,7 +88,7 @@ func NewReadOnly(image *image.Image, notaryURL, path string) (ReadOnly, error) {
 	return n, nil
 }
 
-func New(img *image.Image, notaryURL string, passPhrase tmaxiov1.TrustPass, path string, ca []byte, rootKey apiv1.TrustKey, targetKey *apiv1.TrustKey) (NotaryRepository, error) {
+func New(img *image.Image, notaryURL string, passPhrase tmaxiov1.TrustPass, path string, ca []byte, rootKey apiv1.TrustKey, targetKey *apiv1.TrustKey) (Writable, error) {
 	if img == nil {
 		return nil, fmt.Errorf("image cannot be nil")
 	}
@@ -220,16 +220,19 @@ type notaryRepo struct {
 	notaryPath      string
 	notaryServerURL string
 	repo            client.Repository
-	token           auth.Token
+	token           *auth.Token
 	image           *image.Image
 	passPhrase      tmaxiov1.TrustPass
 }
 
-func (n *notaryRepo) GetToken() (auth.Token, error) {
+func (n *notaryRepo) GetToken() (*auth.Token, error) {
+	if n.image.BasicAuth == "" {
+		return nil, nil
+	}
 	if n.token.Type == "" || n.token.Value == "" {
 		if err := n.fetchToken(); err != nil {
 			log.Error(err, "")
-			return auth.Token{}, err
+			return nil, err
 		}
 	}
 
@@ -257,7 +260,7 @@ func (n *notaryRepo) fetchToken() error {
 
 	// If 200, use basic auth
 	if pingResp.StatusCode >= 200 && pingResp.StatusCode < 300 {
-		n.token = auth.Token{
+		n.token = &auth.Token{
 			Type:  "Basic",
 			Value: n.image.BasicAuth,
 		}
@@ -308,7 +311,7 @@ func (n *notaryRepo) fetchToken() error {
 		return err
 	}
 
-	n.token = auth.Token{
+	n.token = &auth.Token{
 		Type:  "Bearer",
 		Value: token.Token,
 	}

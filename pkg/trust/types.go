@@ -2,6 +2,7 @@ package trust
 
 type ReadOnly interface {
 	GetSignedMetadata(string) (*trustRepo, error)
+	ClearDir() error
 }
 
 type Writable interface {
@@ -14,11 +15,6 @@ type Writable interface {
 	ReadRootKey() (string, []byte, error)
 	ReadTargetKey() (string, []byte, error)
 	ClearDir() error
-}
-
-type NotaryRepository interface {
-	ReadOnly
-	Writable
 }
 
 // trustTagKey represents a unique signed tag and hex-encoded hash pair

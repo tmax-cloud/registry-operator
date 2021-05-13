@@ -7,14 +7,16 @@ import (
 
 type RegistryTransport struct {
 	Base  http.RoundTripper
-	Token Token
+	Token *Token
 }
 
 func (t *RegistryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req2 := cloneRequest(req)
-	req2.Header.Set("Authorization", fmt.Sprintf("%s %s", t.Token.Type, t.Token.Value))
+	clonedReq := cloneRequest(req)
+	if t.Token != nil {
+		clonedReq.Header.Set("Authorization", fmt.Sprintf("%s %s", t.Token.Type, t.Token.Value))
+	}
 
-	baseResp, err := t.Base.RoundTrip(req2)
+	baseResp, err := t.Base.RoundTrip(clonedReq)
 	if err != nil {
 		return nil, err
 	}
