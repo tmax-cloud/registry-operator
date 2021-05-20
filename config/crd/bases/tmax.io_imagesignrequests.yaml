@@ -1,103 +1,92 @@
-
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
+apiVersion: "apiextensions.k8s.io/v1beta1"
+kind: "CustomResourceDefinition"
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.3.0
+    controller-gen.kubebuilder.io/version: "v0.3.0"
   creationTimestamp: null
-  name: imagesignrequests.tmax.io
+  name: "imagesignrequests.tmax.io"
 spec:
   additionalPrinterColumns:
-  - JSONPath: .spec.image
-    name: IMAGE
-    type: string
-  - JSONPath: .spec.signer
-    name: SIGNER
-    type: string
-  - JSONPath: .status.imageSignResponse.result
-    name: STATUS
-    type: string
-  - JSONPath: .metadata.creationTimestamp
-    name: AGE
-    type: date
-  group: tmax.io
+  - JSONPath: ".spec.image"
+    name: "IMAGE"
+    type: "string"
+  - JSONPath: ".spec.signer"
+    name: "SIGNER"
+    type: "string"
+  - JSONPath: ".status.imageSignResponse.result"
+    name: "STATUS"
+    type: "string"
+  - JSONPath: ".metadata.creationTimestamp"
+    name: "AGE"
+    type: "date"
+  group: "tmax.io"
   names:
-    kind: ImageSignRequest
-    listKind: ImageSignRequestList
-    plural: imagesignrequests
+    kind: "ImageSignRequest"
+    listKind: "ImageSignRequestList"
+    plural: "imagesignrequests"
     shortNames:
-    - isr
-    singular: imagesignrequest
-  scope: Namespaced
+    - "isr"
+    singular: "imagesignrequest"
+  scope: "Namespaced"
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: ImageSignRequest is the Schema for the imagesignrequests API
+      description: "%tmax.io_imagesignrequests.yaml.spec.validation.openAPIV3Schema"
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
+          description: "%tmax.io_imagesignrequests.yaml.spec.validation.openAPIV3Schema.properties.apiVersion"
+          type: "string"
         kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
+          description: "%tmax.io_imagesignrequests.yaml.spec.validation.openAPIV3Schema.properties.kind"
+          type: "string"
         metadata:
-          type: object
+          type: "object"
         spec:
-          description: ImageSignRequestSpec defines the desired state of ImageSignRequest
+          description: "%tmax.io_imagesignrequests.yaml.spec.validation.openAPIV3Schema.properties.spec"
           properties:
             image:
-              description: 'Image name to sign (example: docker.io/library/alpine:3)'
-              type: string
+              description: "%tmax.io_imagesignrequests.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.image"
+              type: "string"
             registryLogin:
-              description: Secrets to login registry
+              description: "%tmax.io_imagesignrequests.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.registryLogin"
               properties:
                 certSecretName:
-                  description: If you want to trust registry's certificate, enter
-                    certifiacete's secret name
-                  type: string
+                  description: "%tmax.io_imagesignrequests.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.registryLogin.properties.certSecretName"
+                  type: "string"
                 dcjSecretName:
-                  description: Registry's imagePullSecret for login If you don't have
-                    dockerconfigjson type's secret in this namespace, you should refer
-                    to https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
-                    to make it first.
-                  type: string
+                  description: "%tmax.io_imagesignrequests.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.registryLogin.properties.dcjSecretName"
+                  type: "string"
               required:
-              - dcjSecretName
-              type: object
+              - "dcjSecretName"
+              type: "object"
             signer:
-              description: ImageSigner's metadata name to sign image
-              type: string
+              description: "%tmax.io_imagesignrequests.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.signer"
+              type: "string"
           required:
-          - image
-          - signer
-          type: object
+          - "image"
+          - "signer"
+          type: "object"
         status:
-          description: ImageSignRequestStatus defines the observed state of ImageSignRequest
+          description: "%tmax.io_imagesignrequests.yaml.spec.validation.openAPIV3Schema.properties.status"
           properties:
             imageSignResponse:
-              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
-                of cluster Important: Run "make" to regenerate code after modifying
-                this file'
+              description: "%tmax.io_imagesignrequests.yaml.spec.validation.openAPIV3Schema.properties.status.properties.imageSignResponse"
               properties:
                 message:
-                  type: string
+                  type: "string"
                 reason:
-                  type: string
+                  type: "string"
                 result:
-                  description: 'Result: Success / Fail'
-                  type: string
-              type: object
-          type: object
-      type: object
-  version: v1
+                  description: "%tmax.io_imagesignrequests.yaml.spec.validation.openAPIV3Schema.properties.status.properties.imageSignResponse.properties.result"
+                  type: "string"
+              type: "object"
+          type: "object"
+      type: "object"
+  version: "v1"
   versions:
-  - name: v1
+  - name: "v1"
     served: true
     storage: true
 status:

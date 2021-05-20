@@ -1,266 +1,149 @@
-
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
+apiVersion: "apiextensions.k8s.io/v1beta1"
+kind: "CustomResourceDefinition"
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.3.0
+    controller-gen.kubebuilder.io/version: "v0.3.0"
   creationTimestamp: null
-  name: notaries.tmax.io
+  name: "notaries.tmax.io"
 spec:
   additionalPrinterColumns:
-  - JSONPath: .metadata.creationTimestamp
-    name: AGE
-    type: date
-  group: tmax.io
+  - JSONPath: ".metadata.creationTimestamp"
+    name: "AGE"
+    type: "date"
+  group: "tmax.io"
   names:
-    kind: Notary
-    listKind: NotaryList
-    plural: notaries
+    kind: "Notary"
+    listKind: "NotaryList"
+    plural: "notaries"
     shortNames:
-    - not
-    singular: notary
-  scope: Namespaced
+    - "not"
+    singular: "notary"
+  scope: "Namespaced"
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: Notary is the Schema for the notaries API
+      description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema"
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
+          description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.apiVersion"
+          type: "string"
         kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
+          description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.kind"
+          type: "string"
         metadata:
-          type: object
+          type: "object"
         spec:
-          description: NotarySpec defines the desired state of Notary
+          description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.spec"
           properties:
             authConfig:
-              description: Settings for registry authentication config
+              description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.authConfig"
               properties:
                 issuer:
-                  type: string
+                  type: "string"
                 realm:
-                  type: string
+                  type: "string"
                 service:
-                  type: string
+                  type: "string"
               required:
-              - issuer
-              - realm
-              - service
-              type: object
-            db:
-              description: Settings for notary database
-              properties:
-                resources:
-                  description: resource requirements
-                  properties:
-                    limits:
-                      additionalProperties:
-                        anyOf:
-                        - type: integer
-                        - type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        x-kubernetes-int-or-string: true
-                      description: 'Limits describes the maximum amount of compute
-                        resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
-                      type: object
-                    requests:
-                      additionalProperties:
-                        anyOf:
-                        - type: integer
-                        - type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        x-kubernetes-int-or-string: true
-                      description: 'Requests describes the minimum amount of compute
-                        resources required. If Requests is omitted for a container,
-                        it defaults to Limits if that is explicitly specified, otherwise
-                        to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
-                      type: object
-                  type: object
-              type: object
+              - "issuer"
+              - "realm"
+              - "service"
+              type: "object"
             persistentVolumeClaim:
               properties:
                 create:
-                  description: Create new pvc
+                  description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.persistentVolumeClaim.properties.create"
                   properties:
                     accessModes:
-                      description: 'Each PV''s access modes are set to the specific
-                        modes supported by that particular volume. Ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes
-                        You can choose ReadWriteOnce, ReadOnlyMany and ReadWriteMany'
+                      description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.persistentVolumeClaim.properties.create.properties.accessModes"
                       items:
                         enum:
-                        - ReadWriteOnce
-                        - ReadWriteMany
-                        type: string
-                      type: array
+                        - "ReadWriteOnce"
+                        - "ReadWriteMany"
+                        type: "string"
+                      type: "array"
                     deleteWithPvc:
-                      description: 'Delete the pvc as well when this registry is deleted
-                        (default: false)'
-                      type: boolean
+                      description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.persistentVolumeClaim.properties.create.properties.deleteWithPvc"
+                      type: "boolean"
                     storageClassName:
-                      description: StorageClassName like "csi-cephfs-sc"
-                      type: string
+                      description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.persistentVolumeClaim.properties.create.properties.storageClassName"
+                      type: "string"
                     storageSize:
-                      description: Desired storage size like "10Gi"
-                      type: string
+                      description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.persistentVolumeClaim.properties.create.properties.storageSize"
+                      type: "string"
                   required:
-                  - accessModes
-                  - storageClassName
-                  - storageSize
-                  type: object
+                  - "accessModes"
+                  - "storageClassName"
+                  - "storageSize"
+                  type: "object"
                 exist:
-                  description: Use exist pvc
+                  description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.persistentVolumeClaim.properties.exist"
                   properties:
                     pvcName:
-                      description: PVC's name you have created
-                      type: string
+                      description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.persistentVolumeClaim.properties.exist.properties.pvcName"
+                      type: "string"
                   required:
-                  - pvcName
-                  type: object
-              type: object
+                  - "pvcName"
+                  type: "object"
+              type: "object"
             rootCASecret:
-              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                Important: Run "make" to regenerate code after modifying this file
-                Root CA certificate secret for notary'
-              type: string
-            server:
-              description: Settings for notary server
-              properties:
-                resources:
-                  description: resource requirements
-                  properties:
-                    limits:
-                      additionalProperties:
-                        anyOf:
-                        - type: integer
-                        - type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        x-kubernetes-int-or-string: true
-                      description: 'Limits describes the maximum amount of compute
-                        resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
-                      type: object
-                    requests:
-                      additionalProperties:
-                        anyOf:
-                        - type: integer
-                        - type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        x-kubernetes-int-or-string: true
-                      description: 'Requests describes the minimum amount of compute
-                        resources required. If Requests is omitted for a container,
-                        it defaults to Limits if that is explicitly specified, otherwise
-                        to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
-                      type: object
-                  type: object
-              type: object
+              description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.rootCASecret"
+              type: "string"
             serviceType:
-              description: Service type to expose notary
+              description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.serviceType"
               enum:
-              - Ingress
-              - LoadBalancer
-              type: string
-            signer:
-              description: Settings for notary signer
-              properties:
-                resources:
-                  description: resource requirements
-                  properties:
-                    limits:
-                      additionalProperties:
-                        anyOf:
-                        - type: integer
-                        - type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        x-kubernetes-int-or-string: true
-                      description: 'Limits describes the maximum amount of compute
-                        resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
-                      type: object
-                    requests:
-                      additionalProperties:
-                        anyOf:
-                        - type: integer
-                        - type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        x-kubernetes-int-or-string: true
-                      description: 'Requests describes the minimum amount of compute
-                        resources required. If Requests is omitted for a container,
-                        it defaults to Limits if that is explicitly specified, otherwise
-                        to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
-                      type: object
-                  type: object
-              type: object
+              - "Ingress"
+              - "LoadBalancer"
+              type: "string"
           required:
-          - authConfig
-          - persistentVolumeClaim
-          - rootCASecret
-          - serviceType
-          type: object
+          - "authConfig"
+          - "persistentVolumeClaim"
+          - "rootCASecret"
+          - "serviceType"
+          type: "object"
         status:
-          description: NotaryStatus defines the observed state of Notary
+          description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.status"
           properties:
             conditions:
-              description: Conditions is a set of Condition instances.
+              description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.status.properties.conditions"
               items:
-                description: "Condition represents an observation of an object's state.
-                  Conditions are an extension mechanism intended to be used when the
-                  details of an observation are not a priori known or would not apply
-                  to all instances of a given Kind. \n Conditions should be added
-                  to explicitly convey properties that users and components care about
-                  rather than requiring those properties to be inferred from other
-                  observations. Once defined, the meaning of a Condition can not be
-                  changed arbitrarily - it becomes part of the API, and has the same
-                  backwards- and forwards-compatibility concerns of any other part
-                  of the API."
+                description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.status.properties.conditions.items"
                 properties:
                   lastTransitionTime:
-                    format: date-time
-                    type: string
+                    format: "date-time"
+                    type: "string"
                   message:
-                    type: string
+                    type: "string"
                   reason:
-                    description: ConditionReason is intended to be a one-word, CamelCase
-                      representation of the category of cause of the current status.
-                      It is intended to be used in concise output, such as one-line
-                      kubectl get output, and in summarizing occurrences of causes.
-                    type: string
+                    description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.status.properties.conditions.items.properties.reason"
+                    type: "string"
                   status:
-                    type: string
+                    type: "string"
                   type:
-                    description: "ConditionType is the type of the condition and is
-                      typically a CamelCased word or short phrase. \n Condition types
-                      should indicate state in the \"abnormal-true\" polarity. For
-                      example, if the condition indicates when a policy is invalid,
-                      the \"is valid\" case is probably the norm, so the condition
-                      should be called \"Invalid\"."
-                    type: string
+                    description: "%tmax.io_notaries.yaml.spec.validation.openAPIV3Schema.properties.status.properties.conditions.items.properties.type"
+                    type: "string"
                 required:
-                - status
-                - type
-                type: object
-              type: array
+                - "status"
+                - "type"
+                type: "object"
+              type: "array"
             notaryURL:
-              type: string
+              type: "string"
             serverClusterIP:
-              type: string
+              type: "string"
             serverLoadBalancerIP:
-              type: string
+              type: "string"
             signerClusterIP:
-              type: string
+              type: "string"
             signerLoadBalancerIP:
-              type: string
-          type: object
-      type: object
-  version: v1
+              type: "string"
+          type: "object"
+      type: "object"
+  version: "v1"
   versions:
-  - name: v1
+  - name: "v1"
     served: true
     storage: true
 status:

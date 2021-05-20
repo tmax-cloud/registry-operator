@@ -1,86 +1,81 @@
-
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
+apiVersion: "apiextensions.k8s.io/v1beta1"
+kind: "CustomResourceDefinition"
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.3.0
+    controller-gen.kubebuilder.io/version: "v0.3.0"
   creationTimestamp: null
-  name: repositories.tmax.io
+  name: "repositories.tmax.io"
 spec:
   additionalPrinterColumns:
-  - JSONPath: .spec.name
-    name: REPOSITORY
-    type: string
-  - JSONPath: .spec.registry
-    name: REGISTRY
-    type: string
-  - JSONPath: .metadata.creationTimestamp
-    name: AGE
-    type: date
-  group: tmax.io
+  - JSONPath: ".spec.name"
+    name: "REPOSITORY"
+    type: "string"
+  - JSONPath: ".spec.registry"
+    name: "REGISTRY"
+    type: "string"
+  - JSONPath: ".metadata.creationTimestamp"
+    name: "AGE"
+    type: "date"
+  group: "tmax.io"
   names:
-    kind: Repository
-    listKind: RepositoryList
-    plural: repositories
+    kind: "Repository"
+    listKind: "RepositoryList"
+    plural: "repositories"
     shortNames:
-    - repo
-    singular: repository
-  scope: Namespaced
+    - "repo"
+    singular: "repository"
+  scope: "Namespaced"
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: Repository is the Schema for the repositories API
+      description: "%tmax.io_repositories.yaml.spec.validation.openAPIV3Schema"
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
+          description: "%tmax.io_repositories.yaml.spec.validation.openAPIV3Schema.properties.apiVersion"
+          type: "string"
         kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
+          description: "%tmax.io_repositories.yaml.spec.validation.openAPIV3Schema.properties.kind"
+          type: "string"
         metadata:
-          type: object
+          type: "object"
         spec:
           properties:
             name:
-              description: Repository name
-              type: string
+              description: "%tmax.io_repositories.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.name"
+              type: "string"
             registry:
-              description: Name of Registry which owns repository
-              type: string
+              description: "%tmax.io_repositories.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.registry"
+              type: "string"
             versions:
-              description: Versions(=Tags) of image
+              description: "%tmax.io_repositories.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.versions"
               items:
                 properties:
                   createdAt:
-                    description: Created time of image version
-                    format: date-time
-                    type: string
+                    description: "%tmax.io_repositories.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.versions.items.properties.createdAt"
+                    format: "date-time"
+                    type: "string"
                   delete:
-                    description: If true, this version will be deleted soon.
-                    type: boolean
+                    description: "%tmax.io_repositories.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.versions.items.properties.delete"
+                    type: "boolean"
                   signer:
-                    description: If signed image, image signer name is set.
-                    type: string
+                    description: "%tmax.io_repositories.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.versions.items.properties.signer"
+                    type: "string"
                   version:
-                    description: Version(=Tag) name
-                    type: string
+                    description: "%tmax.io_repositories.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.versions.items.properties.version"
+                    type: "string"
                 required:
-                - version
-                type: object
-              type: array
-          type: object
+                - "version"
+                type: "object"
+              type: "array"
+          type: "object"
       required:
-      - spec
-      type: object
-  version: v1
+      - "spec"
+      type: "object"
+  version: "v1"
   versions:
-  - name: v1
+  - name: "v1"
     served: true
     storage: true
 status:

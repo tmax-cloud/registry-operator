@@ -1,93 +1,89 @@
-
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
+apiVersion: "apiextensions.k8s.io/v1beta1"
+kind: "CustomResourceDefinition"
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.3.0
+    controller-gen.kubebuilder.io/version: "v0.3.0"
   creationTimestamp: null
-  name: imagesigners.tmax.io
+  name: "imagesigners.tmax.io"
 spec:
   additionalPrinterColumns:
-  - JSONPath: .status.signerKeyState.created
-    name: SIGNER_KEY_CREATED
-    type: string
-  group: tmax.io
+  - JSONPath: ".status.signerKeyState.created"
+    name: "SIGNER_KEY_CREATED"
+    type: "string"
+  group: "tmax.io"
   names:
-    kind: ImageSigner
-    listKind: ImageSignerList
-    plural: imagesigners
+    kind: "ImageSigner"
+    listKind: "ImageSignerList"
+    plural: "imagesigners"
     shortNames:
-    - is
-    singular: imagesigner
-  scope: Cluster
+    - "is"
+    singular: "imagesigner"
+  scope: "Cluster"
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: ImageSigner is the Schema for the imagesigners API
+      description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema"
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
+          description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.apiVersion"
+          type: "string"
         kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
+          description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.kind"
+          type: "string"
         metadata:
-          type: object
+          type: "object"
         spec:
-          description: ImageSignerSpec defines the desired state of ImageSigner
+          description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.spec"
           properties:
             description:
-              description: Additional information of ImageSigner
-              type: string
+              description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.description"
+              type: "string"
             email:
-              description: ImageSigner's email
-              type: string
+              description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.email"
+              type: "string"
+            name:
+              description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.name"
+              type: "string"
             owner:
-              description: Don't deal with thie field. If Owner field is set or manipulated,
-                could not be recovered.
-              type: string
+              description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.owner"
+              type: "string"
             phone:
-              description: ImageSigner's phone number
-              type: string
+              description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.phone"
+              type: "string"
             team:
-              description: ImageSigner's team
-              type: string
-          type: object
+              description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.spec.properties.team"
+              type: "string"
+          type: "object"
         status:
-          description: ImageSignerStatus defines the observed state of ImageSigner
+          description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.status"
           properties:
             signerKeyState:
-              description: SignerKeyState is ehe status information about whether
-                signer key is created
+              description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.status.properties.signerKeyState"
               properties:
                 created:
-                  description: Whether SignerKey is created
-                  type: boolean
+                  description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.status.properties.signerKeyState.properties.created"
+                  type: "boolean"
                 createdAt:
-                  description: Created time
-                  format: date-time
-                  type: string
+                  description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.status.properties.signerKeyState.properties.createdAt"
+                  format: "date-time"
+                  type: "string"
                 message:
-                  description: Message failed to create SignerKey
-                  type: string
+                  description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.status.properties.signerKeyState.properties.message"
+                  type: "string"
                 reason:
-                  description: Reason failed to create SignerKey
-                  type: string
+                  description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.status.properties.signerKeyState.properties.reason"
+                  type: "string"
                 rootKeyId:
-                  description: SignerKey's root key ID
-                  type: string
-              type: object
-          type: object
-      type: object
-  version: v1
+                  description: "%tmax.io_imagesigners.yaml.spec.validation.openAPIV3Schema.properties.status.properties.signerKeyState.properties.rootKeyId"
+                  type: "string"
+              type: "object"
+          type: "object"
+      type: "object"
+  version: "v1"
   versions:
-  - name: v1
+  - name: "v1"
     served: true
     storage: true
 status:
