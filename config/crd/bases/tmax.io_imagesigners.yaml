@@ -49,7 +49,7 @@ spec:
               description: ImageSigner's email
               type: string
             owner:
-              description: Don't deal with thie field. If Owner field is set or manipulated,
+              description: Don't deal with this field. If Owner field is set or manipulated,
                 could not be recovered.
               type: string
             phone:
