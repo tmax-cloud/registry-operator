@@ -30,7 +30,7 @@ type ImageSignerSpec struct {
 	Team string `json:"team,omitempty"`
 	// Additional information of ImageSigner
 	Description string `json:"description,omitempty"`
-	// Don't deal with thie field. If Owner field is set or manipulated, could not be recovered.
+	// Don't deal with this field. If Owner field is set or manipulated, could not be recovered.
 	Owner string `json:"owner,omitempty"`
 }
 
