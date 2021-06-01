@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/genuinetools/reg/clair"
@@ -178,7 +179,12 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 			e.RegistryURL = "https://registry-1.docker.io"
 		}
 
-		_, err = url.ParseRequestURI(e.RegistryURL)
+		if strings.HasPrefix(e.RegistryURL, "http://") || strings.HasPrefix(e.RegistryURL, "https://") {
+			return fmt.Errorf("registry url must not have protocol(http, https).")
+		}
+
+		targetUrl := "https://" + e.RegistryURL
+		_, err = url.ParseRequestURI(targetUrl)
 		if err != nil {
 			return err
 		}
@@ -194,7 +200,7 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 				return err
 			}
 
-			login, err := imagePullSecret.GetHostCredential(e.RegistryURL)
+			login, err := imagePullSecret.GetHostCredential(targetUrl)
 			if err != nil {
 				return err
 			}
@@ -202,7 +208,7 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 			password = string(login.Password)
 		}
 
-		authCfg, err := repoutils.GetAuthConfig(username, password, e.RegistryURL)
+		authCfg, err := repoutils.GetAuthConfig(username, password, targetUrl)
 		if err != nil {
 			return err
 		}
