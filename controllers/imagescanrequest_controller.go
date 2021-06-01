@@ -183,6 +183,7 @@ func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanReques
 			return fmt.Errorf("registry url must not have protocol(http, https).")
 		}
 
+		// FIXME: needs handle http
 		targetUrl := "https://" + e.RegistryURL
 		_, err = url.ParseRequestURI(targetUrl)
 		if err != nil {
