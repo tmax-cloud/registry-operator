@@ -4,16 +4,14 @@ package scanctl
 type ScanTask struct {
 	// id      string
 	jobs      []*ScanJob
-	OnStart   func(*ScanTask)
 	OnSuccess func(*ScanTask)
 	OnFail    func(error)
 }
 
-func NewScanTask(jobs []*ScanJob, start func(*ScanTask), success func(*ScanTask), fail func(error)) *ScanTask {
+func NewScanTask(jobs []*ScanJob, success func(*ScanTask), fail func(error)) *ScanTask {
 	return &ScanTask{
 		// id:      id,
 		jobs:      jobs,
-		OnStart:   start,
 		OnSuccess: success,
 		OnFail:    fail,
 	}

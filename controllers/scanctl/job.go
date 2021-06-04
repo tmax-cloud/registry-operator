@@ -39,7 +39,6 @@ func (j *ScanJob) MaxVuls() int {
 }
 
 func (j *ScanJob) Run() error {
-
 	isContainsPattern := false
 	for _, image := range j.images {
 		if strings.ContainsAny("*?", image) {
@@ -47,7 +46,6 @@ func (j *ScanJob) Run() error {
 			break
 		}
 	}
-
 	targets := []string{}
 	if isContainsPattern {
 		// FIXME: Not possible in the case of docker.io
@@ -55,7 +53,6 @@ func (j *ScanJob) Run() error {
 		if err != nil {
 			return err
 		}
-
 		for _, repo := range repositories {
 			for _, image := range j.images {
 				if isMatch, _ := regexp.MatchString(convertToRegexp(image), repo); isMatch {
@@ -64,11 +61,9 @@ func (j *ScanJob) Run() error {
 				}
 			}
 		}
-
 	} else {
 		targets = j.images
 	}
-
 	vuls := make(map[string]*clair.VulnerabilityReport, len(j.images))
 	for _, target := range targets {
 		imagePath := path.Join(j.r.Domain, target)
@@ -76,15 +71,12 @@ func (j *ScanJob) Run() error {
 		if err != nil {
 			return err
 		}
-
 		vul, err := j.c.Vulnerabilities(context.TODO(), j.r, img.Path, img.Reference())
 		if err != nil {
 			return err
 		}
-
 		vuls[imagePath] = &vul
 	}
-
 	j.result = vuls
 	return nil
 }
@@ -92,6 +84,5 @@ func (j *ScanJob) Run() error {
 func convertToRegexp(s string) string {
 	c1 := strings.ReplaceAll(s, "?", ".")
 	c2 := strings.ReplaceAll(c1, "*", "[[:alnum:]]")
-
 	return c2
 }
