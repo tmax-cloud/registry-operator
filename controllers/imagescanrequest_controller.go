@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/genuinetools/reg/clair"
@@ -56,8 +57,9 @@ type ImageScanRequestReconciler struct {
 var (
 	worker *scanctl.ScanWorker
 	// FIXME: Remove clair library dependency
-	scanner *clair.Clair
-	verbose = false
+	scanner  *clair.Clair
+	reporter *scanctl.ReportClient
+	verbose  = false
 )
 
 const (
@@ -85,6 +87,14 @@ func init() {
 		Timeout:  timeout,
 		Insecure: config.Config.GetBool("scanning.scanner.insecure"),
 	})
+
+	reporter = scanctl.NewReportClient(config.Config.GetString(config.ConfigImageReportSvr),
+		&http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	)
 }
 
 // +kubebuilder:rbac:groups=tmax.io,resources=imagescanrequests,verbs=get;list;watch;create;update;patch;delete
@@ -142,128 +152,145 @@ func (r *ImageScanRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	return ctrl.Result{}, nil
 }
 
-func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanRequest) error {
-	jobs := []*scanctl.ScanJob{}
-	for _, e := range instance.Spec.ScanTargets {
-		ctx := context.TODO()
-		// FIXME: Is here the right place to get keyclock cert?
-		tlsSecret := &corev1.Secret{}
-		if err := r.Client.Get(ctx, types.NamespacedName{Name: tmaxiov1.RegistryRootCASecretName, Namespace: config.Config.GetString("operator.namespace")}, tlsSecret); err != nil {
-			return fmt.Errorf("TLS Secret not found: %s\n", tmaxiov1.RegistryRootCASecretName)
-		}
-		tlsCertData, err := secrethelper.GetCert(tlsSecret, certs.RootCACert)
-		if err != nil {
-			return err
-		}
-		if len(e.CertificateSecret) > 0 {
-			tlsSecret := &corev1.Secret{}
-			if err := r.Client.Get(ctx, types.NamespacedName{Name: e.CertificateSecret, Namespace: instance.Namespace}, tlsSecret); err != nil {
-				return fmt.Errorf("TLS Secret not found: %s\n", e.CertificateSecret)
-			}
-			privateCertData, err := secrethelper.GetCert(tlsSecret, certs.RootCACert)
-			if err != nil {
-				return err
-			}
-			tlsCertData = append(tlsCertData, []byte("\n")...)
-			tlsCertData = append(tlsCertData, privateCertData...)
-		}
-		username := ""
-		password := ""
-		if strings.HasPrefix(e.RegistryURL, "http://") || strings.HasPrefix(e.RegistryURL, "https://") {
-			return fmt.Errorf("registry url must not have protocol(http, https).")
-		}
-		_, err = url.ParseRequestURI("https://" + e.RegistryURL)
-		if err != nil {
-			return err
-		}
-		if len(e.ImagePullSecret) > 0 {
-			secret := &corev1.Secret{}
-			if err := r.Client.Get(ctx, types.NamespacedName{Name: e.ImagePullSecret, Namespace: instance.Namespace}, secret); err != nil {
-				return fmt.Errorf("ImagePullSecret not found: %s\n", e.ImagePullSecret)
-			}
-			imagePullSecret, err := secrethelper.NewImagePullSecret(secret)
-			if err != nil {
-				return err
-			}
-			login, err := imagePullSecret.GetHostCredential(e.RegistryURL)
-			if err != nil {
-				return err
-			}
-			username = login.Username
-			password = strings.TrimSpace(string(login.Password))
-		}
-		targetURL := e.RegistryURL
-		if targetURL == "docker.io" {
-			targetURL = "https://registry-1.docker.io"
-		}
-		authCfg, err := repoutils.GetAuthConfig(username, password, targetURL)
-		if err != nil {
-			return err
-		}
-		reg, err := secureReg.New(ctx, authCfg, registry.Opt{
-			Insecure: instance.Spec.Insecure,
-			Debug:    verbose,
-			SkipPing: false,
-			Timeout:  timeout,
-		}, tlsCertData)
-		if err != nil {
-			return err
-		}
-		job := scanctl.NewScanJob(reg, scanner, e.Images, instance.Spec.MaxFixable, instance.Spec.SendReport)
-		jobs = append(jobs, job)
+func (r *ImageScanRequestReconciler) getRegistry(ctx context.Context, o *tmaxiov1.ImageScanRequest,
+	t tmaxiov1.ScanTarget) (*registry.Registry, error) {
+	// FIXME: Is here the right place to get keyclock cert?
+	operatorRootCA := types.NamespacedName{
+		Name:      tmaxiov1.RegistryRootCASecretName,
+		Namespace: config.Config.GetString("operator.namespace"),
+	}
+	tlsSecret := &corev1.Secret{}
+	if err := r.Get(ctx, operatorRootCA, tlsSecret); err != nil {
+		return nil, fmt.Errorf("TLS Secret not found: %s\n", tmaxiov1.RegistryRootCASecretName)
 	}
 
-	task := scanctl.NewScanTask(jobs,
-		func(st *scanctl.ScanTask) {
-			// TODO: Load config value from operator config
-			es := scanctl.NewReportClient(config.Config.GetString(config.ConfigImageReportSvr),
-				&http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-					},
-				},
-			)
-			result := map[string]tmaxiov1.ScanResult{}
-			for _, job := range st.Jobs() {
-				for imageName, r := range job.Result() {
-					scanResult := convertReport(r, job.MaxVuls())
-					if job.SendReportEnabled {
-						esReport := tmaxiov1.ImageScanRequestESReport{
-							Image:  imageName,
-							Result: scanResult,
-						}
-						err := es.SendReport(instance.Namespace, &esReport)
-						if err != nil {
-							log.Error(err, "Failed to send report.")
-						}
-					}
-					// Do not update detail on object
-					scanResult.Vulnerabilities = nil
-					result[imageName] = scanResult
-				}
-			}
-			instance.Status.Status = tmaxiov1.ScanRequestSuccess
-			instance.Status.Results = result
-			r.Status().Update(context.TODO(), instance)
-		}, func(err error) {
-			instance.Status.Status = tmaxiov1.ScanRequestFail
-			instance.Status.Message = err.Error()
-			instance.Status.Results = nil
-			r.Status().Update(context.TODO(), instance)
-		})
-	worker.Submit(task)
-	return nil
+	tlsCertData, err := secrethelper.GetCert(tlsSecret, certs.RootCACert)
+	if err != nil {
+		return nil, err
+	}
+	if len(t.CertificateSecret) > 0 {
+		tlsSecret := &corev1.Secret{}
+		if err := r.Get(ctx, types.NamespacedName{Name: t.CertificateSecret, Namespace: o.Namespace}, tlsSecret); err != nil {
+			return nil, fmt.Errorf("TLS Secret not found: %s\n", t.CertificateSecret)
+		}
+		privateCertData, err := secrethelper.GetCert(tlsSecret, certs.RootCACert)
+		if err != nil {
+			return nil, err
+		}
+		tlsCertData = append(tlsCertData, []byte("\n")...)
+		tlsCertData = append(tlsCertData, privateCertData...)
+	}
+	username := ""
+	password := ""
+	if strings.HasPrefix(t.RegistryURL, "http://") || strings.HasPrefix(t.RegistryURL, "https://") {
+		return nil, fmt.Errorf("registry url must not have protocol(http, https).")
+	}
+	_, err = url.ParseRequestURI("https://" + t.RegistryURL)
+	if err != nil {
+		return nil, err
+	}
+	if len(t.ImagePullSecret) > 0 {
+		secret := &corev1.Secret{}
+		if err := r.Client.Get(ctx, types.NamespacedName{Name: t.ImagePullSecret, Namespace: o.Namespace}, secret); err != nil {
+			return nil, fmt.Errorf("ImagePullSecret not found: %s\n", t.ImagePullSecret)
+		}
+		imagePullSecret, err := secrethelper.NewImagePullSecret(secret)
+		if err != nil {
+			return nil, err
+		}
+		login, err := imagePullSecret.GetHostCredential(t.RegistryURL)
+		if err != nil {
+			return nil, err
+		}
+		username = login.Username
+		password = strings.TrimSpace(string(login.Password))
+	}
+	targetURL := t.RegistryURL
+	if targetURL == "docker.io" {
+		targetURL = "https://registry-1.docker.io"
+	}
+	authCfg, err := repoutils.GetAuthConfig(username, password, targetURL)
+	if err != nil {
+		return nil, err
+	}
+	reg, err := secureReg.New(ctx, authCfg, registry.Opt{
+		Insecure: o.Spec.Insecure,
+		//Debug:    verbose,
+		//SkipPing: false,
+		Debug:    false,
+		SkipPing: true,
+		Timeout:  timeout,
+	}, tlsCertData)
+	if err != nil {
+		return nil, err
+	}
+	return reg, nil
 }
 
-func (r *ImageScanRequestReconciler) updateStatus(instance *tmaxiov1.ImageScanRequest, status tmaxiov1.ScanRequestStatusType, msg string, results map[string]tmaxiov1.ScanResult) error {
-	instance.Status.Status = status
-	if len(msg) > 0 {
-		instance.Status.Message = msg
+func (r *ImageScanRequestReconciler) doRecept(o *tmaxiov1.ImageScanRequest) error {
+	ctx, cancel := context.WithCancel(context.TODO())
+	_ = r.Log.WithValues("namespace", o.Namespace, "name", o.Name)
+
+	var wgErr error
+	wg := new(sync.WaitGroup)
+	if o.Status.Results == nil {
+		o.Status.Results = map[string]tmaxiov1.ScanResult{}
 	}
-	if results != nil {
-		instance.Status.Results = results
+
+	for _, e := range o.Spec.ScanTargets {
+		reg, err := r.getRegistry(ctx, o, e)
+		if err != nil {
+			wgErr = err
+			cancel()
+			break
+		}
+
+		for _, image := range e.Images {
+			wg.Add(1)
+			go func(repo string) {
+				defer wg.Done()
+				imagePath := path.Join(reg.Domain, repo)
+				img, err := registry.ParseImage(imagePath)
+				if err != nil {
+					wgErr = err
+					cancel()
+				}
+				vul, err := scanner.Vulnerabilities(ctx, reg, img.Path, img.Reference())
+				if err != nil {
+					wgErr = err
+					cancel()
+				}
+				scanResult := convertReport(&vul, o.Spec.MaxFixable)
+				if o.Spec.SendReport {
+					esReport := tmaxiov1.ImageScanRequestESReport{
+						Image:  imagePath,
+						Result: scanResult,
+					}
+					err := reporter.SendReport(o.Namespace, &esReport)
+					if err != nil {
+						wgErr = err
+						cancel()
+					}
+				}
+				// Do not update detail on object
+				scanResult.Vulnerabilities = nil
+				o.Status.Results[imagePath] = scanResult
+			}(image)
+		}
 	}
-	return r.Status().Update(context.TODO(), instance)
+
+	go func() {
+		wg.Wait()
+		if wgErr == nil {
+			o.Status.Status = tmaxiov1.ScanRequestSuccess
+		} else {
+			o.Status.Status = tmaxiov1.ScanRequestFail
+			o.Status.Message = wgErr.Error()
+		}
+		r.Status().Update(ctx, o)
+	}()
+
+	return nil
 }
 
 func (r *ImageScanRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -320,25 +347,35 @@ func validate(instance *tmaxiov1.ImageScanRequest) error {
 	if instance.Spec.MaxFixable < 0 {
 		return fmt.Errorf(".Spec.MaxFixable cannot be negative")
 	}
+
+	for _, target := range instance.Spec.ScanTargets {
+		for _, image := range target.Images {
+			imagepath := path.Join(target.RegistryURL, image)
+			_, err := registry.ParseImage(imagepath)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
 func isImageListSameBetweenSpecAndStatus(instance *tmaxiov1.ImageScanRequest) bool {
-	scanTargetImgs := []string{}
+	targetImagePaths := []string{}
 	for _, target := range instance.Spec.ScanTargets {
+		registryURL := target.RegistryURL
+		if target.RegistryURL == "docker.io" {
+			registryURL = "registry-1.docker.io"
+		}
 		for _, imgName := range target.Images {
-			scanTargetImgs = append(scanTargetImgs, path.Join(target.RegistryURL, imgName))
+			targetImagePaths = append(targetImagePaths, path.Join(registryURL, imgName))
 		}
 	}
-	for _, imgPath := range scanTargetImgs {
-		isMatching := false
-		for resImgName, _ := range instance.Status.Results {
-			if imgPath == resImgName {
-				isMatching = true
-				break
-			}
-		}
-		if !isMatching {
+	if len(targetImagePaths) != len(instance.Status.Results) {
+		return false
+	}
+	for _, imagePath := range targetImagePaths {
+		if _, ok := instance.Status.Results[imagePath]; !ok {
 			return false
 		}
 	}
