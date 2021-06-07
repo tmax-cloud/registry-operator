@@ -252,19 +252,7 @@ func (r *ImageScanRequestReconciler) doRecept(o *tmaxiov1.ImageScanRequest) erro
 			}
 			logger.Info("registry ok...")
 
-			//var resolveds []string
-			//for _, image := range e.Images {
-			//	resolvedPaths, err := resolveImagePath(ctx, reg, image)
-			//	if err != nil {
-			//		wgErr = err
-			//		cancel()
-			//		return
-			//	}
-			//	resolveds = append(resolveds, resolvedPaths...)
-			//}
-			//logger.Info("resolved path: " + strings.Join(resolveds, ","))
-
-			for _, imagePath := range st.Images {
+			for _, imagePath := range e.Images {
 				imagePath = path.Join(reg.Domain, imagePath)
 				img, err := registry.ParseImage(imagePath)
 				if err != nil {
