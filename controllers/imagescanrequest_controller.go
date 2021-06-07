@@ -56,7 +56,6 @@ type ImageScanRequestReconciler struct {
 }
 
 var (
-	worker *scanctl.ScanWorker
 	// FIXME: Remove clair library dependency
 	scanner  *clair.Clair
 	reporter *scanctl.ReportClient
@@ -64,15 +63,11 @@ var (
 )
 
 const (
-	requestQueueSize = 100
-	nWorkers         = 5
-	timeout          = time.Second * 30
+	timeout = time.Second * 30
 )
 
 func init() {
 	// TODO: Load value from operator config
-	worker = scanctl.NewScanWorker(requestQueueSize, nWorkers)
-	worker.Start()
 	// FIXME: Promote using ENV env to operator scope
 	switch os.Getenv("ENV") {
 	case "dev":
