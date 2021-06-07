@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -124,6 +125,13 @@ func (r *ImageScanRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 			r.Status().Update(ctx, instance)
 			return ctrl.Result{}, err
 		}
+		if err = r.mutate(instance); err != nil {
+			instance.Status.Status = tmaxiov1.ScanRequestError
+			instance.Status.Message = err.Error()
+			r.Status().Update(ctx, instance)
+			return ctrl.Result{}, err
+		}
+		r.Update(ctx, instance)
 		instance.Status.Status = tmaxiov1.ScanRequestPending
 		r.Status().Update(ctx, instance)
 	case tmaxiov1.ScanRequestPending:
@@ -140,10 +148,8 @@ func (r *ImageScanRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	case tmaxiov1.ScanRequestSuccess:
 		logger.Info("finished job...")
 		if !isImageListSameBetweenSpecAndStatus(instance) {
-			logger.Info("spec and status image list not same.")
 			instance.Status.Status = ""
 			instance.Status.Message = ""
-			instance.Status.Results = nil
 			r.Status().Update(ctx, instance)
 		}
 	case tmaxiov1.ScanRequestFail:
@@ -229,37 +235,53 @@ func (r *ImageScanRequestReconciler) getRegistry(ctx context.Context, o *tmaxiov
 
 func (r *ImageScanRequestReconciler) doRecept(o *tmaxiov1.ImageScanRequest) error {
 	ctx, cancel := context.WithCancel(context.TODO())
-	_ = r.Log.WithValues("namespace", o.Namespace, "name", o.Name)
+	logger := r.Log.WithValues("namespace", o.Namespace, "name", o.Name)
 
 	var wgErr error
 	wg := new(sync.WaitGroup)
-	if o.Status.Results == nil {
-		o.Status.Results = map[string]tmaxiov1.ScanResult{}
-	}
 
-	for _, e := range o.Spec.ScanTargets {
-		reg, err := r.getRegistry(ctx, o, e)
-		if err != nil {
-			wgErr = err
-			cancel()
-			break
-		}
+	for _, st := range o.Spec.ScanTargets {
+		wg.Add(1)
+		go func(e tmaxiov1.ScanTarget) {
+			defer wg.Done()
 
-		for _, image := range e.Images {
-			wg.Add(1)
-			go func(repo string) {
-				defer wg.Done()
-				imagePath := path.Join(reg.Domain, repo)
+			reg, err := r.getRegistry(ctx, o, e)
+			if err != nil {
+				wgErr = err
+				cancel()
+				return
+			}
+			logger.Info("got registry client...")
+
+			//var resolveds []string
+			//for _, image := range e.Images {
+			//	resolvedPaths, err := resolveImagePath(ctx, reg, image)
+			//	if err != nil {
+			//		wgErr = err
+			//		cancel()
+			//		return
+			//	}
+			//	resolveds = append(resolveds, resolvedPaths...)
+			//}
+			//logger.Info("resolved path: " + strings.Join(resolveds, ","))
+
+			for _, imagePath := range st.Images {
+				imagePath = path.Join(reg.Domain, imagePath)
 				img, err := registry.ParseImage(imagePath)
 				if err != nil {
 					wgErr = err
 					cancel()
+					return
 				}
-				vul, err := scanner.Vulnerabilities(ctx, reg, img.Path, img.Reference())
+				logger.Info("start scan: " + reg.Domain + "/" + img.Path + ":" + img.Tag)
+				vul, err := scanner.Vulnerabilities(ctx, reg, img.Path, img.Tag)
 				if err != nil {
 					wgErr = err
 					cancel()
+					return
 				}
+				logger.Info("scanning complete... report result")
+
 				scanResult := convertReport(&vul, o.Spec.MaxFixable)
 				if o.Spec.SendReport {
 					esReport := tmaxiov1.ImageScanRequestESReport{
@@ -270,24 +292,32 @@ func (r *ImageScanRequestReconciler) doRecept(o *tmaxiov1.ImageScanRequest) erro
 					if err != nil {
 						wgErr = err
 						cancel()
+						return
 					}
+					logger.Info("report complete... update status")
 				}
-				// Do not update detail on object
+				// Do not update detail on cr
 				scanResult.Vulnerabilities = nil
+				if o.Status.Results == nil {
+					o.Status.Results = map[string]tmaxiov1.ScanResult{}
+				}
 				o.Status.Results[imagePath] = scanResult
-			}(image)
-		}
+			}
+		}(st)
 	}
 
 	go func() {
+		logger.Info("wait scanning...")
 		wg.Wait()
 		if wgErr == nil {
+			logger.Info("update to success")
 			o.Status.Status = tmaxiov1.ScanRequestSuccess
 		} else {
+			logger.Info("update to failed with " + wgErr.Error())
 			o.Status.Status = tmaxiov1.ScanRequestFail
 			o.Status.Message = wgErr.Error()
 		}
-		r.Status().Update(ctx, o)
+		r.Status().Update(context.TODO(), o)
 	}()
 
 	return nil
@@ -297,6 +327,61 @@ func (r *ImageScanRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&tmaxiov1.ImageScanRequest{}).
 		Complete(r)
+}
+
+func resolveImagePath(ctx context.Context, reg *registry.Registry, image string) ([]string, error) {
+	resolved := []string{}
+
+	var repo, tag string
+	isTagExist := false
+	if strings.Contains(image, ":") {
+		isTagExist = true
+		t := strings.Split(image, ":")
+		repo = t[0]
+		tag = t[1]
+	} else {
+		repo = image
+	}
+
+	matchingRepos := []string{}
+	if strings.ContainsAny("*?", repo) {
+		// FIXME: Not possible in the case of docker.io
+		catalog, err := reg.Catalog(ctx, "")
+		if err != nil {
+			return nil, err
+		}
+		for _, c := range catalog {
+			if isMatch, _ := regexp.MatchString(convertToRegexp(repo), c); isMatch {
+				matchingRepos = append(matchingRepos, c)
+			}
+		}
+	} else {
+		matchingRepos = append(matchingRepos, repo)
+	}
+
+	if isTagExist {
+		for _, r := range matchingRepos {
+			resolved = append(resolved, strings.Join([]string{r, tag}, ":"))
+		}
+	} else {
+		for _, r := range matchingRepos {
+			tags, err := reg.Tags(ctx, r)
+			if err != nil {
+				return nil, err
+			}
+			for _, t := range tags {
+				resolved = append(resolved, strings.Join([]string{r, t}, ":"))
+			}
+		}
+	}
+
+	return resolved, nil
+}
+
+func convertToRegexp(s string) string {
+	c1 := strings.ReplaceAll(s, "?", ".")
+	c2 := strings.ReplaceAll(c1, "*", "[[:alnum:]]")
+	return c2
 }
 
 func convertReport(reports *clair.VulnerabilityReport, threshold int) (ret tmaxiov1.ScanResult) {
@@ -357,6 +442,28 @@ func validate(instance *tmaxiov1.ImageScanRequest) error {
 			}
 		}
 	}
+	return nil
+}
+
+func (r *ImageScanRequestReconciler) mutate(o *tmaxiov1.ImageScanRequest) error {
+	ctx := context.TODO()
+	for idx, st := range o.Spec.ScanTargets {
+		reg, err := r.getRegistry(ctx, o, st)
+		if err != nil {
+			return err
+		}
+
+		var resolveds []string
+		for _, image := range st.Images {
+			resolvedPaths, err := resolveImagePath(ctx, reg, image)
+			if err != nil {
+				return err
+			}
+			resolveds = append(resolveds, resolvedPaths...)
+		}
+		o.Spec.ScanTargets[idx].Images = resolveds
+	}
+
 	return nil
 }
 
