@@ -23,7 +23,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
+	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/genuinetools/reg/clair"
@@ -53,23 +56,18 @@ type ImageScanRequestReconciler struct {
 }
 
 var (
-	worker *scanctl.ScanWorker
 	// FIXME: Remove clair library dependency
-	scanner *clair.Clair
-	verbose = false
+	scanner  *clair.Clair
+	reporter *scanctl.ReportClient
+	verbose  = false
 )
 
 const (
-	requestQueueSize = 100
-	nWorkers         = 5
-	timeout          = time.Second * 30
+	timeout = time.Second * 30
 )
 
 func init() {
 	// TODO: Load value from operator config
-	worker = scanctl.NewScanWorker(requestQueueSize, nWorkers)
-	worker.Start()
-
 	// FIXME: Promote using ENV env to operator scope
 	switch os.Getenv("ENV") {
 	case "dev":
@@ -79,24 +77,31 @@ func init() {
 	default:
 		verbose = true
 	}
-
 	// FIXME: Regenerate instance on change manager config
 	scanner, _ = clair.New(config.Config.GetString(config.ConfigImageScanSvr), clair.Opt{
 		Debug:    verbose,
 		Timeout:  timeout,
 		Insecure: config.Config.GetBool("scanning.scanner.insecure"),
 	})
+
+	reporter = scanctl.NewReportClient(config.Config.GetString(config.ConfigImageReportSvr),
+		&http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	)
 }
 
 // +kubebuilder:rbac:groups=tmax.io,resources=imagescanrequests,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=tmax.io,resources=imagescanrequests/status,verbs=get;update;patch
 
 func (r *ImageScanRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	logger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	logger.Info("Reconciling Scanning")
+	ctx := context.Background()
+	logger := r.Log.WithValues("namespace", req.Namespace, "name", req.Name)
 
 	instance := &tmaxiov1.ImageScanRequest{}
-	err := r.Client.Get(context.TODO(), req.NamespacedName, instance)
+	err := r.Client.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -107,190 +112,208 @@ func (r *ImageScanRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, err
 	}
-
 	switch instance.Status.Status {
 	case "":
-		err = r.doRecept(instance)
+		if err = r.mutate(instance); err != nil {
+			instance.Status.Status = tmaxiov1.ScanRequestError
+			instance.Status.Message = err.Error()
+			err = r.Status().Update(ctx, instance)
+			return ctrl.Result{}, err
+		}
+		if err = validate(instance); err != nil {
+			instance.Status.Status = tmaxiov1.ScanRequestError
+			instance.Status.Message = err.Error()
+			err = r.Status().Update(ctx, instance)
+			return ctrl.Result{}, err
+		}
+		if err = r.Update(ctx, instance); err != nil {
+			logger.Error(err, "failed to update resolved image list")
+			return ctrl.Result{}, err
+		}
+		instance.Status.Status = tmaxiov1.ScanRequestPending
+		err = r.Status().Update(ctx, instance)
 	case tmaxiov1.ScanRequestPending:
-		logger.Info("Already pending request...")
-		// XXX: Cancel job?
-		// return ctrl.Result{Requeue: true}, nil
+		if err = r.doRecept(instance); err != nil {
+			instance.Status.Status = tmaxiov1.ScanRequestError
+			instance.Status.Message = err.Error()
+			err = r.Status().Update(ctx, instance)
+			return ctrl.Result{}, err
+		}
+		instance.Status.Status = tmaxiov1.ScanRequestProcessing
+		err = r.Status().Update(ctx, instance)
 	case tmaxiov1.ScanRequestProcessing:
-		logger.Info("Already in procssing...")
-		// return ctrl.Result{Requeue: true}, nil
+		logger.Info("already in procssing...")
 	case tmaxiov1.ScanRequestSuccess:
-		logger.Info("Already Success request")
-		// err = r.doRecept(instance)
+		logger.Info("finished job...")
+		if !isImageListSameBetweenSpecAndStatus(instance) {
+			instance.Status.Status = ""
+			instance.Status.Message = ""
+			if err = r.Status().Update(ctx, instance); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
 	case tmaxiov1.ScanRequestFail:
-		logger.Info("Already Failed request")
-		// err = r.doRecept(instance)
+		logger.Info("failed job...")
 	}
-
 	if err != nil {
-		logger.Error(err, "")
-		_ = r.updateStatus(instance, tmaxiov1.ScanRequestError, err.Error(), nil)
+		logger.Error(err, "error occurred...")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *ImageScanRequestReconciler) doRecept(instance *tmaxiov1.ImageScanRequest) error {
-
-	// validation phase
-	// TODO: Move this to validation webhook
-	if instance.Spec.MaxFixable < 0 {
-		return fmt.Errorf("fixable threshold must be a positive integer")
+func (r *ImageScanRequestReconciler) getRegistry(ctx context.Context, o *tmaxiov1.ImageScanRequest,
+	t tmaxiov1.ScanTarget) (*registry.Registry, error) {
+	// FIXME: Is here the right place to get keyclock cert?
+	operatorRootCA := types.NamespacedName{
+		Name:      tmaxiov1.RegistryRootCASecretName,
+		Namespace: config.Config.GetString("operator.namespace"),
+	}
+	tlsSecret := &corev1.Secret{}
+	if err := r.Get(ctx, operatorRootCA, tlsSecret); err != nil {
+		return nil, fmt.Errorf("TLS Secret not found: %s\n", tmaxiov1.RegistryRootCASecretName)
 	}
 
-	// preprocess phase
-	jobs := []*scanctl.ScanJob{}
-	for _, e := range instance.Spec.ScanTargets {
-		ctx := context.TODO()
-
-		// FIXME: Is here the right place to get keyclock cert?
+	tlsCertData, err := secrethelper.GetCert(tlsSecret, certs.RootCACert)
+	if err != nil {
+		return nil, err
+	}
+	if len(t.CertificateSecret) > 0 {
 		tlsSecret := &corev1.Secret{}
-		if err := r.Client.Get(ctx, types.NamespacedName{Name: tmaxiov1.RegistryRootCASecretName, Namespace: config.Config.GetString("operator.namespace")}, tlsSecret); err != nil {
-			return fmt.Errorf("TLS Secret not found: %s\n", tmaxiov1.RegistryRootCASecretName)
+		if err := r.Get(ctx, types.NamespacedName{Name: t.CertificateSecret, Namespace: o.Namespace}, tlsSecret); err != nil {
+			return nil, fmt.Errorf("TLS Secret not found: %s\n", t.CertificateSecret)
 		}
-		tlsCertData, err := secrethelper.GetCert(tlsSecret, certs.RootCACert)
+		privateCertData, err := secrethelper.GetCert(tlsSecret, certs.RootCACert)
 		if err != nil {
-			return err
+			return nil, err
 		}
-
-		if len(e.CertificateSecret) > 0 {
-			tlsSecret := &corev1.Secret{}
-			if err := r.Client.Get(ctx, types.NamespacedName{Name: e.CertificateSecret, Namespace: instance.Namespace}, tlsSecret); err != nil {
-				return fmt.Errorf("TLS Secret not found: %s\n", e.CertificateSecret)
-			}
-
-			privateCertData, err := secrethelper.GetCert(tlsSecret, certs.RootCACert)
-			if err != nil {
-				return err
-			}
-
-			tlsCertData = append(tlsCertData, []byte("\n")...)
-			tlsCertData = append(tlsCertData, privateCertData...)
-		}
-
-		username := ""
-		password := ""
-		// XXX: Is it right default docker.io when empty registry url?
-		if len(e.RegistryURL) == 0 || e.RegistryURL == "docker.io" {
-			e.RegistryURL = "https://registry-1.docker.io"
-		}
-
-		if strings.HasPrefix(e.RegistryURL, "http://") || strings.HasPrefix(e.RegistryURL, "https://") {
-			return fmt.Errorf("registry url must not have protocol(http, https).")
-		}
-
-		// FIXME: needs handle http
-		targetUrl := "https://" + e.RegistryURL
-		_, err = url.ParseRequestURI(targetUrl)
-		if err != nil {
-			return err
-		}
-
-		if len(e.ImagePullSecret) > 0 {
-			secret := &corev1.Secret{}
-			if err := r.Client.Get(ctx, types.NamespacedName{Name: e.ImagePullSecret, Namespace: instance.Namespace}, secret); err != nil {
-				return fmt.Errorf("ImagePullSecret not found: %s\n", e.ImagePullSecret)
-			}
-
-			imagePullSecret, err := secrethelper.NewImagePullSecret(secret)
-			if err != nil {
-				return err
-			}
-
-			login, err := imagePullSecret.GetHostCredential(targetUrl)
-			if err != nil {
-				return err
-			}
-			username = login.Username
-			password = string(login.Password)
-		}
-
-		authCfg, err := repoutils.GetAuthConfig(username, password, targetUrl)
-		if err != nil {
-			return err
-		}
-
-		r, err := secureReg.New(context.TODO(), authCfg, registry.Opt{
-			Insecure: instance.Spec.Insecure,
-			Debug:    verbose,
-			SkipPing: false,
-			Timeout:  timeout,
-		}, tlsCertData)
-		if err != nil {
-			return err
-		}
-
-		job := scanctl.NewScanJob(r, scanner, e.Images, instance.Spec.MaxFixable, instance.Spec.SendReport)
-		jobs = append(jobs, job)
+		tlsCertData = append(tlsCertData, []byte("\n")...)
+		tlsCertData = append(tlsCertData, privateCertData...)
 	}
-
-	// TODO: Load config value from operator config
-	es := scanctl.NewReportClient(config.Config.GetString(config.ConfigImageReportSvr),
-		&http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
-	)
-
-	task := scanctl.NewScanTask(jobs,
-		func(st *scanctl.ScanTask) {
-			_ = r.updateStatus(instance, tmaxiov1.ScanRequestProcessing, "", nil)
-		}, func(st *scanctl.ScanTask) {
-
-			result := map[string]tmaxiov1.ScanResult{}
-
-			for _, job := range st.Jobs() {
-				for imageName, r := range job.Result() {
-
-					scanResult := convertReport(r, job.MaxVuls())
-
-					if job.SendReportEnabled {
-						esReport := tmaxiov1.ImageScanRequestESReport{
-							Image:  imageName,
-							Result: scanResult,
-						}
-
-						err := es.SendReport(instance.Namespace, &esReport)
-						if err != nil {
-							log.Error(err, "Failed to send report.")
-						}
-					}
-
-					// Do not update detail on object
-					scanResult.Vulnerabilities = nil
-					result[imageName] = scanResult
-				}
-			}
-
-			_ = r.updateStatus(instance, tmaxiov1.ScanRequestSuccess, "success", result)
-
-		}, func(err error) {
-			_ = r.updateStatus(instance, tmaxiov1.ScanRequestFail, err.Error(), nil)
-		})
-
-	worker.Submit(task)
-	_ = r.updateStatus(instance, tmaxiov1.ScanRequestPending, "", nil)
-
-	return nil
+	username := ""
+	password := ""
+	if strings.HasPrefix(t.RegistryURL, "http://") || strings.HasPrefix(t.RegistryURL, "https://") {
+		return nil, fmt.Errorf("registry url must not have protocol(http, https).")
+	}
+	_, err = url.ParseRequestURI("https://" + t.RegistryURL)
+	if err != nil {
+		return nil, err
+	}
+	if len(t.ImagePullSecret) > 0 {
+		secret := &corev1.Secret{}
+		if err := r.Client.Get(ctx, types.NamespacedName{Name: t.ImagePullSecret, Namespace: o.Namespace}, secret); err != nil {
+			return nil, fmt.Errorf("ImagePullSecret not found: %s\n", t.ImagePullSecret)
+		}
+		imagePullSecret, err := secrethelper.NewImagePullSecret(secret)
+		if err != nil {
+			return nil, err
+		}
+		login, err := imagePullSecret.GetHostCredential(t.RegistryURL)
+		if err != nil {
+			return nil, err
+		}
+		username = login.Username
+		password = strings.TrimSpace(string(login.Password))
+	}
+	targetURL := t.RegistryURL
+	if targetURL == "docker.io" {
+		targetURL = "https://registry-1.docker.io"
+	}
+	authCfg, err := repoutils.GetAuthConfig(username, password, targetURL)
+	if err != nil {
+		return nil, err
+	}
+	reg, err := secureReg.New(ctx, authCfg, registry.Opt{
+		Insecure: o.Spec.Insecure,
+		Debug:    verbose,
+		SkipPing: false,
+		//Debug:    false,
+		//SkipPing: true,
+		Timeout: timeout,
+	}, tlsCertData)
+	if err != nil {
+		return nil, err
+	}
+	return reg, nil
 }
 
-func (r *ImageScanRequestReconciler) updateStatus(instance *tmaxiov1.ImageScanRequest, status tmaxiov1.ScanRequestStatusType, msg string, results map[string]tmaxiov1.ScanResult) error {
-	original := instance.DeepCopy()
+func (r *ImageScanRequestReconciler) doRecept(o *tmaxiov1.ImageScanRequest) error {
+	ctx, cancel := context.WithCancel(context.TODO())
+	logger := r.Log.WithValues("namespace", o.Namespace, "name", o.Name)
 
-	instance.Status.Status = status
-	if len(msg) > 0 {
-		instance.Status.Message = msg
-	}
-	if results != nil {
-		instance.Status.Results = results
+	var wgErr error
+	wg := new(sync.WaitGroup)
+
+	for _, st := range o.Spec.ScanTargets {
+		wg.Add(1)
+		go func(e tmaxiov1.ScanTarget) {
+			defer wg.Done()
+			reg, err := r.getRegistry(ctx, o, e)
+			if err != nil {
+				wgErr = err
+				cancel()
+				return
+			}
+			logger.Info("registry ok...")
+
+			for _, imagePath := range e.Images {
+				imagePath = path.Join(reg.Domain, imagePath)
+				img, err := registry.ParseImage(imagePath)
+				if err != nil {
+					wgErr = err
+					cancel()
+					return
+				}
+				logger.Info("start scan: " + reg.Domain + "/" + img.Path + ":" + img.Tag)
+				vul, err := scanner.Vulnerabilities(ctx, reg, img.Path, img.Tag)
+				if err != nil {
+					wgErr = err
+					cancel()
+					return
+				}
+				logger.Info("scanning complete...")
+
+				scanResult := convertReport(&vul, o.Spec.MaxFixable)
+				if o.Spec.SendReport {
+					logger.Info("start report...")
+					esReport := tmaxiov1.ImageScanRequestESReport{
+						Image:  imagePath,
+						Result: scanResult,
+					}
+					err := reporter.SendReport(o.Namespace, &esReport)
+					if err != nil {
+						wgErr = err
+						cancel()
+						return
+					}
+					logger.Info("report complete...")
+				}
+				// Do not update detail on cr
+				scanResult.Vulnerabilities = nil
+				if o.Status.Results == nil {
+					o.Status.Results = map[string]tmaxiov1.ScanResult{}
+				}
+				o.Status.Results[imagePath] = scanResult
+			}
+		}(st)
 	}
 
-	return r.Client.Status().Patch(context.TODO(), instance, client.MergeFrom(original))
+	go func() {
+		wg.Wait()
+		cancel()
+		if wgErr == nil {
+			o.Status.Status = tmaxiov1.ScanRequestSuccess
+		} else {
+			o.Status.Status = tmaxiov1.ScanRequestFail
+			o.Status.Message = wgErr.Error()
+		}
+		if err := r.Status().Update(context.TODO(), o); err != nil {
+			logger.Error(err, "failed to update status after scanning")
+		}
+	}()
+
+	return nil
 }
 
 func (r *ImageScanRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -299,30 +322,77 @@ func (r *ImageScanRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+func resolveImagePath(ctx context.Context, reg *registry.Registry, image string) ([]string, error) {
+	resolved := []string{}
+
+	var repo, tag string
+	isTagExist := false
+	if strings.Contains(image, ":") {
+		isTagExist = true
+		t := strings.Split(image, ":")
+		repo = t[0]
+		tag = t[1]
+	} else {
+		repo = image
+	}
+
+	matchingRepos := []string{}
+	if strings.ContainsAny("*?", repo) {
+		// FIXME: Not possible in the case of docker.io
+		catalog, err := reg.Catalog(ctx, "")
+		if err != nil {
+			return nil, err
+		}
+
+		for _, c := range catalog {
+			if isMatch, _ := regexp.MatchString(convertToRegexp(repo), c); isMatch {
+				matchingRepos = append(matchingRepos, c)
+			}
+		}
+	} else {
+		matchingRepos = append(matchingRepos, repo)
+	}
+
+	if isTagExist {
+		for _, r := range matchingRepos {
+			resolved = append(resolved, strings.Join([]string{r, tag}, ":"))
+		}
+	} else {
+		for _, r := range matchingRepos {
+			tags, err := reg.Tags(ctx, r)
+			if err != nil {
+				return nil, err
+			}
+			for _, t := range tags {
+				resolved = append(resolved, strings.Join([]string{r, t}, ":"))
+			}
+		}
+	}
+
+	return resolved, nil
+}
+
+func convertToRegexp(s string) string {
+	c1 := strings.ReplaceAll(s, "?", "[a-zA-Z0-9-_]")
+	c2 := strings.ReplaceAll(c1, "*", "[a-zA-Z0-9-_]*")
+	return "^" + c2
+}
+
 func convertReport(reports *clair.VulnerabilityReport, threshold int) (ret tmaxiov1.ScanResult) {
-
 	SeverityNames := []string{"Unknown", "Negligible", "Low", "Medium", "High", "Critical", "Defcon1"}
-
 	summary := map[string]int{}
 	fatal := []string{}
 	vuls := map[string]tmaxiov1.Vulnerabilities{}
-
 	// FIXME: Load maxBadVuls value from manager.config
 	maxBadVuls := 10
 	nBadVuls := 0
-
 	for _, n := range SeverityNames {
 		summary[n] = 0
 	}
-
 	for severity, vulnerabilityList := range reports.VulnsBySeverity {
-		//
 		summary[severity] = len(vulnerabilityList)
-
-		//
 		vul := tmaxiov1.Vulnerabilities{}
 		for _, v := range vulnerabilityList {
-
 			vul = append(vul, tmaxiov1.Vulnerability{
 				Name:          v.Name,
 				NamespaceName: v.NamespaceName,
@@ -334,24 +404,88 @@ func convertReport(reports *clair.VulnerabilityReport, threshold int) (ret tmaxi
 			})
 		}
 		vuls[severity] = vul
-
 		// Count the number of bad vulnerability
 		if severity == "High" || severity == "Critical" || severity == "Defcon1" {
 			nBadVuls++
 		}
 	}
-
 	if fixable, ok := reports.VulnsBySeverity["Fixable"]; ok && len(fixable) > threshold {
 		fatal = append(fatal, fmt.Sprintf("%d fixable vulnerabilities found", len(fixable)))
 	}
-
 	if nBadVuls > maxBadVuls {
 		fatal = append(fatal, fmt.Sprintf("%d bad vulnerabilities found", nBadVuls))
 	}
-
 	return tmaxiov1.ScanResult{
 		Summary:         summary,
 		Fatal:           fatal,
 		Vulnerabilities: vuls,
 	}
+}
+
+func validate(instance *tmaxiov1.ImageScanRequest) error {
+	if instance.Spec.MaxFixable < 0 {
+		return fmt.Errorf(".Spec.MaxFixable cannot be negative")
+	}
+
+	for _, target := range instance.Spec.ScanTargets {
+		for _, image := range target.Images {
+			imagepath := path.Join(target.RegistryURL, image)
+			_, err := registry.ParseImage(imagepath)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (r *ImageScanRequestReconciler) mutate(o *tmaxiov1.ImageScanRequest) error {
+	ctx := context.TODO()
+	logger := r.Log.WithValues("namespace", o.Namespace, "name", o.Name)
+
+	for idx, st := range o.Spec.ScanTargets {
+		reg, err := r.getRegistry(ctx, o, st)
+		if err != nil {
+			return err
+		}
+
+		var resolveds []string
+		for _, image := range st.Images {
+			resolvedPaths, err := resolveImagePath(ctx, reg, image)
+			if err != nil {
+				logger.Error(err, "failed to resolve image"+image)
+				return err
+			}
+			resolveds = append(resolveds, resolvedPaths...)
+		}
+		o.Spec.ScanTargets[idx].Images = resolveds
+	}
+
+	return nil
+}
+
+func isImageListSameBetweenSpecAndStatus(instance *tmaxiov1.ImageScanRequest) bool {
+	targetImagePaths := []string{}
+	for _, target := range instance.Spec.ScanTargets {
+		registryURL := target.RegistryURL
+		if target.RegistryURL == "docker.io" {
+			registryURL = "registry-1.docker.io"
+		}
+		for _, imgName := range target.Images {
+			//  in case of changing manually
+			if strings.ContainsAny("*?", imgName) {
+				return false
+			}
+			targetImagePaths = append(targetImagePaths, path.Join(registryURL, imgName))
+		}
+	}
+	if len(targetImagePaths) != len(instance.Status.Results) {
+		return false
+	}
+	for _, imagePath := range targetImagePaths {
+		if _, ok := instance.Status.Results[imagePath]; !ok {
+			return false
+		}
+	}
+	return true
 }

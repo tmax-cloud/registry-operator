@@ -17,7 +17,6 @@ type ReportClient struct {
 }
 
 func NewReportClient(url string, transport *http.Transport) *ReportClient {
-
 	return &ReportClient{
 		serverUrl: url,
 		client: &http.Client{
@@ -27,7 +26,6 @@ func NewReportClient(url string, transport *http.Transport) *ReportClient {
 }
 
 func (c *ReportClient) SendReport(namespace string, report *tmaxiov1.ImageScanRequestESReport) error {
-
 	index := "image-scanning-" + namespace
 	doc := strings.ReplaceAll(report.Image, "/", "_")
 	endpoint := fmt.Sprintf("%s/%s/_doc/%s", c.serverUrl, index, doc)

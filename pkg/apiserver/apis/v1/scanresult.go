@@ -317,7 +317,7 @@ func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultRespons
 		imageURL = strings.Join([]string{imageURL, tag}, ":")
 	}
 
-	image, err := registry.ParseImage(imageURL)
+	img, err := registry.ParseImage(imageURL)
 	if err != nil {
 		log.Error(err, "failed to parse image")
 		return nil, err
@@ -343,9 +343,9 @@ func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultRespons
 
 	log.Info(fmt.Sprintf("*** registry: %s/ clair: %s", r.URL, cr.URL))
 
-	report := clair.VulnerabilityReport{}
 	// Get the vulnerability report.
-	if report, err = cr.Vulnerabilities(ctx, r, image.Path, image.Reference()); err != nil {
+	report, err := cr.Vulnerabilities(ctx, r, img.Path, img.Reference())
+	if err != nil {
 		log.Error(err, "failed to get image vulnerabilities")
 		return nil, err
 	}
