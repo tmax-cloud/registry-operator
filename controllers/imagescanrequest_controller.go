@@ -360,9 +360,9 @@ func resolveImagePath(ctx context.Context, reg *registry.Registry, image string)
 }
 
 func convertToRegexp(s string) string {
-	c1 := strings.ReplaceAll(s, "?", ".")
-	c2 := strings.ReplaceAll(c1, "*", "[[:alnum:]]")
-	return c2
+	c1 := strings.ReplaceAll(s, "?", "[a-zA-Z0-9-_]")
+	c2 := strings.ReplaceAll(c1, "*", "[a-zA-Z0-9-_]*")
+	return "^" + c2
 }
 
 func convertReport(reports *clair.VulnerabilityReport, threshold int) (ret tmaxiov1.ScanResult) {
