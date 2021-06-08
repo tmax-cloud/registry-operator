@@ -117,27 +117,30 @@ func (r *ImageScanRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		if err = r.mutate(instance); err != nil {
 			instance.Status.Status = tmaxiov1.ScanRequestError
 			instance.Status.Message = err.Error()
-			r.Status().Update(ctx, instance)
+			err = r.Status().Update(ctx, instance)
 			return ctrl.Result{}, err
 		}
 		if err = validate(instance); err != nil {
 			instance.Status.Status = tmaxiov1.ScanRequestError
 			instance.Status.Message = err.Error()
-			r.Status().Update(ctx, instance)
+			err = r.Status().Update(ctx, instance)
 			return ctrl.Result{}, err
 		}
-		r.Update(ctx, instance)
+		if err = r.Update(ctx, instance); err != nil {
+			logger.Error(err, "failed to update resolved image list")
+			return ctrl.Result{}, err
+		}
 		instance.Status.Status = tmaxiov1.ScanRequestPending
-		r.Status().Update(ctx, instance)
+		err = r.Status().Update(ctx, instance)
 	case tmaxiov1.ScanRequestPending:
 		if err = r.doRecept(instance); err != nil {
 			instance.Status.Status = tmaxiov1.ScanRequestError
 			instance.Status.Message = err.Error()
-			r.Status().Update(ctx, instance)
+			err = r.Status().Update(ctx, instance)
 			return ctrl.Result{}, err
 		}
 		instance.Status.Status = tmaxiov1.ScanRequestProcessing
-		r.Status().Update(ctx, instance)
+		err = r.Status().Update(ctx, instance)
 	case tmaxiov1.ScanRequestProcessing:
 		logger.Info("already in procssing...")
 	case tmaxiov1.ScanRequestSuccess:
@@ -145,11 +148,18 @@ func (r *ImageScanRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		if !isImageListSameBetweenSpecAndStatus(instance) {
 			instance.Status.Status = ""
 			instance.Status.Message = ""
-			r.Status().Update(ctx, instance)
+			if err = r.Status().Update(ctx, instance); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 	case tmaxiov1.ScanRequestFail:
 		logger.Info("failed job...")
 	}
+	if err != nil {
+		logger.Error(err, "error occurred...")
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -291,13 +301,16 @@ func (r *ImageScanRequestReconciler) doRecept(o *tmaxiov1.ImageScanRequest) erro
 
 	go func() {
 		wg.Wait()
+		cancel()
 		if wgErr == nil {
 			o.Status.Status = tmaxiov1.ScanRequestSuccess
 		} else {
 			o.Status.Status = tmaxiov1.ScanRequestFail
 			o.Status.Message = wgErr.Error()
 		}
-		r.Status().Update(context.TODO(), o)
+		if err := r.Status().Update(context.TODO(), o); err != nil {
+			logger.Error(err, "failed to update status after scanning")
+		}
 	}()
 
 	return nil
