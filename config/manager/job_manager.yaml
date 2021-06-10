@@ -55,7 +55,7 @@ spec:
             memory: "512Mi"
         volumeMounts:
         - name: operator-log-mnt
-          mountPath: /logs
+          mountPath: /var/log/registryjob-operator
         - name: registry-secret
           mountPath: /etc/ssl/certs/ca.crt
           subPath: ca.crt

@@ -18,21 +18,22 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"github.com/go-logr/logr"
+	"github.com/robfig/cron"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	exreghandler "github.com/tmax-cloud/registry-operator/controllers/exregctl/handler"
+	replhandler "github.com/tmax-cloud/registry-operator/controllers/replicatectl/handler"
+	"github.com/tmax-cloud/registry-operator/pkg/scheduler"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	exreghandler "github.com/tmax-cloud/registry-operator/controllers/exregctl/handler"
-	replhandler "github.com/tmax-cloud/registry-operator/controllers/replicatectl/handler"
-	"github.com/tmax-cloud/registry-operator/internal/common/operatorlog"
-	"github.com/tmax-cloud/registry-operator/pkg/scheduler"
 
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/controllers"
@@ -46,7 +47,6 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
 	utilruntime.Must(tmaxiov1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
@@ -60,20 +60,7 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.Parse()
 
-	logFile, err := operatorlog.LogFile()
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
-	}
-	defer logFile.Close()
-
-	// logging to stdout stream and a log file
-	w := io.MultiWriter(logFile, os.Stdout)
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(w)))
-	setupLog.Info("logging to a file", "filepath", logFile.Name())
-
-	// backup Logfile daily
-	operatorlog.StartDailyBackup(logFile)
+	ctrl.SetLogger(createDailyRotateLogger("/var/log/registryjob-operator/operator.log"))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
@@ -116,4 +103,26 @@ func main() {
 		setupLog.Error(err, "problem running job operator")
 		os.Exit(1)
 	}
+}
+
+func createDailyRotateLogger(logpath string) logr.Logger {
+	lumberlogger := &lumberjack.Logger{
+		Filename: logpath,
+		MaxSize:  500, // megabytes
+		//MaxAge:     90, // days
+	}
+	mw := io.MultiWriter(os.Stdout, zapcore.AddSync(lumberlogger))
+
+	cronJob := cron.New()
+	if err := cronJob.AddFunc("@daily", func() {
+		if err := lumberlogger.Rotate(); err != nil {
+			setupLog.Error(err, "failed to rotate log.")
+		}
+	}); err != nil {
+		setupLog.Error(err, "failed to add cronjob for logging")
+		os.Exit(1)
+	}
+	defer cronJob.Start()
+
+	return zap.New(zap.UseDevMode(true), zap.WriteTo(mw))
 }
