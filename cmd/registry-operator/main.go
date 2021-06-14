@@ -18,23 +18,24 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"github.com/go-logr/logr"
+	"github.com/robfig/cron"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sync"
 
 	"github.com/tmax-cloud/registry-operator/pkg/apiserver"
 
+	"github.com/tmax-cloud/registry-operator/internal/common/config"
+	regmgr "github.com/tmax-cloud/registry-operator/pkg/manager"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	"github.com/tmax-cloud/registry-operator/internal/common/config"
-	"github.com/tmax-cloud/registry-operator/internal/common/operatorlog"
-	regmgr "github.com/tmax-cloud/registry-operator/pkg/manager"
 
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/controllers"
@@ -63,26 +64,13 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.Parse()
 
-	logFile, err := operatorlog.LogFile()
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
-	}
-	defer logFile.Close()
-
-	// logging to stdout stream and a log file
-	w := io.MultiWriter(logFile, os.Stdout)
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(w)))
-	setupLog.Info("logging to a file", "filepath", logFile.Name())
-
-	// backup Logfile daily
-	operatorlog.StartDailyBackup(logFile)
-
 	// set config
 	config.InitEnv()
 	config.ReadInConfig()
 	config.PrintConfig()
 	config.OnConfigChange(3)
+
+	ctrl.SetLogger(createDailyRotateLogger("/var/log/registry-operator/operator.log"))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
@@ -170,8 +158,9 @@ func main() {
 	wg.Add(2)
 
 	// Added for registry
-	setupLog.Info("Start web server")
+
 	go func() {
+		setupLog.Info("Start registry webhook server")
 		server.StartServer(mgr)
 		wg.Done()
 	}()
@@ -197,4 +186,26 @@ func main() {
 
 	// Wait until webserver and manager is over
 	wg.Wait()
+}
+
+func createDailyRotateLogger(logpath string) logr.Logger {
+	lumberlogger := &lumberjack.Logger{
+		Filename: logpath,
+		MaxSize:  500, // megabytes
+		//MaxAge:     90, // days
+	}
+	mw := io.MultiWriter(os.Stdout, zapcore.AddSync(lumberlogger))
+
+	cronJob := cron.New()
+	if err := cronJob.AddFunc("@daily", func() {
+		if err := lumberlogger.Rotate(); err != nil {
+			setupLog.Error(err, "failed to rotate log.")
+		}
+	}); err != nil {
+		setupLog.Error(err, "failed to add cronjob for logging")
+		os.Exit(1)
+	}
+	defer cronJob.Start()
+
+	return zap.New(zap.UseDevMode(true), zap.WriteTo(mw))
 }

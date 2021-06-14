@@ -52,7 +52,7 @@ spec:
         - name: manager-mnt
           mountPath: /bin/dev
         - name: operator-log-mnt
-          mountPath: /logs
+          mountPath: /var/log/registryjob-operator
         - name: registry-secret
           mountPath: /etc/ssl/certs/ca.crt
           subPath: ca.crt
