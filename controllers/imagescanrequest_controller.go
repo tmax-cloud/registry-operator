@@ -251,43 +251,46 @@ func (r *ImageScanRequestReconciler) doRecept(o *tmaxiov1.ImageScanRequest) erro
 			defer wg.Done()
 			reg, err := r.getRegistry(ctx, o, e)
 			if err != nil {
+				logger.Error(err, "failed to get registry client", "url", e.RegistryURL)
 				wgErr = err
 				cancel()
 				return
 			}
-			logger.Info("registry ok...")
+			logger.Info("registry ok...", "url", reg.URL)
 
 			for _, imagePath := range e.Images {
 				imagePath = path.Join(reg.Domain, imagePath)
 				img, err := registry.ParseImage(imagePath)
 				if err != nil {
+					logger.Error(err, "cannot parse image", "image", imagePath)
 					wgErr = err
 					cancel()
 					return
 				}
-				logger.Info("start scan: " + reg.Domain + "/" + img.Path + ":" + img.Tag)
+				logger.Info("Start scan", "image", imagePath)
 				vul, err := scanner.Vulnerabilities(ctx, reg, img.Path, img.Tag)
 				if err != nil {
+					logger.Error(err, "failed to scan image", "image", imagePath)
 					wgErr = err
 					cancel()
 					return
 				}
-				logger.Info("scanning complete...")
+				logger.Info("Complete scan", "image", imagePath)
 
 				scanResult := convertReport(&vul, o.Spec.MaxFixable)
 				if o.Spec.SendReport {
-					logger.Info("start report...")
+					logger.Info("Send report", "image", imagePath)
 					esReport := tmaxiov1.ImageScanRequestESReport{
 						Image:  imagePath,
 						Result: scanResult,
 					}
-					err := reporter.SendReport(o.Namespace, &esReport)
+					err := reporter.SendReport(&esReport)
 					if err != nil {
+						logger.Error(err, "failed to send report", "image", imagePath)
 						wgErr = err
 						cancel()
 						return
 					}
-					logger.Info("report complete...")
 				}
 				// Do not update detail on cr
 				scanResult.Vulnerabilities = nil
@@ -309,7 +312,7 @@ func (r *ImageScanRequestReconciler) doRecept(o *tmaxiov1.ImageScanRequest) erro
 			o.Status.Message = wgErr.Error()
 		}
 		if err := r.Status().Update(context.TODO(), o); err != nil {
-			logger.Error(err, "failed to update status after scanning")
+			logger.Error(err, "failed to update status")
 		}
 	}()
 
