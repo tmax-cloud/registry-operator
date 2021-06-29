@@ -24,23 +24,25 @@ import (
 
 // NewRegistryDCJSecret creates new registry docker config json secret controller
 // deps: service
-func NewRegistryDCJSecret(client client.Client, deps ...Dependent) *RegistryDCJSecret {
+func NewRegistryDCJSecret(client client.Client, scheme *runtime.Scheme, deps ...Dependent) *RegistryDCJSecret {
 	return &RegistryDCJSecret{
-		c:    client,
-		deps: deps,
+		c:      client,
+		scheme: scheme,
+		deps:   deps,
 	}
 }
 
 // RegistryDCJSecret contains things to handle docker config json secret resource
 type RegistryDCJSecret struct {
 	c         client.Client
+	scheme    *runtime.Scheme
 	deps      []Dependent
 	secretDCJ *corev1.Secret
 	logger    *utils.RegistryLogger
 }
 
 // Handle makes docker config json secret to be in the desired state
-func (r *RegistryDCJSecret) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryDCJSecret) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	for _, dep := range r.deps {
 		if !dep.IsSuccessfullyCompleted(reg) {
 			err := fmt.Errorf("unable to handle %s: %s condition is not satisfied", r.Condition(), dep.Condition())
@@ -51,7 +53,7 @@ func (r *RegistryDCJSecret) CreateIfNotExist(reg *regv1.Registry, patchReg *regv
 	if err := r.get(reg); err != nil {
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
-			if createError := r.create(reg, patchReg, scheme); createError != nil {
+			if createError := r.create(reg, patchReg); createError != nil {
 				r.logger.Error(createError, "Create failed in CreateIfNotExist")
 				r.notReady(patchReg, createError)
 				return createError
@@ -105,13 +107,13 @@ func (r *RegistryDCJSecret) IsReady(reg *regv1.Registry, patchReg *regv1.Registr
 	return nil
 }
 
-func (r *RegistryDCJSecret) create(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryDCJSecret) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	condition := status.Condition{
 		Status: corev1.ConditionFalse,
 		Type:   regv1.ConditionTypeSecretDockerConfigJSON,
 	}
 
-	if err := controllerutil.SetControllerReference(reg, r.secretDCJ, scheme); err != nil {
+	if err := controllerutil.SetControllerReference(reg, r.secretDCJ, r.scheme); err != nil {
 		utils.SetCondition(err, patchReg, &condition)
 		return err
 	}

@@ -20,16 +20,18 @@ import (
 )
 
 // NewRegistryNotary creates new registry notary controller
-func NewRegistryNotary(client client.Client, kcCtl *keycloakctl.KeycloakController) *RegistryNotary {
+func NewRegistryNotary(client client.Client, scheme *runtime.Scheme, kcCtl *keycloakctl.KeycloakController) *RegistryNotary {
 	return &RegistryNotary{
-		c:     client,
-		kcCtl: kcCtl,
+		c:      client,
+		scheme: scheme,
+		kcCtl:  kcCtl,
 	}
 }
 
 // RegistryNotary contains things to handle notary resource
 type RegistryNotary struct {
 	c      client.Client
+	scheme *runtime.Scheme
 	kcCtl  *keycloakctl.KeycloakController
 	not    *regv1.Notary
 	logger *utils.RegistryLogger
@@ -40,7 +42,7 @@ func (r *RegistryNotary) mustCreated(reg *regv1.Registry) bool {
 }
 
 // Handle makes notary to be in the desired state
-func (r *RegistryNotary) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryNotary) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	if !r.mustCreated(reg) {
 		if err := r.get(reg); err != nil {
 			return nil
@@ -55,7 +57,7 @@ func (r *RegistryNotary) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.R
 	if err := r.get(reg); err != nil {
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
-			if err := r.create(reg, patchReg, scheme); err != nil {
+			if err := r.create(reg, patchReg); err != nil {
 				r.logger.Error(err, "create notary error")
 				r.notReady(patchReg, err)
 				return err
@@ -115,14 +117,14 @@ func (r *RegistryNotary) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, 
 	return nil
 }
 
-func (r *RegistryNotary) create(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryNotary) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	if reg.Spec.PersistentVolumeClaim.Exist != nil {
 		r.logger.Info("Use exist registry notary. Need not to create notary.")
 		return nil
 	}
 
 	if reg.Spec.PersistentVolumeClaim.Create.DeleteWithPvc {
-		if err := controllerutil.SetControllerReference(reg, r.not, scheme); err != nil {
+		if err := controllerutil.SetControllerReference(reg, r.not, r.scheme); err != nil {
 			r.logger.Error(err, "SetOwnerReference Failed")
 			condition := status.Condition{
 				Status:  corev1.ConditionFalse,

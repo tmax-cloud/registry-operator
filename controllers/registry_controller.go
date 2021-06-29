@@ -153,7 +153,7 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 		subResourceLogger.Info("Check subresource", "subresourceType", subresourceType)
 
 		// Check if subresource is handled.
-		if err := sctl.CreateIfNotExist(reg, patchReg, r.Scheme); err != nil {
+		if err := sctl.CreateIfNotExist(reg, patchReg); err != nil {
 			errMsg := "Got an error in handling subresource"
 			subResourceLogger.Error(err, errMsg)
 			requeueErr = regv1.AppendError(requeueErr, errMsg)
@@ -204,15 +204,15 @@ func (r *RegistryReconciler) collectSubController(reg *regv1.Registry, kc *keycl
 
 	kcCli := keycloakctl.NewKeycloakClient(reg.Spec.LoginID, reg.Spec.LoginPassword, kc.GetRealmName(), kc.GetDockerV2ClientName())
 
-	notary := regctl.NewRegistryNotary(r.Client, kc)
-	pvc := regctl.NewRegistryPVC(r.Client)
-	svc := regctl.NewRegistryService(r.Client)
-	certSecret := regctl.NewRegistryCertSecret(r.Client, svc)
-	dcjSecret := regctl.NewRegistryDCJSecret(r.Client, svc)
-	cm := regctl.NewRegistryConfigMap(r.Client)
-	deploy := regctl.NewRegistryDeployment(r.Client, kcCli, pvc, svc, cm)
-	pod := regctl.NewRegistryPod(r.Client, deploy)
-	ing := regctl.NewRegistryIngress(r.Client, certSecret)
+	notary := regctl.NewRegistryNotary(r.Client, r.Scheme, kc)
+	pvc := regctl.NewRegistryPVC(r.Client, r.Scheme)
+	svc := regctl.NewRegistryService(r.Client, r.Scheme)
+	certSecret := regctl.NewRegistryCertSecret(r.Client, r.Scheme, svc)
+	dcjSecret := regctl.NewRegistryDCJSecret(r.Client, r.Scheme, svc)
+	cm := regctl.NewRegistryConfigMap(r.Client, r.Scheme)
+	deploy := regctl.NewRegistryDeployment(r.Client, r.Scheme, kcCli, pvc, svc, cm)
+	pod := regctl.NewRegistryPod(r.Client, r.Scheme, deploy)
+	ing := regctl.NewRegistryIngress(r.Client, r.Scheme, certSecret)
 
 	collection = append(collection, notary, pvc, svc, certSecret, dcjSecret, cm, deploy, pod, ing)
 	return collection

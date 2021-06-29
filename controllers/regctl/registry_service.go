@@ -26,25 +26,27 @@ const (
 )
 
 // NewRegistryService creates new registry service
-func NewRegistryService(client client.Client) *RegistryService {
+func NewRegistryService(client client.Client, scheme *runtime.Scheme) *RegistryService {
 	return &RegistryService{
-		c: client,
+		c:      client,
+		scheme: scheme,
 	}
 }
 
 // RegistryService things to handle service resource
 type RegistryService struct {
 	c      client.Client
+	scheme *runtime.Scheme
 	svc    *corev1.Service
 	logger *utils.RegistryLogger
 }
 
 // Handle makes service to be in the desired state
-func (r *RegistryService) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryService) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	if err := r.get(reg); err != nil {
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
-			if createError := r.create(reg, patchReg, scheme); createError != nil {
+			if createError := r.create(reg, patchReg); createError != nil {
 				r.logger.Error(createError, "Create failed in CreateIfNotExist")
 				r.notReady(patchReg, createError)
 				return createError
@@ -119,8 +121,8 @@ func (r *RegistryService) IsReady(reg *regv1.Registry, patchReg *regv1.Registry,
 	return nil
 }
 
-func (r *RegistryService) create(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
-	if err := controllerutil.SetControllerReference(reg, r.svc, scheme); err != nil {
+func (r *RegistryService) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	if err := controllerutil.SetControllerReference(reg, r.svc, r.scheme); err != nil {
 		r.logger.Error(err, "Set owner reference failed")
 		return err
 	}

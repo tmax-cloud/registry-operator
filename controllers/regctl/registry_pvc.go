@@ -23,26 +23,27 @@ import (
 )
 
 // NewRegistryPVC creates new registry pvc controller
-func NewRegistryPVC(client client.Client) *RegistryPVC {
+func NewRegistryPVC(client client.Client, scheme *runtime.Scheme) *RegistryPVC {
 	return &RegistryPVC{
-		c: client,
+		c:      client,
+		scheme: scheme,
 	}
 }
 
 // RegistryPVC things to handle pvc resource
 type RegistryPVC struct {
 	c      client.Client
+	scheme *runtime.Scheme
 	pvc    *corev1.PersistentVolumeClaim
 	logger *utils.RegistryLogger
-	scheme *runtime.Scheme
 }
 
 // Handle makes pvc to be in the desired state
-func (r *RegistryPVC) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryPVC) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	if err := r.get(reg); err != nil {
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
-			if err := r.create(reg, patchReg, scheme); err != nil {
+			if err := r.create(reg, patchReg); err != nil {
 				r.logger.Error(err, "create pvc error")
 				r.notReady(patchReg, err)
 				return err
@@ -54,8 +55,6 @@ func (r *RegistryPVC) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Regi
 		}
 		return nil
 	}
-
-	r.scheme = scheme
 
 	r.logger.Info("Check if patch exists.")
 	diff := r.compare(reg)
@@ -103,14 +102,14 @@ func (r *RegistryPVC) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, use
 	return nil
 }
 
-func (r *RegistryPVC) create(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryPVC) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	if reg.Spec.PersistentVolumeClaim.Exist != nil {
 		r.logger.Info("Use exist registry pvc. Need not to create pvc.")
 		return nil
 	}
 
 	if reg.Spec.PersistentVolumeClaim.Create.DeleteWithPvc {
-		if err := controllerutil.SetControllerReference(reg, r.pvc, scheme); err != nil {
+		if err := controllerutil.SetControllerReference(reg, r.pvc, r.scheme); err != nil {
 			r.logger.Error(err, "SetOwnerReference Failed")
 			return err
 		}

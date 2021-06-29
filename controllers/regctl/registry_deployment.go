@@ -38,17 +38,19 @@ const (
 
 // NewRegistryDeployment creates new registry deployment controller
 // deps: pvc, svc, cm
-func NewRegistryDeployment(client client.Client, kcCli *keycloakctl.KeycloakClient, deps ...Dependent) *RegistryDeployment {
+func NewRegistryDeployment(client client.Client, scheme *runtime.Scheme, kcCli *keycloakctl.KeycloakClient, deps ...Dependent) *RegistryDeployment {
 	return &RegistryDeployment{
-		c:     client,
-		deps:  deps,
-		KcCli: kcCli,
+		c:      client,
+		scheme: scheme,
+		deps:   deps,
+		KcCli:  kcCli,
 	}
 }
 
 // RegistryDeployment contains things to handle deployment resource
 type RegistryDeployment struct {
 	c      client.Client
+	scheme *runtime.Scheme
 	deps   []Dependent
 	KcCli  *keycloakctl.KeycloakClient
 	deploy *appsv1.Deployment
@@ -56,7 +58,7 @@ type RegistryDeployment struct {
 }
 
 // Handle makes deployment to be in the desired state
-func (r *RegistryDeployment) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryDeployment) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	for _, dep := range r.deps {
 		if !dep.IsSuccessfullyCompleted(reg) {
 			err := fmt.Errorf("unable to handle %s: %s condition is not satisfied", r.Condition(), dep.Condition())
@@ -67,7 +69,7 @@ func (r *RegistryDeployment) CreateIfNotExist(reg *regv1.Registry, patchReg *reg
 	if err := r.get(reg); err != nil {
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
-			if err := r.create(reg, patchReg, scheme); err != nil {
+			if err := r.create(reg, patchReg); err != nil {
 				r.logger.Error(err, "create Deployment error")
 				r.notReady(patchReg, err)
 				return err
@@ -141,8 +143,8 @@ func (r *RegistryDeployment) IsReady(reg *regv1.Registry, patchReg *regv1.Regist
 	return nil
 }
 
-func (r *RegistryDeployment) create(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
-	if err := controllerutil.SetControllerReference(reg, r.deploy, scheme); err != nil {
+func (r *RegistryDeployment) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	if err := controllerutil.SetControllerReference(reg, r.deploy, r.scheme); err != nil {
 		r.logger.Error(err, "SetOwnerReference Failed")
 		condition := status.Condition{
 			Status:  corev1.ConditionFalse,

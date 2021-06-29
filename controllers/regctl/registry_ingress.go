@@ -23,16 +23,18 @@ import (
 
 // NewRegistryIngress creates new registry ingress controller
 // deps: cert
-func NewRegistryIngress(client client.Client, deps ...Dependent) *RegistryIngress {
+func NewRegistryIngress(client client.Client, scheme *runtime.Scheme, deps ...Dependent) *RegistryIngress {
 	return &RegistryIngress{
-		c:    client,
-		deps: deps,
+		c:      client,
+		scheme: scheme,
+		deps:   deps,
 	}
 }
 
 // RegistryIngress contains things to handle ingress resource
 type RegistryIngress struct {
 	c       client.Client
+	scheme  *runtime.Scheme
 	deps    []Dependent
 	ingress *v1beta1.Ingress
 	logger  *utils.RegistryLogger
@@ -43,7 +45,7 @@ func (r *RegistryIngress) mustCreated(reg *regv1.Registry) bool {
 }
 
 // Handle makes ingress to be in the desired state
-func (r *RegistryIngress) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryIngress) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	if !r.mustCreated(reg) {
 		if err := r.get(reg); err != nil {
 			return nil
@@ -71,7 +73,7 @@ func (r *RegistryIngress) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.
 
 		if errors.IsNotFound(err) {
 			r.notReady(patchReg, err)
-			if createError := r.create(reg, patchReg, scheme); createError != nil {
+			if createError := r.create(reg, patchReg); createError != nil {
 				r.logger.Error(createError, "Create failed in CreateIfNotExist")
 				r.notReady(patchReg, createError)
 				return createError
@@ -158,13 +160,13 @@ func (r *RegistryIngress) IsReady(reg *regv1.Registry, patchReg *regv1.Registry,
 	return nil
 }
 
-func (r *RegistryIngress) create(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryIngress) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	r.ingress = schemes.Ingress(reg)
 	if r.ingress == nil {
 		return regv1.MakeRegistryError("Registry has no fields Ingress required")
 	}
 
-	if err := controllerutil.SetControllerReference(reg, r.ingress, scheme); err != nil {
+	if err := controllerutil.SetControllerReference(reg, r.ingress, r.scheme); err != nil {
 		r.logger.Error(err, "Controller reference failed")
 		return err
 	}

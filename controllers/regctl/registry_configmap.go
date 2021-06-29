@@ -20,25 +20,27 @@ import (
 )
 
 // NewRegistryConfigMap creates new registry configmap controller
-func NewRegistryConfigMap(client client.Client) *RegistryConfigMap {
+func NewRegistryConfigMap(client client.Client, scheme *runtime.Scheme) *RegistryConfigMap {
 	return &RegistryConfigMap{
-		c: client,
+		c:      client,
+		scheme: scheme,
 	}
 }
 
 // RegistryConfigMap contains things to handle deployment resource
 type RegistryConfigMap struct {
 	c      client.Client
+	scheme *runtime.Scheme
 	cm     *corev1.ConfigMap
 	logger *utils.RegistryLogger
 }
 
 // Handle makes configmap to be in the desired state
-func (r *RegistryConfigMap) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryConfigMap) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	if err := r.get(reg); err != nil {
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
-			if err := r.create(reg, patchReg, scheme); err != nil {
+			if err := r.create(reg, patchReg); err != nil {
 				r.logger.Error(err, "create configmap error")
 				r.notReady(patchReg, err)
 				return err
@@ -83,7 +85,7 @@ func (r *RegistryConfigMap) IsReady(reg *regv1.Registry, patchReg *regv1.Registr
 	return nil
 }
 
-func (r *RegistryConfigMap) create(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryConfigMap) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	if len(reg.Spec.CustomConfigYml) > 0 {
 		r.logger.Info("Use exist registry configmap. Need not to create configmap. (Configmap: " + reg.Spec.CustomConfigYml + ")")
 		return nil
@@ -100,7 +102,7 @@ func (r *RegistryConfigMap) create(reg *regv1.Registry, patchReg *regv1.Registry
 
 	r.cm = schemes.ConfigMap(reg, defaultCm.Data)
 
-	if err := controllerutil.SetControllerReference(reg, r.cm, scheme); err != nil {
+	if err := controllerutil.SetControllerReference(reg, r.cm, r.scheme); err != nil {
 		r.logger.Error(err, "SetOwnerReference Failed")
 		condition := status.Condition{
 			Status:  corev1.ConditionFalse,

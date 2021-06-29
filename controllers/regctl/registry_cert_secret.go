@@ -22,16 +22,18 @@ import (
 
 // NewRegistryCertSecret creates new registry cert secret controller
 // deps: service
-func NewRegistryCertSecret(client client.Client, deps ...Dependent) *RegistryCertSecret {
+func NewRegistryCertSecret(client client.Client, scheme *runtime.Scheme, deps ...Dependent) *RegistryCertSecret {
 	return &RegistryCertSecret{
-		c:    client,
-		deps: deps,
+		c:      client,
+		scheme: scheme,
+		deps:   deps,
 	}
 }
 
 // RegistryCertSecret contains things to handle tls and opaque secret resource
 type RegistryCertSecret struct {
 	c            client.Client
+	scheme       *runtime.Scheme
 	deps         []Dependent
 	secretOpaque *corev1.Secret
 	secretTLS    *corev1.Secret
@@ -39,7 +41,7 @@ type RegistryCertSecret struct {
 }
 
 // Handle makes secret to be in the desired state
-func (r *RegistryCertSecret) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryCertSecret) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	for _, dep := range r.deps {
 		if !dep.IsSuccessfullyCompleted(reg) {
 			err := fmt.Errorf("unable to handle %s: %s condition is not satisfied", r.Condition(), dep.Condition())
@@ -50,7 +52,7 @@ func (r *RegistryCertSecret) CreateIfNotExist(reg *regv1.Registry, patchReg *reg
 	if err := r.get(reg); err != nil {
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
-			if createError := r.create(reg, patchReg, scheme); createError != nil {
+			if createError := r.create(reg, patchReg); createError != nil {
 				r.logger.Error(createError, "Create failed in CreateIfNotExist")
 				r.notReady(patchReg, createError)
 				return createError
@@ -132,13 +134,13 @@ func (r *RegistryCertSecret) GetUserSecret(reg *regv1.Registry) (username, passw
 	return
 }
 
-func (r *RegistryCertSecret) create(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
-	if err := controllerutil.SetControllerReference(reg, r.secretOpaque, scheme); err != nil {
+func (r *RegistryCertSecret) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	if err := controllerutil.SetControllerReference(reg, r.secretOpaque, r.scheme); err != nil {
 		r.logger.Error(err, "failed to set controller reference")
 		return err
 	}
 
-	if err := controllerutil.SetControllerReference(reg, r.secretTLS, scheme); err != nil {
+	if err := controllerutil.SetControllerReference(reg, r.secretTLS, r.scheme); err != nil {
 		r.logger.Error(err, "failed to set controller reference")
 		return err
 	}

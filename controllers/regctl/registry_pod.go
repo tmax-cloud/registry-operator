@@ -20,23 +20,25 @@ import (
 
 // NewRegistryPod creates new registry pod controller
 // deps: deployment
-func NewRegistryPod(client client.Client, deps ...Dependent) *RegistryPod {
+func NewRegistryPod(client client.Client, scheme *runtime.Scheme, deps ...Dependent) *RegistryPod {
 	return &RegistryPod{
-		c:    client,
-		deps: deps,
+		c:      client,
+		scheme: scheme,
+		deps:   deps,
 	}
 }
 
 // RegistryPod contains things to handle pod resource
 type RegistryPod struct {
 	c      client.Client
+	scheme *runtime.Scheme
 	deps   []Dependent
 	pod    *corev1.Pod
 	logger *utils.RegistryLogger
 }
 
 // Handle makes pod to be in the desired state
-func (r *RegistryPod) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryPod) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	for _, dep := range r.deps {
 		if !dep.IsSuccessfullyCompleted(reg) {
 			err := fmt.Errorf("unable to handle %s: %s condition is not satisfied", r.Condition(), dep.Condition())
@@ -146,7 +148,7 @@ func (r *RegistryPod) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, use
 	return nil
 }
 
-func (r *RegistryPod) create(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryPod) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	return nil
 }
 
