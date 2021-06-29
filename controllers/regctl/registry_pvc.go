@@ -23,23 +23,26 @@ import (
 )
 
 // NewRegistryPVC creates new registry pvc controller
-func NewRegistryPVC() *RegistryPVC {
-	return &RegistryPVC{}
+func NewRegistryPVC(client client.Client) *RegistryPVC {
+	return &RegistryPVC{
+		c: client,
+	}
 }
 
 // RegistryPVC things to handle pvc resource
 type RegistryPVC struct {
+	c      client.Client
 	pvc    *corev1.PersistentVolumeClaim
 	logger *utils.RegistryLogger
 	scheme *runtime.Scheme
 }
 
 // Handle makes pvc to be in the desired state
-func (r *RegistryPVC) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
-	if err := r.get(c, reg); err != nil {
+func (r *RegistryPVC) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+	if err := r.get(reg); err != nil {
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
-			if err := r.create(c, reg, patchReg, scheme); err != nil {
+			if err := r.create(reg, patchReg, scheme); err != nil {
 				r.logger.Error(err, "create pvc error")
 				r.notReady(patchReg, err)
 				return err
@@ -59,7 +62,7 @@ func (r *RegistryPVC) Handle(c client.Client, reg *regv1.Registry, patchReg *reg
 	if len(diff) > 0 {
 		r.logger.Info("patch exists.")
 		r.notReady(patchReg, nil)
-		if err := r.patch(c, reg, patchReg, diff); err != nil {
+		if err := r.patch(reg, patchReg, diff); err != nil {
 			r.logger.Error(err, "failed to patch pvc")
 			r.notReady(patchReg, err)
 			return err
@@ -70,7 +73,7 @@ func (r *RegistryPVC) Handle(c client.Client, reg *regv1.Registry, patchReg *reg
 }
 
 // Ready checks that pvc is ready
-func (r *RegistryPVC) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+func (r *RegistryPVC) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
@@ -80,7 +83,7 @@ func (r *RegistryPVC) Ready(c client.Client, reg *regv1.Registry, patchReg *regv
 	defer utils.SetErrorConditionIfChanged(patchReg, reg, condition, err)
 
 	if r.pvc == nil || useGet {
-		err := r.get(c, reg)
+		err := r.get(reg)
 		if err != nil {
 			r.logger.Error(err, "pvc error")
 			return err
@@ -100,7 +103,7 @@ func (r *RegistryPVC) Ready(c client.Client, reg *regv1.Registry, patchReg *regv
 	return nil
 }
 
-func (r *RegistryPVC) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryPVC) create(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	if reg.Spec.PersistentVolumeClaim.Exist != nil {
 		r.logger.Info("Use exist registry pvc. Need not to create pvc.")
 		return nil
@@ -114,7 +117,7 @@ func (r *RegistryPVC) create(c client.Client, reg *regv1.Registry, patchReg *reg
 	}
 
 	r.logger.Info("Create registry pvc")
-	if err := c.Create(context.TODO(), r.pvc); err != nil {
+	if err := r.c.Create(context.TODO(), r.pvc); err != nil {
 		r.logger.Error(err, "Creating registry pvc is failed.")
 		return err
 	}
@@ -122,12 +125,12 @@ func (r *RegistryPVC) create(c client.Client, reg *regv1.Registry, patchReg *reg
 	return nil
 }
 
-func (r *RegistryPVC) get(c client.Client, reg *regv1.Registry) error {
+func (r *RegistryPVC) get(reg *regv1.Registry) error {
 	r.pvc = schemes.PersistentVolumeClaim(reg)
 	r.logger = utils.NewRegistryLogger(*r, r.pvc.Namespace, r.pvc.Name)
 
 	req := types.NamespacedName{Name: r.pvc.Name, Namespace: r.pvc.Namespace}
-	err := c.Get(context.TODO(), req, r.pvc)
+	err := r.c.Get(context.TODO(), req, r.pvc)
 	if err != nil {
 		r.logger.Error(err, "Get regsitry pvc is failed")
 		return err
@@ -136,7 +139,7 @@ func (r *RegistryPVC) get(c client.Client, reg *regv1.Registry) error {
 	return nil
 }
 
-func (r *RegistryPVC) patch(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
+func (r *RegistryPVC) patch(reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
 	target := r.pvc.DeepCopy()
 	originObject := client.MergeFrom(r.pvc)
 
@@ -166,15 +169,15 @@ func (r *RegistryPVC) patch(c client.Client, reg *regv1.Registry, patchReg *regv
 	}
 
 	// Patch
-	if err := c.Patch(context.TODO(), target, originObject); err != nil {
+	if err := r.c.Patch(context.TODO(), target, originObject); err != nil {
 		r.logger.Error(err, "Unknown error patching status")
 		return err
 	}
 	return nil
 }
 
-func (r *RegistryPVC) delete(c client.Client, patchReg *regv1.Registry) error {
-	if err := c.Delete(context.TODO(), r.pvc); err != nil {
+func (r *RegistryPVC) delete(patchReg *regv1.Registry) error {
+	if err := r.c.Delete(context.TODO(), r.pvc); err != nil {
 		r.logger.Error(err, "Unknown error delete pvc")
 		return err
 	}

@@ -20,21 +20,23 @@ import (
 
 // NewRegistryPod creates new registry pod controller
 // deps: deployment
-func NewRegistryPod(deps ...Dependent) *RegistryPod {
+func NewRegistryPod(client client.Client, deps ...Dependent) *RegistryPod {
 	return &RegistryPod{
+		c:    client,
 		deps: deps,
 	}
 }
 
 // RegistryPod contains things to handle pod resource
 type RegistryPod struct {
+	c      client.Client
 	deps   []Dependent
 	pod    *corev1.Pod
 	logger *utils.RegistryLogger
 }
 
 // Handle makes pod to be in the desired state
-func (r *RegistryPod) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryPod) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	for _, dep := range r.deps {
 		if !dep.IsSuccessfullyCompleted(reg) {
 			err := fmt.Errorf("unable to handle %s: %s condition is not satisfied", r.Condition(), dep.Condition())
@@ -42,7 +44,7 @@ func (r *RegistryPod) Handle(c client.Client, reg *regv1.Registry, patchReg *reg
 		}
 	}
 
-	if err := r.get(c, reg); err != nil {
+	if err := r.get(reg); err != nil {
 		r.logger.Error(err, "Pod error")
 		r.notReady(patchReg, err)
 		return err
@@ -51,7 +53,7 @@ func (r *RegistryPod) Handle(c client.Client, reg *regv1.Registry, patchReg *reg
 	r.logger.Info("Check if recreating pod is required.")
 	if reg.Status.PodRecreateRequired || r.compare(reg) == nil {
 		r.notReady(patchReg, nil)
-		if err := r.delete(c, patchReg); err != nil {
+		if err := r.delete(patchReg); err != nil {
 			return err
 		}
 
@@ -63,7 +65,7 @@ func (r *RegistryPod) Handle(c client.Client, reg *regv1.Registry, patchReg *reg
 }
 
 // Ready checks that pod is ready
-func (r *RegistryPod) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+func (r *RegistryPod) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
 	podCondition := &status.Condition{
 		Type:   regv1.ConditionTypePod,
@@ -78,7 +80,7 @@ func (r *RegistryPod) Ready(c client.Client, reg *regv1.Registry, patchReg *regv
 	defer utils.SetErrorConditionIfChanged(patchReg, reg, contCondition, err)
 
 	if r.pod == nil || useGet {
-		err = r.get(c, reg)
+		err = r.get(reg)
 		if err != nil {
 			r.logger.Error(err, "Pod error")
 			return err
@@ -144,11 +146,11 @@ func (r *RegistryPod) Ready(c client.Client, reg *regv1.Registry, patchReg *regv
 	return nil
 }
 
-func (r *RegistryPod) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryPod) create(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	return nil
 }
 
-func (r *RegistryPod) get(c client.Client, reg *regv1.Registry) error {
+func (r *RegistryPod) get(reg *regv1.Registry) error {
 	r.pod = &corev1.Pod{}
 	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, reg.Name+" registry's pod")
 
@@ -162,7 +164,7 @@ func (r *RegistryPod) get(c client.Client, reg *regv1.Registry) error {
 		Namespace:     reg.Namespace,
 		LabelSelector: labelSelector,
 	}
-	err := c.List(context.TODO(), podList, listOps)
+	err := r.c.List(context.TODO(), podList, listOps)
 	if err != nil {
 		r.logger.Error(err, "Failed to list pods.")
 		return err
@@ -179,12 +181,12 @@ func (r *RegistryPod) get(c client.Client, reg *regv1.Registry) error {
 	return nil
 }
 
-func (r *RegistryPod) patch(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
+func (r *RegistryPod) patch(reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
 	return nil
 }
 
-func (r *RegistryPod) delete(c client.Client, patchReg *regv1.Registry) error {
-	if err := c.Delete(context.TODO(), r.pod); err != nil {
+func (r *RegistryPod) delete(patchReg *regv1.Registry) error {
+	if err := r.c.Delete(context.TODO(), r.pod); err != nil {
 		r.logger.Error(err, "Unknown error delete pod")
 		return err
 	}

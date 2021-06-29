@@ -38,8 +38,9 @@ const (
 
 // NewRegistryDeployment creates new registry deployment controller
 // deps: pvc, svc, cm
-func NewRegistryDeployment(kcCli *keycloakctl.KeycloakClient, deps ...Dependent) *RegistryDeployment {
+func NewRegistryDeployment(client client.Client, kcCli *keycloakctl.KeycloakClient, deps ...Dependent) *RegistryDeployment {
 	return &RegistryDeployment{
+		c:     client,
 		deps:  deps,
 		KcCli: kcCli,
 	}
@@ -47,6 +48,7 @@ func NewRegistryDeployment(kcCli *keycloakctl.KeycloakClient, deps ...Dependent)
 
 // RegistryDeployment contains things to handle deployment resource
 type RegistryDeployment struct {
+	c      client.Client
 	deps   []Dependent
 	KcCli  *keycloakctl.KeycloakClient
 	deploy *appsv1.Deployment
@@ -54,7 +56,7 @@ type RegistryDeployment struct {
 }
 
 // Handle makes deployment to be in the desired state
-func (r *RegistryDeployment) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryDeployment) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	for _, dep := range r.deps {
 		if !dep.IsSuccessfullyCompleted(reg) {
 			err := fmt.Errorf("unable to handle %s: %s condition is not satisfied", r.Condition(), dep.Condition())
@@ -62,10 +64,10 @@ func (r *RegistryDeployment) Handle(c client.Client, reg *regv1.Registry, patchR
 		}
 	}
 
-	if err := r.get(c, reg); err != nil {
+	if err := r.get(reg); err != nil {
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
-			if err := r.create(c, reg, patchReg, scheme); err != nil {
+			if err := r.create(reg, patchReg, scheme); err != nil {
 				r.logger.Error(err, "create Deployment error")
 				r.notReady(patchReg, err)
 				return err
@@ -83,13 +85,13 @@ func (r *RegistryDeployment) Handle(c client.Client, reg *regv1.Registry, patchR
 	if diff == nil {
 		r.logger.Error(nil, "Invalid deployment!!!")
 		r.notReady(patchReg, nil)
-		if err := r.delete(c, patchReg); err != nil {
+		if err := r.delete(patchReg); err != nil {
 			r.notReady(patchReg, appsv1.ErrIntOverflowGenerated)
 			return err
 		}
 	} else if len(diff) > 0 {
 		r.notReady(patchReg, nil)
-		if err := r.patch(c, reg, patchReg, diff); err != nil {
+		if err := r.patch(reg, patchReg, diff); err != nil {
 			r.notReady(patchReg, err)
 			return err
 		}
@@ -99,7 +101,7 @@ func (r *RegistryDeployment) Handle(c client.Client, reg *regv1.Registry, patchR
 }
 
 // Ready checks that deployment is ready
-func (r *RegistryDeployment) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+func (r *RegistryDeployment) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
@@ -107,7 +109,7 @@ func (r *RegistryDeployment) Ready(c client.Client, reg *regv1.Registry, patchRe
 	}
 	defer utils.SetErrorConditionIfChanged(patchReg, reg, condition, err)
 	if useGet {
-		err = r.get(c, reg)
+		err = r.get(reg)
 		if err != nil {
 			r.logger.Error(err, "Deployment error")
 			return err
@@ -123,7 +125,7 @@ func (r *RegistryDeployment) Ready(c client.Client, reg *regv1.Registry, patchRe
 	diff := r.compare(reg)
 	if diff == nil {
 		r.logger.Error(nil, "Invalid deployment!!!")
-		if err := r.delete(c, patchReg); err != nil {
+		if err := r.delete(patchReg); err != nil {
 			return err
 		}
 	} else if len(diff) > 0 {
@@ -139,7 +141,7 @@ func (r *RegistryDeployment) Ready(c client.Client, reg *regv1.Registry, patchRe
 	return nil
 }
 
-func (r *RegistryDeployment) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryDeployment) create(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	if err := controllerutil.SetControllerReference(reg, r.deploy, scheme); err != nil {
 		r.logger.Error(err, "SetOwnerReference Failed")
 		condition := status.Condition{
@@ -153,7 +155,7 @@ func (r *RegistryDeployment) create(c client.Client, reg *regv1.Registry, patchR
 	}
 
 	r.logger.Info("Create registry deployment")
-	err := c.Create(context.TODO(), r.deploy)
+	err := r.c.Create(context.TODO(), r.deploy)
 	if err != nil {
 		condition := status.Condition{
 			Status:  corev1.ConditionFalse,
@@ -179,7 +181,7 @@ func (r *RegistryDeployment) getAuthConfig() *regv1.AuthConfig {
 	return auth
 }
 
-func (r *RegistryDeployment) get(c client.Client, reg *regv1.Registry) error {
+func (r *RegistryDeployment) get(reg *regv1.Registry) error {
 	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryDeployment))
 	deploy, err := schemes.Deployment(reg, r.getAuthConfig())
 	if err != nil {
@@ -189,7 +191,7 @@ func (r *RegistryDeployment) get(c client.Client, reg *regv1.Registry) error {
 	r.deploy = deploy
 
 	req := types.NamespacedName{Name: r.deploy.Name, Namespace: r.deploy.Namespace}
-	if err := c.Get(context.TODO(), req, r.deploy); err != nil {
+	if err := r.c.Get(context.TODO(), req, r.deploy); err != nil {
 		r.logger.Error(err, "Get regsitry deployment is failed")
 		return err
 	}
@@ -197,7 +199,7 @@ func (r *RegistryDeployment) get(c client.Client, reg *regv1.Registry) error {
 	return nil
 }
 
-func (r *RegistryDeployment) patch(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
+func (r *RegistryDeployment) patch(reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
 	target := r.deploy.DeepCopy()
 	originObject := client.MergeFrom(r.deploy)
 	podSpec := target.Spec.Template.Spec
@@ -308,15 +310,15 @@ func (r *RegistryDeployment) patch(c client.Client, reg *regv1.Registry, patchRe
 	}
 
 	// Patch
-	if err := c.Patch(context.TODO(), target, originObject); err != nil {
+	if err := r.c.Patch(context.TODO(), target, originObject); err != nil {
 		r.logger.Error(err, "Unknown error patch")
 		return err
 	}
 	return nil
 }
 
-func (r *RegistryDeployment) delete(c client.Client, patchReg *regv1.Registry) error {
-	if err := c.Delete(context.TODO(), r.deploy); err != nil {
+func (r *RegistryDeployment) delete(patchReg *regv1.Registry) error {
+	if err := r.c.Delete(context.TODO(), r.deploy); err != nil {
 		r.logger.Error(err, "Unknown error delete deployment")
 		return err
 	}

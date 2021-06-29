@@ -20,14 +20,16 @@ import (
 )
 
 // NewRegistryNotary creates new registry notary controller
-func NewRegistryNotary(kcCtl *keycloakctl.KeycloakController) *RegistryNotary {
+func NewRegistryNotary(client client.Client, kcCtl *keycloakctl.KeycloakController) *RegistryNotary {
 	return &RegistryNotary{
+		c:     client,
 		kcCtl: kcCtl,
 	}
 }
 
 // RegistryNotary contains things to handle notary resource
 type RegistryNotary struct {
+	c      client.Client
 	kcCtl  *keycloakctl.KeycloakController
 	not    *regv1.Notary
 	logger *utils.RegistryLogger
@@ -38,22 +40,22 @@ func (r *RegistryNotary) mustCreated(reg *regv1.Registry) bool {
 }
 
 // Handle makes notary to be in the desired state
-func (r *RegistryNotary) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryNotary) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	if !r.mustCreated(reg) {
-		if err := r.get(c, reg); err != nil {
+		if err := r.get(reg); err != nil {
 			return nil
 		}
-		if err := r.delete(c, reg); err != nil {
+		if err := r.delete(reg); err != nil {
 			r.logger.Error(err, "failed to delete notary")
 			return err
 		}
 		return nil
 	}
 
-	if err := r.get(c, reg); err != nil {
+	if err := r.get(reg); err != nil {
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
-			if err := r.create(c, reg, patchReg, scheme); err != nil {
+			if err := r.create(reg, patchReg, scheme); err != nil {
 				r.logger.Error(err, "create notary error")
 				r.notReady(patchReg, err)
 				return err
@@ -71,7 +73,7 @@ func (r *RegistryNotary) Handle(c client.Client, reg *regv1.Registry, patchReg *
 	if len(diff) > 0 {
 		r.logger.Info("patch exists.")
 		r.notReady(patchReg, nil)
-		if err := r.patch(c, reg, patchReg, diff); err != nil {
+		if err := r.patch(reg, patchReg, diff); err != nil {
 			r.notReady(patchReg, err)
 			return err
 		}
@@ -81,7 +83,7 @@ func (r *RegistryNotary) Handle(c client.Client, reg *regv1.Registry, patchReg *
 }
 
 // Ready checks that notary is ready
-func (r *RegistryNotary) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+func (r *RegistryNotary) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	if !r.mustCreated(reg) {
 		return nil
 	}
@@ -95,7 +97,7 @@ func (r *RegistryNotary) Ready(c client.Client, reg *regv1.Registry, patchReg *r
 	defer utils.SetErrorConditionIfChanged(patchReg, reg, condition, err)
 
 	if r.not == nil || useGet {
-		err := r.get(c, reg)
+		err := r.get(reg)
 		if err != nil {
 			r.logger.Error(err, "notary error")
 			return err
@@ -113,7 +115,7 @@ func (r *RegistryNotary) Ready(c client.Client, reg *regv1.Registry, patchReg *r
 	return nil
 }
 
-func (r *RegistryNotary) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryNotary) create(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	if reg.Spec.PersistentVolumeClaim.Exist != nil {
 		r.logger.Info("Use exist registry notary. Need not to create notary.")
 		return nil
@@ -134,7 +136,7 @@ func (r *RegistryNotary) create(c client.Client, reg *regv1.Registry, patchReg *
 	}
 
 	r.logger.Info("Create registry notary")
-	err := c.Create(context.TODO(), r.not)
+	err := r.c.Create(context.TODO(), r.not)
 	if err != nil {
 		condition := status.Condition{
 			Status:  corev1.ConditionFalse,
@@ -160,7 +162,7 @@ func (r *RegistryNotary) getAuthConfig() *regv1.AuthConfig {
 	return auth
 }
 
-func (r *RegistryNotary) get(c client.Client, reg *regv1.Registry) error {
+func (r *RegistryNotary) get(reg *regv1.Registry) error {
 	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryNotary))
 	not, err := schemes.Notary(reg, r.getAuthConfig())
 	if err != nil {
@@ -170,7 +172,7 @@ func (r *RegistryNotary) get(c client.Client, reg *regv1.Registry) error {
 	r.not = not
 
 	req := types.NamespacedName{Name: r.not.Name, Namespace: r.not.Namespace}
-	if err := c.Get(context.TODO(), req, r.not); err != nil {
+	if err := r.c.Get(context.TODO(), req, r.not); err != nil {
 		r.logger.Error(err, "Get regsitry notary is failed")
 		return err
 	}
@@ -178,12 +180,12 @@ func (r *RegistryNotary) get(c client.Client, reg *regv1.Registry) error {
 	return nil
 }
 
-func (r *RegistryNotary) patch(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
+func (r *RegistryNotary) patch(reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
 	return nil
 }
 
-func (r *RegistryNotary) delete(c client.Client, patchReg *regv1.Registry) error {
-	if err := c.Delete(context.TODO(), r.not); err != nil {
+func (r *RegistryNotary) delete(patchReg *regv1.Registry) error {
+	if err := r.c.Delete(context.TODO(), r.not); err != nil {
 		r.logger.Error(err, "Unknown error delete notary")
 		return err
 	}

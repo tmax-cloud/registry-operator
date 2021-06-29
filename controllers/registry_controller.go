@@ -144,7 +144,7 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 		return err
 	}
 
-	collectSubController := collectSubController(reg, r.kc)
+	collectSubController := r.collectSubController(reg, r.kc)
 	printSubresources(log, collectSubController)
 
 	// Check if subresources are created.
@@ -153,7 +153,7 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 		subResourceLogger.Info("Check subresource", "subresourceType", subresourceType)
 
 		// Check if subresource is handled.
-		if err := sctl.Handle(r.Client, reg, patchReg, r.Scheme); err != nil {
+		if err := sctl.CreateIfNotExist(reg, patchReg, r.Scheme); err != nil {
 			errMsg := "Got an error in handling subresource"
 			subResourceLogger.Error(err, errMsg)
 			requeueErr = regv1.AppendError(requeueErr, errMsg)
@@ -161,7 +161,7 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 		}
 
 		// Check if subresource is ready.
-		if err := sctl.Ready(r.Client, reg, patchReg, true); err != nil {
+		if err := sctl.IsReady(reg, patchReg, true); err != nil {
 			errMsg := "Got an error in checking ready"
 			subResourceLogger.Error(err, errMsg)
 			requeueErr = regv1.AppendError(requeueErr, errMsg)
@@ -199,20 +199,20 @@ func (r *RegistryReconciler) update(origin, target *regv1.Registry) error {
 	return nil
 }
 
-func collectSubController(reg *regv1.Registry, kc *keycloakctl.KeycloakController) []regctl.RegistrySubresource {
+func (r *RegistryReconciler) collectSubController(reg *regv1.Registry, kc *keycloakctl.KeycloakController) []regctl.RegistrySubresource {
 	collection := []regctl.RegistrySubresource{}
 
 	kcCli := keycloakctl.NewKeycloakClient(reg.Spec.LoginID, reg.Spec.LoginPassword, kc.GetRealmName(), kc.GetDockerV2ClientName())
 
-	notary := regctl.NewRegistryNotary(kc)
-	pvc := regctl.NewRegistryPVC()
-	svc := regctl.NewRegistryService()
-	certSecret := regctl.NewRegistryCertSecret(svc)
-	dcjSecret := regctl.NewRegistryDCJSecret(svc)
-	cm := regctl.NewRegistryConfigMap()
-	deploy := regctl.NewRegistryDeployment(kcCli, pvc, svc, cm)
-	pod := regctl.NewRegistryPod(deploy)
-	ing := regctl.NewRegistryIngress(certSecret)
+	notary := regctl.NewRegistryNotary(r.Client, kc)
+	pvc := regctl.NewRegistryPVC(r.Client)
+	svc := regctl.NewRegistryService(r.Client)
+	certSecret := regctl.NewRegistryCertSecret(r.Client, svc)
+	dcjSecret := regctl.NewRegistryDCJSecret(r.Client, svc)
+	cm := regctl.NewRegistryConfigMap(r.Client)
+	deploy := regctl.NewRegistryDeployment(r.Client, kcCli, pvc, svc, cm)
+	pod := regctl.NewRegistryPod(r.Client, deploy)
+	ing := regctl.NewRegistryIngress(r.Client, certSecret)
 
 	collection = append(collection, notary, pvc, svc, certSecret, dcjSecret, cm, deploy, pod, ing)
 	return collection

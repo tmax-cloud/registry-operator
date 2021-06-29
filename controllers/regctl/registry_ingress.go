@@ -23,14 +23,16 @@ import (
 
 // NewRegistryIngress creates new registry ingress controller
 // deps: cert
-func NewRegistryIngress(deps ...Dependent) *RegistryIngress {
+func NewRegistryIngress(client client.Client, deps ...Dependent) *RegistryIngress {
 	return &RegistryIngress{
+		c:    client,
 		deps: deps,
 	}
 }
 
 // RegistryIngress contains things to handle ingress resource
 type RegistryIngress struct {
+	c       client.Client
 	deps    []Dependent
 	ingress *v1beta1.Ingress
 	logger  *utils.RegistryLogger
@@ -41,12 +43,12 @@ func (r *RegistryIngress) mustCreated(reg *regv1.Registry) bool {
 }
 
 // Handle makes ingress to be in the desired state
-func (r *RegistryIngress) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryIngress) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	if !r.mustCreated(reg) {
-		if err := r.get(c, reg); err != nil {
+		if err := r.get(reg); err != nil {
 			return nil
 		}
-		if err := r.delete(c, reg); err != nil {
+		if err := r.delete(reg); err != nil {
 			r.logger.Error(err, "failed to delete ingress")
 			return err
 		}
@@ -61,7 +63,7 @@ func (r *RegistryIngress) Handle(c client.Client, reg *regv1.Registry, patchReg 
 		}
 	}
 
-	if err := r.get(c, reg); err != nil {
+	if err := r.get(reg); err != nil {
 		// if r.ingress == nil {
 		// 	r.notReady(patchReg, err)
 		// 	return err
@@ -69,8 +71,8 @@ func (r *RegistryIngress) Handle(c client.Client, reg *regv1.Registry, patchReg 
 
 		if errors.IsNotFound(err) {
 			r.notReady(patchReg, err)
-			if createError := r.create(c, reg, patchReg, scheme); createError != nil {
-				r.logger.Error(createError, "Create failed in Handle")
+			if createError := r.create(reg, patchReg, scheme); createError != nil {
+				r.logger.Error(createError, "Create failed in CreateIfNotExist")
 				r.notReady(patchReg, createError)
 				return createError
 			}
@@ -84,8 +86,8 @@ func (r *RegistryIngress) Handle(c client.Client, reg *regv1.Registry, patchReg 
 
 	if isValid := r.compare(reg); isValid == nil {
 		r.notReady(patchReg, nil)
-		if err := r.delete(c, patchReg); err != nil {
-			r.logger.Error(err, "Delete failed in Handle")
+		if err := r.delete(patchReg); err != nil {
+			r.logger.Error(err, "Delete failed in CreateIfNotExist")
 			r.notReady(patchReg, nil)
 			return err
 		}
@@ -96,7 +98,7 @@ func (r *RegistryIngress) Handle(c client.Client, reg *regv1.Registry, patchReg 
 }
 
 // Ready checks that ingress is ready
-func (r *RegistryIngress) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+func (r *RegistryIngress) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	if !r.mustCreated(reg) {
 		return nil
 	}
@@ -109,7 +111,7 @@ func (r *RegistryIngress) Ready(c client.Client, reg *regv1.Registry, patchReg *
 
 	defer utils.SetErrorConditionIfChanged(patchReg, reg, condition, err)
 	if useGet {
-		if err = r.get(c, reg); err != nil {
+		if err = r.get(reg); err != nil {
 			r.logger.Error(err, "Get failed")
 			return err
 		}
@@ -156,7 +158,7 @@ func (r *RegistryIngress) Ready(c client.Client, reg *regv1.Registry, patchReg *
 	return nil
 }
 
-func (r *RegistryIngress) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryIngress) create(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	r.ingress = schemes.Ingress(reg)
 	if r.ingress == nil {
 		return regv1.MakeRegistryError("Registry has no fields Ingress required")
@@ -167,7 +169,7 @@ func (r *RegistryIngress) create(c client.Client, reg *regv1.Registry, patchReg 
 		return err
 	}
 
-	if err := c.Create(context.TODO(), r.ingress); err != nil {
+	if err := r.c.Create(context.TODO(), r.ingress); err != nil {
 		r.logger.Error(err, "Create failed")
 		return err
 	}
@@ -176,7 +178,7 @@ func (r *RegistryIngress) create(c client.Client, reg *regv1.Registry, patchReg 
 	return nil
 }
 
-func (r *RegistryIngress) get(c client.Client, reg *regv1.Registry) error {
+func (r *RegistryIngress) get(reg *regv1.Registry) error {
 	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryIngress))
 	r.ingress = schemes.Ingress(reg)
 	if r.ingress == nil {
@@ -184,7 +186,7 @@ func (r *RegistryIngress) get(c client.Client, reg *regv1.Registry) error {
 	}
 
 	req := types.NamespacedName{Name: r.ingress.Name, Namespace: r.ingress.Namespace}
-	if err := c.Get(context.TODO(), req, r.ingress); err != nil {
+	if err := r.c.Get(context.TODO(), req, r.ingress); err != nil {
 		r.logger.Error(err, "Get failed")
 		return err
 	}
@@ -193,12 +195,12 @@ func (r *RegistryIngress) get(c client.Client, reg *regv1.Registry) error {
 	return nil
 }
 
-func (r *RegistryIngress) patch(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
+func (r *RegistryIngress) patch(reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
 	return nil
 }
 
-func (r *RegistryIngress) delete(c client.Client, patchReg *regv1.Registry) error {
-	if err := c.Delete(context.TODO(), r.ingress); err != nil {
+func (r *RegistryIngress) delete(patchReg *regv1.Registry) error {
+	if err := r.c.Delete(context.TODO(), r.ingress); err != nil {
 		r.logger.Error(err, "Delete failed")
 		return err
 	}

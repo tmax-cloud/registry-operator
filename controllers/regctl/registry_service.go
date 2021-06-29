@@ -26,23 +26,26 @@ const (
 )
 
 // NewRegistryService creates new registry service
-func NewRegistryService() *RegistryService {
-	return &RegistryService{}
+func NewRegistryService(client client.Client) *RegistryService {
+	return &RegistryService{
+		c: client,
+	}
 }
 
 // RegistryService things to handle service resource
 type RegistryService struct {
+	c      client.Client
 	svc    *corev1.Service
 	logger *utils.RegistryLogger
 }
 
 // Handle makes service to be in the desired state
-func (r *RegistryService) Handle(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
-	if err := r.get(c, reg); err != nil {
+func (r *RegistryService) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+	if err := r.get(reg); err != nil {
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
-			if createError := r.create(c, reg, patchReg, scheme); createError != nil {
-				r.logger.Error(createError, "Create failed in Handle")
+			if createError := r.create(reg, patchReg, scheme); createError != nil {
+				r.logger.Error(createError, "Create failed in CreateIfNotExist")
 				r.notReady(patchReg, createError)
 				return createError
 			}
@@ -58,7 +61,7 @@ func (r *RegistryService) Handle(c client.Client, reg *regv1.Registry, patchReg 
 	if len(diff) > 0 {
 		r.logger.Info("service must be patched")
 		r.notReady(patchReg, nil)
-		if err := r.patch(c, reg, patchReg, diff); err != nil {
+		if err := r.patch(reg, patchReg, diff); err != nil {
 			r.notReady(patchReg, err)
 			return err
 		}
@@ -69,7 +72,7 @@ func (r *RegistryService) Handle(c client.Client, reg *regv1.Registry, patchReg 
 }
 
 // Ready checks that service is ready
-func (r *RegistryService) Ready(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+func (r *RegistryService) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
@@ -78,7 +81,7 @@ func (r *RegistryService) Ready(c client.Client, reg *regv1.Registry, patchReg *
 	defer utils.SetErrorConditionIfChanged(patchReg, reg, condition, err)
 
 	if useGet {
-		if err = r.get(c, reg); err != nil {
+		if err = r.get(reg); err != nil {
 			r.logger.Error(err, "Getting Service error")
 			return err
 		}
@@ -116,13 +119,13 @@ func (r *RegistryService) Ready(c client.Client, reg *regv1.Registry, patchReg *
 	return nil
 }
 
-func (r *RegistryService) create(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
+func (r *RegistryService) create(reg *regv1.Registry, patchReg *regv1.Registry, scheme *runtime.Scheme) error {
 	if err := controllerutil.SetControllerReference(reg, r.svc, scheme); err != nil {
 		r.logger.Error(err, "Set owner reference failed")
 		return err
 	}
 
-	if err := c.Create(context.TODO(), r.svc); err != nil {
+	if err := r.c.Create(context.TODO(), r.svc); err != nil {
 		r.logger.Error(err, "Create failed")
 		return err
 	}
@@ -131,14 +134,14 @@ func (r *RegistryService) create(c client.Client, reg *regv1.Registry, patchReg 
 	return nil
 }
 
-func (r *RegistryService) get(c client.Client, reg *regv1.Registry) error {
+func (r *RegistryService) get(reg *regv1.Registry) error {
 	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryService))
 	if r.svc == nil {
 		r.svc = schemes.Service(reg)
 	}
 
 	req := types.NamespacedName{Name: r.svc.Name, Namespace: r.svc.Namespace}
-	if err := c.Get(context.TODO(), req, r.svc); err != nil {
+	if err := r.c.Get(context.TODO(), req, r.svc); err != nil {
 		r.logger.Error(err, "Get Failed")
 		return err
 	}
@@ -146,7 +149,7 @@ func (r *RegistryService) get(c client.Client, reg *regv1.Registry) error {
 	return nil
 }
 
-func (r *RegistryService) patch(c client.Client, reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
+func (r *RegistryService) patch(reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
 	target := r.svc.DeepCopy()
 	originObject := client.MergeFrom(r.svc)
 
@@ -163,15 +166,15 @@ func (r *RegistryService) patch(c client.Client, reg *regv1.Registry, patchReg *
 	}
 
 	// Patch
-	if err := c.Patch(context.TODO(), target, originObject); err != nil {
+	if err := r.c.Patch(context.TODO(), target, originObject); err != nil {
 		r.logger.Error(err, "Unknown error patch")
 		return err
 	}
 	return nil
 }
 
-func (r *RegistryService) delete(c client.Client, patchReg *regv1.Registry) error {
-	if err := c.Delete(context.TODO(), r.svc); err != nil {
+func (r *RegistryService) delete(patchReg *regv1.Registry) error {
+	if err := r.c.Delete(context.TODO(), r.svc); err != nil {
 		r.logger.Error(err, "Delete failed")
 		return err
 	}
