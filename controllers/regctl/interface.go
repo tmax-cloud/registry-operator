@@ -3,18 +3,16 @@ package regctl
 import (
 	"time"
 
-	"github.com/tmax-cloud/registry-operator/internal/utils"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/internal/utils"
 )
 
 // RegistrySubresource is an interface to handle resigstry subreousrces
 type RegistrySubresource interface {
-	CreateIfNotExist(*regv1.Registry, *regv1.Registry, *runtime.Scheme) error
+	CreateIfNotExist(*regv1.Registry, *regv1.Registry) error
 	IsReady(*regv1.Registry, *regv1.Registry, bool) error
 
-	create(*regv1.Registry, *regv1.Registry, *runtime.Scheme) error
+	create(*regv1.Registry, *regv1.Registry) error
 	get(*regv1.Registry) error
 	patch(*regv1.Registry, *regv1.Registry, []utils.Diff) error
 	delete(*regv1.Registry) error

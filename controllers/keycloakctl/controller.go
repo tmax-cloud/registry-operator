@@ -3,7 +3,6 @@ package keycloakctl
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -21,7 +20,6 @@ import (
 	cmhttp "github.com/tmax-cloud/registry-operator/internal/common/http"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -30,24 +28,19 @@ const (
 
 // KeycloakController is ...
 type KeycloakController struct {
-	name       string
+	realm      string
 	client     gocloak.GoCloak
 	logger     logr.Logger
 	token      string
 	httpClient *cmhttp.HttpClient
 }
 
-func NewKeycloakController(namespace, name string) *KeycloakController {
-	logger := logf.Log.WithName("keycloak controller").WithValues("namespace", namespace, "registry name", name)
+func NewKeycloakController(namespace, name string, logger logr.Logger) *KeycloakController {
+	logger = logger.WithName("keycloak").WithValues("namespace", namespace, "name", name)
 	KeycloakServer := config.Config.GetString(config.ConfigKeycloakService)
 	keycloakUser := config.Config.GetString("keycloak.username")
 	keycloakPwd := config.Config.GetString("keycloak.password")
 	client := gocloak.NewClient(KeycloakServer)
-	restyClient := client.RestyClient()
-	// TODO: 인증서 추가할 것
-	restyClient.SetTLSClientConfig(&tls.Config{
-		InsecureSkipVerify: true,
-	})
 
 	// set realm name
 	var realm string
@@ -66,7 +59,7 @@ func NewKeycloakController(namespace, name string) *KeycloakController {
 	}
 
 	return &KeycloakController{
-		name:       realm,
+		realm:      realm,
 		client:     client,
 		logger:     logger,
 		token:      token.AccessToken,
@@ -75,11 +68,11 @@ func NewKeycloakController(namespace, name string) *KeycloakController {
 }
 
 func (c *KeycloakController) GetRealmName() string {
-	return c.name
+	return c.realm
 }
 
 func (c *KeycloakController) GetDockerV2ClientName() string {
-	return c.name + "-docker-client"
+	return c.realm + "-docker-client"
 }
 
 func (c *KeycloakController) GetAdminToken() (string, error) {
@@ -111,14 +104,14 @@ func (c *KeycloakController) CreateResources(reg, patchReg *regv1.Registry) erro
 		return err
 	}
 
-	if !c.isExistRealm(c.name) {
-		c.logger.Info(fmt.Sprintf("%s realm is not found in keystore", c.name))
+	if !c.isExistRealm(c.realm) {
+		c.logger.Info(fmt.Sprintf("%s realm is not found in keystore", c.realm))
 		// make new realm
 		realmEnabled := true
 
 		_, err = c.client.CreateRealm(context.Background(), c.token, gocloak.RealmRepresentation{
-			ID:      &c.name,
-			Realm:   &c.name,
+			ID:      &c.realm,
+			Realm:   &c.realm,
 			Enabled: &realmEnabled,
 		})
 		if err != nil {
@@ -134,12 +127,12 @@ func (c *KeycloakController) CreateResources(reg, patchReg *regv1.Registry) erro
 
 		// create docker-v2 client
 		protocol := "docker-v2"
-		_, err = c.client.CreateClient(context.Background(), c.token, c.name, gocloak.Client{
+		_, err = c.client.CreateClient(context.Background(), c.token, c.realm, gocloak.Client{
 			ClientID: &clientName,
 			Protocol: &protocol,
 		})
 		if err != nil {
-			c.logger.Error(err, "Couldn't create docker client in realm "+c.name)
+			c.logger.Error(err, "Couldn't create docker client in realm "+c.realm)
 			condition.Message = err.Error()
 			return err
 		}
@@ -162,7 +155,7 @@ func (c *KeycloakController) CreateResources(reg, patchReg *regv1.Registry) erro
 		}
 	}
 
-	if !c.isExistRealm(c.name) || !c.isExistClient() || !c.isExistCertificate() || !c.isExistUser(reg.Spec.LoginID) {
+	if !c.isExistRealm(c.realm) || !c.isExistClient() || !c.isExistCertificate() || !c.isExistUser(reg.Spec.LoginID) {
 		return fmt.Errorf("failed to create realm/client/certificate/user")
 	}
 
@@ -172,7 +165,7 @@ func (c *KeycloakController) CreateResources(reg, patchReg *regv1.Registry) erro
 
 // DeleteRealm is ...
 func (c *KeycloakController) DeleteRealm(namespace string, name string) error {
-	if !c.isExistRealm(c.name) {
+	if !c.isExistRealm(c.realm) {
 		return nil
 	}
 	if _, err := c.GetAdminToken(); err != nil {
@@ -180,8 +173,8 @@ func (c *KeycloakController) DeleteRealm(namespace string, name string) error {
 		return err
 	}
 	// Delete realm
-	if err := c.client.DeleteRealm(context.Background(), c.token, c.name); err != nil {
-		c.logger.Error(err, "Couldn't delete the realm named "+c.name)
+	if err := c.client.DeleteRealm(context.Background(), c.token, c.realm); err != nil {
+		c.logger.Error(err, "Couldn't delete the realm named "+c.realm)
 		return err
 	}
 
@@ -216,7 +209,10 @@ func (c *KeycloakController) CreateUser(token, user, password string) error {
 }
 
 func (c *KeycloakController) AddCertificate() error {
-	reqURL := c.componentURL()
+	KeycloakServer := config.Config.GetString(config.ConfigKeycloakService)
+	keycloakUser := config.Config.GetString("keycloak.username")
+	reqURL := KeycloakServer + "/" + path.Join("auth", keycloakUser, "realms", c.GetRealmName(), "components")
+
 	caSecret, err := certs.GetSystemRootCASecret(nil)
 	if err != nil {
 		return err
@@ -276,12 +272,6 @@ func (c *KeycloakController) AddCertificate() error {
 	c.logger.Info("add certificate success", "response", string(resBody))
 
 	return nil
-}
-
-func (c *KeycloakController) componentURL() string {
-	KeycloakServer := config.Config.GetString(config.ConfigKeycloakService)
-	keycloakUser := config.Config.GetString("keycloak.username")
-	return KeycloakServer + "/" + path.Join("auth", keycloakUser, "realms", c.GetRealmName(), "components")
 }
 
 func (c *KeycloakController) isExistRealm(name string) bool {
@@ -344,7 +334,10 @@ func (c *KeycloakController) isExistUser(username string) bool {
 }
 
 func (c *KeycloakController) isExistCertificate() bool {
-	reqURL := c.componentURL()
+	KeycloakServer := config.Config.GetString(config.ConfigKeycloakService)
+	keycloakUser := config.Config.GetString("keycloak.username")
+	reqURL := KeycloakServer + "/" + path.Join("auth", keycloakUser, "realms", c.GetRealmName(), "components")
+
 	parent := []string{c.GetRealmName()}
 	keyType := []string{"org.keycloak.keys.KeyProvider"}
 	params := map[string][]string{"parent": parent, "type": keyType}
