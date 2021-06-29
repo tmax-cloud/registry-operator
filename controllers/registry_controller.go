@@ -19,6 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/operator-framework/operator-lib/status"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -57,24 +59,24 @@ type RegistryReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=pods/exec,verbs=get;list;watch;create;update;patch;delete
 
 func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("registry", req.NamespacedName)
+	ctx := context.Background()
+	logger := r.Log.WithValues("registry", req.NamespacedName)
 
+	logger.Info(">>>> Start reconcile...")
 	// Fetch the Registry reg
 	reg := &regv1.Registry{}
-	err := r.Get(context.TODO(), req.NamespacedName, reg)
+	err := r.Get(ctx, req.NamespacedName, reg)
 	if err != nil {
-		r.Log.Info("Error on get registry")
 		if k8serr.IsNotFound(err) {
-			r.kc = keycloakctl.NewKeycloakController(req.Namespace, req.Name)
+			// Delete 되었을 때 이 로직이 반드시 수행되는가?
+			logger.Info("****** DELETED registry *****")
+			r.kc = keycloakctl.NewKeycloakController(req.Namespace, req.Name, logger)
 			if r.kc == nil {
 				return reconcile.Result{}, err
 			}
 			if err := r.kc.DeleteRealm(req.Namespace, req.Name); err != nil {
-				r.Log.Info("Couldn't delete keycloak realm")
+				logger.Info("Couldn't delete keycloak realm")
 			}
-
-			r.Log.Info("Not Found Error")
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err
@@ -85,19 +87,88 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, err
 	}
 
-	updated, err := regctl.UpdateRegistryStatus(r.Client, reg)
-	if err != nil {
-		return reconcile.Result{}, err
-	} else if updated {
+	if reg.Status.Phase == "" {
+		reg.Status.Conditions = status.NewConditions(getResourceConditionList(reg)...)
+		reg.Status.Message = "registry is creating. All resources in registry has not yet been created."
+		reg.Status.Reason = "AllConditionsNotTrue"
+		reg.Status.Phase = regv1.StatusCreating
+		reg.Status.PhaseChangedAt = metav1.Now()
+		if err := r.Status().Update(ctx, reg); err != nil {
+			logger.Error(err, "failed to initialize conditions.")
+			return reconcile.Result{}, err
+		}
 		return reconcile.Result{}, nil
 	}
 
+	// Check if all subresources are true
+	if err := r.updatePhaseByCondition(ctx, reg); err != nil {
+		logger.Error(err, "failed to update")
+		return reconcile.Result{}, err
+	}
+
+	logger.Info("Processing resources...")
 	if err = r.handleAllSubresources(reg); err != nil {
-		r.Log.Error(err, "Subresource creation failed")
+		logger.Error(err, "Subresource creation failed")
 		return reconcile.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func getResourceConditionList(reg *regv1.Registry) status.Conditions {
+	condTypes := []status.ConditionType{
+		regv1.ConditionTypeDeployment,
+		regv1.ConditionTypePod,
+		regv1.ConditionTypeContainer,
+		regv1.ConditionTypeService,
+		regv1.ConditionTypeSecretTLS,
+		regv1.ConditionTypeSecretOpaque,
+		regv1.ConditionTypeSecretDockerConfigJSON,
+		regv1.ConditionTypePvc,
+		regv1.ConditionTypeConfigMap,
+		regv1.ConditionTypeKeycloakResources,
+	}
+	if reg.Spec.Notary.Enabled {
+		condTypes = append(condTypes, regv1.ConditionTypeNotary)
+	}
+	if reg.Spec.RegistryService.ServiceType == "Ingress" {
+		condTypes = append(condTypes, regv1.ConditionTypeIngress)
+	}
+
+	conds := status.Conditions{}
+	for _, t := range condTypes {
+		conds = append(conds, status.Condition{Type: t, Status: corev1.ConditionFalse})
+	}
+	return conds
+}
+
+func (r *RegistryReconciler) updatePhaseByCondition(ctx context.Context, reg *regv1.Registry) error {
+	badConditions := []status.ConditionType{}
+	for _, cond := range reg.Status.Conditions {
+		if reg.Status.Conditions.IsFalseFor(cond.Type) {
+			badConditions = append(badConditions, cond.Type)
+		}
+	}
+
+	switch {
+	case len(badConditions) == 0:
+		reg.Status.Phase = regv1.StatusCreating
+		reg.Status.Message = "Registry is creating. All resources in registry has not yet been created."
+		reg.Status.Reason = "AllConditionsNotTrue"
+	case len(badConditions) == 1 && badConditions[0] == regv1.ConditionTypeContainer:
+		reg.Status.Phase = regv1.StatusNotReady
+		reg.Status.Message = "Registry is not ready."
+		reg.Status.Reason = "NotReady"
+	case len(badConditions) > 1:
+		reg.Status.Phase = regv1.StatusRunning
+		reg.Status.Message = "Registry is running. All registry resources are operating normally."
+		reg.Status.Reason = "Running"
+	}
+	reg.Status.PhaseChangedAt = metav1.Now()
+	if err := r.Status().Update(ctx, reg); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *RegistryReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -124,38 +195,37 @@ func (r *RegistryReconciler) validate(reg *regv1.Registry) error {
 }
 
 func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { // if want to requeue, return true
-	subResourceLogger := r.Log.WithValues("SubResource.Namespace", reg.Namespace, "SubResource.Name", reg.Name)
-	subResourceLogger.Info("Creating all Subresources")
+	logger := r.Log.WithValues("SubResource.Namespace", reg.Namespace, "SubResource.Name", reg.Name)
+	logger.Info("Creating all Subresources")
 
 	var requeueErr error
 	patchReg := reg.DeepCopy() // Target to Patch object
 
 	defer func() {
 		if err := r.update(reg, patchReg); err != nil {
-			subResourceLogger.Error(err, "failed to patch")
+			logger.Error(err, "failed to patch")
 		}
 	}()
 
-	r.kc = keycloakctl.NewKeycloakController(reg.Namespace, reg.Name)
+	r.kc = keycloakctl.NewKeycloakController(reg.Namespace, reg.Name, logger)
 	if r.kc == nil {
 		return fmt.Errorf("unable to get keycloak controller")
 	}
 	if err := r.kc.CreateResources(reg, patchReg); err != nil {
 		return err
 	}
-
-	collectSubController := r.collectSubController(reg, r.kc)
+	collectSubController := r.collectSubController(reg)
 	printSubresources(log, collectSubController)
 
 	// Check if subresources are created.
 	for _, sctl := range collectSubController {
 		subresourceType := reflect.TypeOf(sctl).String()
-		subResourceLogger.Info("Check subresource", "subresourceType", subresourceType)
+		logger.Info("Check subresource", "subresourceType", subresourceType)
 
 		// Check if subresource is handled.
 		if err := sctl.CreateIfNotExist(reg, patchReg); err != nil {
 			errMsg := "Got an error in handling subresource"
-			subResourceLogger.Error(err, errMsg)
+			logger.Error(err, errMsg)
 			requeueErr = regv1.AppendError(requeueErr, errMsg)
 			continue
 		}
@@ -163,7 +233,7 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 		// Check if subresource is ready.
 		if err := sctl.IsReady(reg, patchReg, true); err != nil {
 			errMsg := "Got an error in checking ready"
-			subResourceLogger.Error(err, errMsg)
+			logger.Error(err, errMsg)
 			requeueErr = regv1.AppendError(requeueErr, errMsg)
 		}
 	}
@@ -176,13 +246,13 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 }
 
 func (r *RegistryReconciler) update(origin, target *regv1.Registry) error {
-	subResourceLogger := r.Log.WithValues("SubResource.Namespace", origin.Namespace, "SubResource.Name", origin.Name)
+	logger := r.Log.WithValues("SubResource.Namespace", origin.Namespace, "SubResource.Name", origin.Name)
 
 	// Check whether update is necessary or not
 	if !reflect.DeepEqual(origin.Spec, target.Spec) {
-		subResourceLogger.Info("Update registry")
+		logger.Info("Update registry")
 		if err := r.Update(context.TODO(), target); err != nil {
-			subResourceLogger.Error(err, "Unknown error updating")
+			logger.Error(err, "Unknown error updating")
 			return err
 		}
 	}
@@ -191,7 +261,7 @@ func (r *RegistryReconciler) update(origin, target *regv1.Registry) error {
 	// r.exceptStatus(origin, target)
 	if !reflect.DeepEqual(origin.Status, target.Status) {
 		if err := r.Status().Update(context.TODO(), target); err != nil {
-			subResourceLogger.Error(err, "Unknown error updating status")
+			logger.Error(err, "Unknown error updating status")
 			return err
 		}
 	}
@@ -199,18 +269,16 @@ func (r *RegistryReconciler) update(origin, target *regv1.Registry) error {
 	return nil
 }
 
-func (r *RegistryReconciler) collectSubController(reg *regv1.Registry, kc *keycloakctl.KeycloakController) []regctl.RegistrySubresource {
+func (r *RegistryReconciler) collectSubController(reg *regv1.Registry) []regctl.RegistrySubresource {
 	collection := []regctl.RegistrySubresource{}
 
-	kcCli := keycloakctl.NewKeycloakClient(reg.Spec.LoginID, reg.Spec.LoginPassword, kc.GetRealmName(), kc.GetDockerV2ClientName())
-
-	notary := regctl.NewRegistryNotary(r.Client, r.Scheme, kc)
+	notary := regctl.NewRegistryNotary(r.Client, r.Scheme, r.kc)
 	pvc := regctl.NewRegistryPVC(r.Client, r.Scheme)
 	svc := regctl.NewRegistryService(r.Client, r.Scheme)
 	certSecret := regctl.NewRegistryCertSecret(r.Client, r.Scheme, svc)
 	dcjSecret := regctl.NewRegistryDCJSecret(r.Client, r.Scheme, svc)
 	cm := regctl.NewRegistryConfigMap(r.Client, r.Scheme)
-	deploy := regctl.NewRegistryDeployment(r.Client, r.Scheme, kcCli, pvc, svc, cm)
+	deploy := regctl.NewRegistryDeployment(r.Client, r.Scheme, r.kc, pvc, svc, cm)
 	pod := regctl.NewRegistryPod(r.Client, r.Scheme, deploy)
 	ing := regctl.NewRegistryIngress(r.Client, r.Scheme, certSecret)
 

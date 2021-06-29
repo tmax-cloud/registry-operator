@@ -38,7 +38,7 @@ const (
 
 // NewRegistryDeployment creates new registry deployment controller
 // deps: pvc, svc, cm
-func NewRegistryDeployment(client client.Client, scheme *runtime.Scheme, kcCli *keycloakctl.KeycloakClient, deps ...Dependent) *RegistryDeployment {
+func NewRegistryDeployment(client client.Client, scheme *runtime.Scheme, kcCli *keycloakctl.KeycloakController, deps ...Dependent) *RegistryDeployment {
 	return &RegistryDeployment{
 		c:      client,
 		scheme: scheme,
@@ -52,7 +52,7 @@ type RegistryDeployment struct {
 	c      client.Client
 	scheme *runtime.Scheme
 	deps   []Dependent
-	KcCli  *keycloakctl.KeycloakClient
+	KcCli  *keycloakctl.KeycloakController
 	deploy *appsv1.Deployment
 	logger *utils.RegistryLogger
 }
@@ -176,9 +176,9 @@ func (r *RegistryDeployment) create(reg *regv1.Registry, patchReg *regv1.Registr
 func (r *RegistryDeployment) getAuthConfig() *regv1.AuthConfig {
 	KeycloakServer := config.Config.GetString(config.ConfigKeycloakService)
 	auth := &regv1.AuthConfig{}
-	auth.Realm = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCli.GetRealm(), "protocol", "docker-v2", "auth")
-	auth.Service = r.KcCli.GetService()
-	auth.Issuer = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCli.GetRealm())
+	auth.Realm = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCli.GetRealmName(), "protocol", "docker-v2", "auth")
+	auth.Service = r.KcCli.GetDockerV2ClientName()
+	auth.Issuer = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCli.GetRealmName())
 
 	return auth
 }
