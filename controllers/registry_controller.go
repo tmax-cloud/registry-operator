@@ -195,8 +195,8 @@ func (r *RegistryReconciler) validate(reg *regv1.Registry) error {
 }
 
 func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { // if want to requeue, return true
-	logger := r.Log.WithValues("SubResource.Namespace", reg.Namespace, "SubResource.Name", reg.Name)
-	logger.Info("Creating all Subresources")
+	logger := r.Log.WithName("subresource").WithValues("namespace", reg.Namespace, "name", reg.Name)
+	logger.Info("start")
 
 	var requeueErr error
 	patchReg := reg.DeepCopy() // Target to Patch object
@@ -273,15 +273,15 @@ func (r *RegistryReconciler) collectSubController(reg *regv1.Registry) []regctl.
 	logger := r.Log.WithValues("Namespace", reg.Namespace, "Name", reg.Name)
 
 	collection := []regctl.RegistrySubresource{}
-	notary := regctl.NewRegistryNotary(r.Client, r.Scheme, regv1.ConditionTypeNotary, logger, r.kc)
-	pvc := regctl.NewRegistryPVC(r.Client, r.Scheme, regv1.ConditionTypePvc, logger)
-	svc := regctl.NewRegistryService(r.Client, r.Scheme, regv1.ConditionTypeService, logger)
-	certSecret := regctl.NewRegistryCertSecret(r.Client, r.Scheme, regv1.ConditionTypeSecretTLS, logger, svc)
-	dcjSecret := regctl.NewRegistryDCJSecret(r.Client, r.Scheme, regv1.ConditionTypeSecretDockerConfigJSON, logger, svc)
-	cm := regctl.NewRegistryConfigMap(r.Client, r.Scheme, regv1.ConditionTypeConfigMap, logger)
-	deploy := regctl.NewRegistryDeployment(r.Client, r.Scheme, regv1.ConditionTypeDeployment, logger, r.kc, pvc, svc, cm)
-	pod := regctl.NewRegistryPod(r.Client, r.Scheme, regv1.ConditionTypePod, logger, deploy)
-	ing := regctl.NewRegistryIngress(r.Client, r.Scheme, regv1.ConditionTypeIngress, logger, certSecret)
+	notary := regctl.NewRegistryNotary(r.Client, r.Scheme, reg, regv1.ConditionTypeNotary, logger, r.kc)
+	pvc := regctl.NewRegistryPVC(r.Client, r.Scheme, reg, regv1.ConditionTypePvc, logger)
+	svc := regctl.NewRegistryService(r.Client, r.Scheme, reg, regv1.ConditionTypeService, logger)
+	certSecret := regctl.NewRegistryCertSecret(r.Client, r.Scheme, reg, regv1.ConditionTypeSecretTLS, logger, svc)
+	dcjSecret := regctl.NewRegistryDCJSecret(r.Client, r.Scheme, reg, regv1.ConditionTypeSecretDockerConfigJSON, logger, svc)
+	cm := regctl.NewRegistryConfigMap(r.Client, r.Scheme, reg, regv1.ConditionTypeConfigMap, logger)
+	deploy := regctl.NewRegistryDeployment(r.Client, r.Scheme, reg, regv1.ConditionTypeDeployment, logger, r.kc, pvc, svc, cm)
+	pod := regctl.NewRegistryPod(r.Client, r.Scheme, reg, regv1.ConditionTypePod, logger, deploy)
+	ing := regctl.NewRegistryIngress(r.Client, r.Scheme, reg, regv1.ConditionTypeIngress, logger, certSecret)
 
 	for _, cond := range reg.Status.Conditions {
 		switch cond.Type {

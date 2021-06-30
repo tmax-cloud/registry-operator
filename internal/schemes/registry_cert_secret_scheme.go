@@ -1,18 +1,16 @@
 package schemes
 
 import (
+	"fmt"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/internal/utils"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secret) {
-	logger := utils.GetRegistryLogger(corev1.Secret{}, reg.Namespace, reg.Name+"secret")
+func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secret, error) {
 	if !regBodyCheckForSecrets(reg) {
-		return nil, nil
+		return nil, nil, fmt.Errorf("failed to generate manifest: not yet assigned registry service IP")
 	}
 	data := map[string][]byte{}
 	tlsData := map[string][]byte{}
@@ -22,20 +20,17 @@ func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secr
 
 	cert, err := NewCertFactory(c).CreateCertPair(reg, certTypeRegistry)
 	if err != nil {
-		logger.Error(err, "")
-		return nil, nil
+		return nil, nil, err
 	}
 
 	certPem, err := cert.CertDataToPem()
 	if err != nil {
-		logger.Error(err, "")
-		return nil, nil
+		return nil, nil, err
 	}
 
 	keyPem, err := cert.KeyToPem()
 	if err != nil {
-		logger.Error(err, "")
-		return nil, nil
+		return nil, nil, err
 	}
 
 	tlsData[TLSCert] = certPem
@@ -62,7 +57,8 @@ func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secr
 			},
 			Type: corev1.SecretTypeTLS,
 			Data: tlsData,
-		}
+		},
+		nil
 }
 
 func regBodyCheckForSecrets(reg *regv1.Registry) bool {
