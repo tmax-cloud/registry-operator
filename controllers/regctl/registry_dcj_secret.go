@@ -27,7 +27,7 @@ import (
 type RegistryDCJSecret struct {
 	c         client.Client
 	scheme    *runtime.Scheme
-	reg       *regv1.Registry
+	cond      status.ConditionType
 	deps      []Dependent
 	secretDCJ *corev1.Secret
 	logger    logr.Logger
@@ -35,11 +35,11 @@ type RegistryDCJSecret struct {
 
 // NewRegistryDCJSecret creates new registry docker config json secret controller
 // deps: service
-func NewRegistryDCJSecret(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger, deps ...Dependent) *RegistryDCJSecret {
+func NewRegistryDCJSecret(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger, deps ...Dependent) *RegistryDCJSecret {
 	return &RegistryDCJSecret{
 		c:      client,
 		scheme: scheme,
-		reg:    reg,
+		cond:   cond,
 		logger: logger.WithName("DockerConfigSecret"),
 		deps:   deps,
 	}

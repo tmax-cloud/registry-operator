@@ -25,7 +25,7 @@ import (
 type RegistryCertSecret struct {
 	c            client.Client
 	scheme       *runtime.Scheme
-	reg          *regv1.Registry
+	cond         status.ConditionType
 	deps         []Dependent
 	secretOpaque *corev1.Secret
 	secretTLS    *corev1.Secret
@@ -34,11 +34,11 @@ type RegistryCertSecret struct {
 
 // NewRegistryCertSecret creates new registry cert secret controller
 // deps: service
-func NewRegistryCertSecret(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger, deps ...Dependent) *RegistryCertSecret {
+func NewRegistryCertSecret(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger, deps ...Dependent) *RegistryCertSecret {
 	return &RegistryCertSecret{
 		c:      client,
 		scheme: scheme,
-		reg:    reg,
+		cond:   cond,
 		logger: logger.WithName("TLSSecret"),
 		deps:   deps,
 	}

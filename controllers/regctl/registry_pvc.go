@@ -24,11 +24,11 @@ import (
 )
 
 // NewRegistryPVC creates new registry pvc controller
-func NewRegistryPVC(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger) *RegistryPVC {
+func NewRegistryPVC(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger) *RegistryPVC {
 	return &RegistryPVC{
 		c:      client,
 		scheme: scheme,
-		reg:    reg,
+		cond:   cond,
 		logger: logger.WithName("PVC"),
 	}
 }
@@ -37,7 +37,7 @@ func NewRegistryPVC(client client.Client, scheme *runtime.Scheme, reg *regv1.Reg
 type RegistryPVC struct {
 	c      client.Client
 	scheme *runtime.Scheme
-	reg    *regv1.Registry
+	cond   status.ConditionType
 	pvc    *corev1.PersistentVolumeClaim
 	logger logr.Logger
 }

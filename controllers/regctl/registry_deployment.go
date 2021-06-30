@@ -39,11 +39,11 @@ const (
 
 // NewRegistryDeployment creates new registry deployment controller
 // deps: pvc, svc, cm
-func NewRegistryDeployment(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger, kcCli *keycloakctl.KeycloakController, deps ...Dependent) *RegistryDeployment {
+func NewRegistryDeployment(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger, kcCli *keycloakctl.KeycloakController, deps ...Dependent) *RegistryDeployment {
 	return &RegistryDeployment{
 		c:      client,
 		scheme: scheme,
-		reg:    reg,
+		cond:   cond,
 		logger: logger.WithName("Deployment"),
 		deps:   deps,
 		KcCli:  kcCli,
@@ -54,7 +54,7 @@ func NewRegistryDeployment(client client.Client, scheme *runtime.Scheme, reg *re
 type RegistryDeployment struct {
 	c      client.Client
 	scheme *runtime.Scheme
-	reg    *regv1.Registry
+	cond   status.ConditionType
 	deps   []Dependent
 	KcCli  *keycloakctl.KeycloakController
 	deploy *appsv1.Deployment

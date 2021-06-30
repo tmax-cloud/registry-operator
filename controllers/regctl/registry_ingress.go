@@ -24,11 +24,11 @@ import (
 
 // NewRegistryIngress creates new registry ingress controller
 // deps: cert
-func NewRegistryIngress(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger, deps ...Dependent) *RegistryIngress {
+func NewRegistryIngress(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger, deps ...Dependent) *RegistryIngress {
 	return &RegistryIngress{
 		c:      client,
 		scheme: scheme,
-		reg:    reg,
+		cond:   cond,
 		logger: logger.WithName("Ingress"),
 		deps:   deps,
 	}
@@ -38,7 +38,7 @@ func NewRegistryIngress(client client.Client, scheme *runtime.Scheme, reg *regv1
 type RegistryIngress struct {
 	c       client.Client
 	scheme  *runtime.Scheme
-	reg     *regv1.Registry
+	cond    status.ConditionType
 	deps    []Dependent
 	ingress *v1beta1.Ingress
 	logger  logr.Logger
@@ -71,7 +71,7 @@ func (r *RegistryIngress) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.
 
 	if err := r.get(reg); err != nil {
 		// if r.ingress == nil {
-		// 	r.notReady(patchReg, err)
+		// 	r.setConditionFalseWithError(patchReg, err)
 		// 	return err
 		// }
 

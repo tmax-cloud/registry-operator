@@ -21,11 +21,11 @@ import (
 )
 
 // NewRegistryNotary creates new registry notary controller
-func NewRegistryNotary(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger, kcCtl *keycloakctl.KeycloakController) *RegistryNotary {
+func NewRegistryNotary(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger, kcCtl *keycloakctl.KeycloakController) *RegistryNotary {
 	return &RegistryNotary{
 		c:      client,
 		scheme: scheme,
-		reg:    reg,
+		cond:   cond,
 		logger: logger.WithName("Notary"),
 		kcCtl:  kcCtl,
 	}
@@ -35,7 +35,7 @@ func NewRegistryNotary(client client.Client, scheme *runtime.Scheme, reg *regv1.
 type RegistryNotary struct {
 	c      client.Client
 	scheme *runtime.Scheme
-	reg    *regv1.Registry
+	cond   status.ConditionType
 	kcCtl  *keycloakctl.KeycloakController
 	not    *regv1.Notary
 	logger logr.Logger

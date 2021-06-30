@@ -272,18 +272,59 @@ func (r *RegistryReconciler) update(origin, target *regv1.Registry) error {
 func (r *RegistryReconciler) collectSubController(reg *regv1.Registry) []regctl.RegistrySubresource {
 	logger := r.Log.WithValues("Namespace", reg.Namespace, "Name", reg.Name)
 
-	notary := regctl.NewRegistryNotary(r.Client, r.Scheme, reg, logger, r.kc)
-	pvc := regctl.NewRegistryPVC(r.Client, r.Scheme, reg, logger)
-	svc := regctl.NewRegistryService(r.Client, r.Scheme, reg, logger)
-	certSecret := regctl.NewRegistryCertSecret(r.Client, r.Scheme, reg, logger, svc)
-	dcjSecret := regctl.NewRegistryDCJSecret(r.Client, r.Scheme, reg, logger, svc)
-	cm := regctl.NewRegistryConfigMap(r.Client, r.Scheme, reg, logger)
-	deploy := regctl.NewRegistryDeployment(r.Client, r.Scheme, reg, logger, r.kc, pvc, svc, cm)
-	pod := regctl.NewRegistryPod(r.Client, r.Scheme, reg, logger, deploy)
-	ing := regctl.NewRegistryIngress(r.Client, r.Scheme, reg, logger, certSecret)
-
 	collection := []regctl.RegistrySubresource{}
-	collection = append(collection, notary, pvc, svc, certSecret, dcjSecret, cm, deploy, pod, ing)
+	notary := regctl.NewRegistryNotary(r.Client, r.Scheme, regv1.ConditionTypeNotary, logger, r.kc)
+	pvc := regctl.NewRegistryPVC(r.Client, r.Scheme, regv1.ConditionTypePvc, logger)
+	svc := regctl.NewRegistryService(r.Client, r.Scheme, regv1.ConditionTypeService, logger)
+	certSecret := regctl.NewRegistryCertSecret(r.Client, r.Scheme, regv1.ConditionTypeSecretTLS, logger, svc)
+	dcjSecret := regctl.NewRegistryDCJSecret(r.Client, r.Scheme, regv1.ConditionTypeSecretDockerConfigJSON, logger, svc)
+	cm := regctl.NewRegistryConfigMap(r.Client, r.Scheme, regv1.ConditionTypeConfigMap, logger)
+	deploy := regctl.NewRegistryDeployment(r.Client, r.Scheme, regv1.ConditionTypeDeployment, logger, r.kc, pvc, svc, cm)
+	pod := regctl.NewRegistryPod(r.Client, r.Scheme, regv1.ConditionTypePod, logger, deploy)
+	ing := regctl.NewRegistryIngress(r.Client, r.Scheme, regv1.ConditionTypeIngress, logger, certSecret)
+
+	for _, cond := range reg.Status.Conditions {
+		switch cond.Type {
+		case regv1.ConditionTypeDeployment:
+			//collection = append(collection, regctl.NewRegistryDeployment(r.Client, r.Scheme, reg, logger, r.kc, pvc, svc, cm))
+			collection = append(collection, deploy)
+		case regv1.ConditionTypePod:
+			//collection = append(collection, regctl.NewRegistryPod(r.Client, r.Scheme, reg, logger, deploy))
+			collection = append(collection, pod)
+		case regv1.ConditionTypeContainer:
+			// collection = append(collection,)
+			continue
+		case regv1.ConditionTypeService:
+			//collection = append(collection, regctl.NewRegistryService(r.Client, r.Scheme, reg, logger))
+			collection = append(collection, svc)
+		case regv1.ConditionTypeSecretTLS:
+			//collection = append(collection, regctl.NewRegistryCertSecret(r.Client, r.Scheme, reg, logger, svc))
+			collection = append(collection, certSecret)
+		case regv1.ConditionTypeSecretOpaque:
+			//collection = append(collection,)
+			continue
+		case regv1.ConditionTypeSecretDockerConfigJSON:
+			//collection = append(collection, regctl.NewRegistryDCJSecret(r.Client, r.Scheme, reg, logger, svc))
+			collection = append(collection, dcjSecret)
+		case regv1.ConditionTypePvc:
+			//collection = append(collection, regctl.NewRegistryPVC(r.Client, r.Scheme, reg, logger))
+			collection = append(collection, pvc)
+		case regv1.ConditionTypeConfigMap:
+			//collection = append(collection, regctl.NewRegistryConfigMap(r.Client, r.Scheme, reg, logger))
+			collection = append(collection, cm)
+		case regv1.ConditionTypeKeycloakResources:
+			continue
+		case regv1.ConditionTypeNotary:
+			//collection = append(collection, regctl.NewRegistryNotary(r.Client, r.Scheme, reg, logger, r.kc))
+			collection = append(collection, notary)
+		case regv1.ConditionTypeIngress:
+			//collection = append(collection, regctl.NewRegistryIngress(r.Client, r.Scheme, reg, logger, certSecret))
+			collection = append(collection, ing)
+		default:
+			logger.Info("[WARN] Unknown condition: " + string(cond.Type))
+		}
+	}
+
 	return collection
 }
 

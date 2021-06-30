@@ -27,11 +27,11 @@ const (
 )
 
 // NewRegistryService creates new registry service
-func NewRegistryService(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger) *RegistryService {
+func NewRegistryService(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger) *RegistryService {
 	return &RegistryService{
 		c:      client,
 		scheme: scheme,
-		reg:    reg,
+		cond:   cond,
 		logger: logger.WithName("Service"),
 	}
 }
@@ -40,7 +40,7 @@ func NewRegistryService(client client.Client, scheme *runtime.Scheme, reg *regv1
 type RegistryService struct {
 	c      client.Client
 	scheme *runtime.Scheme
-	reg    *regv1.Registry
+	cond   status.ConditionType
 	svc    *corev1.Service
 	logger logr.Logger
 }
@@ -48,11 +48,11 @@ type RegistryService struct {
 // Handle makes service to be in the desired state
 func (r *RegistryService) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
 	if err := r.get(reg); err != nil {
-		r.notReady(patchReg, err)
+		r.setConditionFalseWithError(err, patchReg)
 		if errors.IsNotFound(err) {
 			if createError := r.create(reg, patchReg); createError != nil {
 				r.logger.Error(createError, "Create failed in CreateIfNotExist")
-				r.notReady(patchReg, createError)
+				r.setConditionFalseWithError(createError, patchReg)
 				return createError
 			}
 			r.logger.Info("Create Succeeded")
@@ -66,9 +66,9 @@ func (r *RegistryService) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.
 	diff := r.compare(reg)
 	if len(diff) > 0 {
 		r.logger.Info("service must be patched")
-		r.notReady(patchReg, nil)
+		r.setConditionFalseWithError(nil, patchReg)
 		if err := r.patch(reg, patchReg, diff); err != nil {
-			r.notReady(patchReg, err)
+			r.setConditionFalseWithError(err, patchReg)
 			return err
 		}
 	}
@@ -215,12 +215,12 @@ func (r *RegistryService) IsSuccessfullyCompleted(reg *regv1.Registry) bool {
 	return cond.IsTrue()
 }
 
-func (r *RegistryService) notReady(patchReg *regv1.Registry, err error) {
+func (r *RegistryService) setConditionFalseWithError(e error, reg *regv1.Registry) {
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
 		Type:   regv1.ConditionTypeService,
 	}
-	utils.SetCondition(err, patchReg, condition)
+	utils.SetCondition(e, reg, condition)
 }
 
 // Condition returns dependent subresource's condition type
