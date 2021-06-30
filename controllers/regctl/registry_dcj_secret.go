@@ -35,7 +35,7 @@ type RegistryDCJSecret struct {
 
 // NewRegistryDCJSecret creates new registry docker config json secret controller
 // deps: service
-func NewRegistryDCJSecret(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger, deps ...Dependent) *RegistryDCJSecret {
+func NewRegistryDCJSecret(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, cond status.ConditionType, logger logr.Logger, deps ...Dependent) *RegistryDCJSecret {
 	return &RegistryDCJSecret{
 		c:      client,
 		scheme: scheme,

@@ -34,13 +34,25 @@ type RegistryCertSecret struct {
 
 // NewRegistryCertSecret creates new registry cert secret controller
 // deps: service
-func NewRegistryCertSecret(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger, deps ...Dependent) *RegistryCertSecret {
+func NewRegistryCertSecret(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, cond status.ConditionType, logger logr.Logger, deps ...Dependent) *RegistryCertSecret {
+	secretOpaque, secretTLS, err := schemes.Secrets(reg, client)
+	if err != nil {
+		logger.Error(err, "failed to initialize TLSSecret controller")
+		return nil
+	}
+	if secretOpaque == nil && secretTLS == nil {
+		logger.Info("Registry has no fields Secrets required")
+		return nil
+	}
+
 	return &RegistryCertSecret{
-		c:      client,
-		scheme: scheme,
-		cond:   cond,
-		logger: logger.WithName("TLSSecret"),
-		deps:   deps,
+		c:            client,
+		scheme:       scheme,
+		cond:         cond,
+		logger:       logger.WithName("TLSSecret"),
+		secretOpaque: secretOpaque,
+		secretTLS:    secretTLS,
+		deps:         deps,
 	}
 }
 
@@ -167,11 +179,6 @@ func (r *RegistryCertSecret) create(reg *regv1.Registry, patchReg *regv1.Registr
 
 func (r *RegistryCertSecret) get(reg *regv1.Registry) error {
 	logger := r.logger.WithName("get")
-	r.secretOpaque, r.secretTLS = schemes.Secrets(reg, r.c)
-	if r.secretOpaque == nil && r.secretTLS == nil {
-		return regv1.MakeRegistryError("Registry has no fields Secrets required")
-	}
-
 	req := types.NamespacedName{Name: r.secretOpaque.Name, Namespace: r.secretOpaque.Namespace}
 	if err := r.c.Get(context.TODO(), req, r.secretOpaque); err != nil {
 		logger.Error(err, "Get failed")

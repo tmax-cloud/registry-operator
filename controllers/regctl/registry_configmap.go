@@ -30,7 +30,7 @@ type RegistryConfigMap struct {
 }
 
 // NewRegistryConfigMap creates new registry configmap controller
-func NewRegistryConfigMap(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger) *RegistryConfigMap {
+func NewRegistryConfigMap(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, cond status.ConditionType, logger logr.Logger) *RegistryConfigMap {
 	return &RegistryConfigMap{
 		c:      client,
 		scheme: scheme,

@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
+	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"time"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
-
-	"github.com/tmax-cloud/registry-operator/internal/schemes"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 
@@ -27,12 +26,13 @@ const (
 )
 
 // NewRegistryService creates new registry service
-func NewRegistryService(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger) *RegistryService {
+func NewRegistryService(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, cond status.ConditionType, logger logr.Logger) *RegistryService {
 	return &RegistryService{
 		c:      client,
 		scheme: scheme,
 		cond:   cond,
 		logger: logger.WithName("Service"),
+		svc:    schemes.Service(reg),
 	}
 }
 
@@ -146,10 +146,6 @@ func (r *RegistryService) create(reg *regv1.Registry, patchReg *regv1.Registry) 
 
 func (r *RegistryService) get(reg *regv1.Registry) error {
 	logger := r.logger.WithName("get")
-	if r.svc == nil {
-		r.svc = schemes.Service(reg)
-	}
-
 	req := types.NamespacedName{Name: r.svc.Name, Namespace: r.svc.Namespace}
 	if err := r.c.Get(context.TODO(), req, r.svc); err != nil {
 		logger.Error(err, "Get Failed")

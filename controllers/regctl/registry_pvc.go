@@ -3,12 +3,11 @@ package regctl
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"strings"
 	"time"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
-
-	"github.com/tmax-cloud/registry-operator/internal/schemes"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 
@@ -24,12 +23,13 @@ import (
 )
 
 // NewRegistryPVC creates new registry pvc controller
-func NewRegistryPVC(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger) *RegistryPVC {
+func NewRegistryPVC(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, cond status.ConditionType, logger logr.Logger) *RegistryPVC {
 	return &RegistryPVC{
 		c:      client,
 		scheme: scheme,
 		cond:   cond,
 		logger: logger.WithName("PVC"),
+		pvc:    schemes.PersistentVolumeClaim(reg),
 	}
 }
 
@@ -134,14 +134,12 @@ func (r *RegistryPVC) create(reg *regv1.Registry, patchReg *regv1.Registry) erro
 
 func (r *RegistryPVC) get(reg *regv1.Registry) error {
 	logger := r.logger.WithName("get")
-	r.pvc = schemes.PersistentVolumeClaim(reg)
 	req := types.NamespacedName{Name: r.pvc.Name, Namespace: r.pvc.Namespace}
 	err := r.c.Get(context.TODO(), req, r.pvc)
 	if err != nil {
 		logger.Error(err, "Get regsitry pvc is failed")
 		return err
 	}
-
 	return nil
 }
 

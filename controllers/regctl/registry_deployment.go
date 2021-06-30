@@ -37,28 +37,39 @@ const (
 	requestMemoryDiffKey = "requestMemory"
 )
 
-// NewRegistryDeployment creates new registry deployment controller
-// deps: pvc, svc, cm
-func NewRegistryDeployment(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger, kcCli *keycloakctl.KeycloakController, deps ...Dependent) *RegistryDeployment {
-	return &RegistryDeployment{
-		c:      client,
-		scheme: scheme,
-		cond:   cond,
-		logger: logger.WithName("Deployment"),
-		deps:   deps,
-		KcCli:  kcCli,
-	}
-}
-
 // RegistryDeployment contains things to handle deployment resource
 type RegistryDeployment struct {
 	c      client.Client
 	scheme *runtime.Scheme
 	cond   status.ConditionType
 	deps   []Dependent
-	KcCli  *keycloakctl.KeycloakController
 	deploy *appsv1.Deployment
 	logger logr.Logger
+}
+
+// NewRegistryDeployment creates new registry deployment controller
+// deps: pvc, svc, cm
+func NewRegistryDeployment(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, cond status.ConditionType, logger logr.Logger, kcCli *keycloakctl.KeycloakController, deps ...Dependent) *RegistryDeployment {
+	serverAddr := config.Config.GetString(config.ConfigKeycloakService)
+	authcfg := &regv1.AuthConfig{
+		Realm:   path.Join(serverAddr, "auth", "realms", kcCli.GetRealmName(), "protocol", "docker-v2", "auth"),
+		Service: kcCli.GetDockerV2ClientName(),
+		Issuer:  path.Join(serverAddr, "auth", "realms", kcCli.GetRealmName()),
+	}
+
+	deploy, err := schemes.Deployment(reg, authcfg)
+	if err != nil {
+		logger.Error(err, "failed to generate manifest")
+		return nil
+	}
+	return &RegistryDeployment{
+		c:      client,
+		scheme: scheme,
+		cond:   cond,
+		logger: logger.WithName("Deployment"),
+		deploy: deploy,
+		deps:   deps,
+	}
 }
 
 // Handle makes deployment to be in the desired state
@@ -180,25 +191,8 @@ func (r *RegistryDeployment) create(reg *regv1.Registry, patchReg *regv1.Registr
 	return nil
 }
 
-func (r *RegistryDeployment) getAuthConfig() *regv1.AuthConfig {
-	KeycloakServer := config.Config.GetString(config.ConfigKeycloakService)
-	auth := &regv1.AuthConfig{}
-	auth.Realm = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCli.GetRealmName(), "protocol", "docker-v2", "auth")
-	auth.Service = r.KcCli.GetDockerV2ClientName()
-	auth.Issuer = KeycloakServer + "/" + path.Join("auth", "realms", r.KcCli.GetRealmName())
-
-	return auth
-}
-
 func (r *RegistryDeployment) get(reg *regv1.Registry) error {
 	logger := r.logger.WithName("get")
-	deploy, err := schemes.Deployment(reg, r.getAuthConfig())
-	if err != nil {
-		logger.Error(err, "Get regsitry deployment scheme is failed")
-		return err
-	}
-	r.deploy = deploy
-
 	req := types.NamespacedName{Name: r.deploy.Name, Namespace: r.deploy.Namespace}
 	if err := r.c.Get(context.TODO(), req, r.deploy); err != nil {
 		logger.Error(err, "Get regsitry deployment is failed")

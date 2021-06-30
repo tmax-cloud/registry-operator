@@ -22,18 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// NewRegistryIngress creates new registry ingress controller
-// deps: cert
-func NewRegistryIngress(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger, deps ...Dependent) *RegistryIngress {
-	return &RegistryIngress{
-		c:      client,
-		scheme: scheme,
-		cond:   cond,
-		logger: logger.WithName("Ingress"),
-		deps:   deps,
-	}
-}
-
 // RegistryIngress contains things to handle ingress resource
 type RegistryIngress struct {
 	c       client.Client
@@ -42,6 +30,25 @@ type RegistryIngress struct {
 	deps    []Dependent
 	ingress *v1beta1.Ingress
 	logger  logr.Logger
+}
+
+// NewRegistryIngress creates new registry ingress controller
+// deps: cert
+func NewRegistryIngress(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, cond status.ConditionType, logger logr.Logger, deps ...Dependent) *RegistryIngress {
+	ingress := schemes.Ingress(reg)
+	if ingress == nil {
+		logger.Error(fmt.Errorf("no ingress required"), "failed to initiate ingress controller")
+		return nil
+	}
+
+	return &RegistryIngress{
+		c:       client,
+		scheme:  scheme,
+		cond:    cond,
+		logger:  logger.WithName("Ingress"),
+		ingress: ingress,
+		deps:    deps,
+	}
 }
 
 func (r *RegistryIngress) mustCreated(reg *regv1.Registry) bool {
@@ -189,11 +196,6 @@ func (r *RegistryIngress) create(reg *regv1.Registry, patchReg *regv1.Registry) 
 
 func (r *RegistryIngress) get(reg *regv1.Registry) error {
 	logger := r.logger.WithName("get")
-	r.ingress = schemes.Ingress(reg)
-	if r.ingress == nil {
-		return regv1.MakeRegistryError("Registry has no fields Ingress required")
-	}
-
 	req := types.NamespacedName{Name: r.ingress.Name, Namespace: r.ingress.Namespace}
 	if err := r.c.Get(context.TODO(), req, r.ingress); err != nil {
 		logger.Error(err, "Get failed")

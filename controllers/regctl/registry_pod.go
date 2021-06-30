@@ -21,7 +21,7 @@ import (
 
 // NewRegistryPod creates new registry pod controller
 // deps: deployment
-func NewRegistryPod(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger, deps ...Dependent) *RegistryPod {
+func NewRegistryPod(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, cond status.ConditionType, logger logr.Logger, deps ...Dependent) *RegistryPod {
 	return &RegistryPod{
 		c:      client,
 		scheme: scheme,

@@ -3,6 +3,7 @@ package regctl
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"path"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/controllers/keycloakctl"
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
-	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -20,25 +20,37 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// NewRegistryNotary creates new registry notary controller
-func NewRegistryNotary(client client.Client, scheme *runtime.Scheme, cond status.ConditionType, logger logr.Logger, kcCtl *keycloakctl.KeycloakController) *RegistryNotary {
-	return &RegistryNotary{
-		c:      client,
-		scheme: scheme,
-		cond:   cond,
-		logger: logger.WithName("Notary"),
-		kcCtl:  kcCtl,
-	}
-}
-
 // RegistryNotary contains things to handle notary resource
 type RegistryNotary struct {
 	c      client.Client
 	scheme *runtime.Scheme
 	cond   status.ConditionType
-	kcCtl  *keycloakctl.KeycloakController
 	not    *regv1.Notary
 	logger logr.Logger
+}
+
+// NewRegistryNotary creates new registry notary controller
+func NewRegistryNotary(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, cond status.ConditionType,
+	logger logr.Logger, kcCtl *keycloakctl.KeycloakController) *RegistryNotary {
+
+	serverAddr := config.Config.GetString(config.ConfigKeycloakService)
+	authcfg := &regv1.AuthConfig{
+		Realm:   path.Join(serverAddr, "auth", "realms", kcCtl.GetRealmName(), "protocol", "docker-v2", "auth"),
+		Service: kcCtl.GetDockerV2ClientName(),
+		Issuer:  path.Join(serverAddr, "auth", "realms", kcCtl.GetRealmName()),
+	}
+	not, err := schemes.Notary(reg, authcfg)
+	if err != nil {
+		logger.Error(err, "failed to genereate manifest")
+		return nil
+	}
+	return &RegistryNotary{
+		c:      client,
+		scheme: scheme,
+		cond:   cond,
+		logger: logger.WithName("Notary"),
+		not:    not,
+	}
 }
 
 func (r *RegistryNotary) mustCreated(reg *regv1.Registry) bool {
@@ -162,25 +174,8 @@ func (r *RegistryNotary) create(reg *regv1.Registry, patchReg *regv1.Registry) e
 	return nil
 }
 
-func (r *RegistryNotary) getAuthConfig() *regv1.AuthConfig {
-	auth := &regv1.AuthConfig{}
-	KeycloakServer := config.Config.GetString(config.ConfigKeycloakService)
-	auth.Realm = KeycloakServer + "/" + path.Join("auth", "realms", r.kcCtl.GetRealmName(), "protocol", "docker-v2", "auth")
-	auth.Service = r.kcCtl.GetDockerV2ClientName()
-	auth.Issuer = KeycloakServer + "/" + path.Join("auth", "realms", r.kcCtl.GetRealmName())
-
-	return auth
-}
-
 func (r *RegistryNotary) get(reg *regv1.Registry) error {
 	logger := r.logger.WithName("get")
-	not, err := schemes.Notary(reg, r.getAuthConfig())
-	if err != nil {
-		logger.Error(err, "Get regsitry notary is failed")
-		return err
-	}
-	r.not = not
-
 	req := types.NamespacedName{Name: r.not.Name, Namespace: r.not.Namespace}
 	if err := r.c.Get(context.TODO(), req, r.not); err != nil {
 		logger.Error(err, "Get regsitry notary is failed")
