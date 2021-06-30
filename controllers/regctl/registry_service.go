@@ -25,6 +25,15 @@ const (
 	serviceTypeDiffKey = "ServiceType"
 )
 
+// RegistryService things to handle service resource
+type RegistryService struct {
+	c      client.Client
+	scheme *runtime.Scheme
+	cond   status.ConditionType
+	svc    *corev1.Service
+	logger logr.Logger
+}
+
 // NewRegistryService creates new registry service
 func NewRegistryService(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, cond status.ConditionType, logger logr.Logger) *RegistryService {
 	return &RegistryService{
@@ -34,15 +43,6 @@ func NewRegistryService(client client.Client, scheme *runtime.Scheme, reg *regv1
 		logger: logger.WithName("Service"),
 		svc:    schemes.Service(reg),
 	}
-}
-
-// RegistryService things to handle service resource
-type RegistryService struct {
-	c      client.Client
-	scheme *runtime.Scheme
-	cond   status.ConditionType
-	svc    *corev1.Service
-	logger logr.Logger
 }
 
 // Handle makes service to be in the desired state

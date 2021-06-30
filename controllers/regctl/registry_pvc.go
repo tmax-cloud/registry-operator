@@ -22,6 +22,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// RegistryPVC things to handle pvc resource
+type RegistryPVC struct {
+	c      client.Client
+	scheme *runtime.Scheme
+	cond   status.ConditionType
+	pvc    *corev1.PersistentVolumeClaim
+	logger logr.Logger
+}
+
 // NewRegistryPVC creates new registry pvc controller
 func NewRegistryPVC(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, cond status.ConditionType, logger logr.Logger) *RegistryPVC {
 	return &RegistryPVC{
@@ -31,15 +40,6 @@ func NewRegistryPVC(client client.Client, scheme *runtime.Scheme, reg *regv1.Reg
 		logger: logger.WithName("PVC"),
 		pvc:    schemes.PersistentVolumeClaim(reg),
 	}
-}
-
-// RegistryPVC things to handle pvc resource
-type RegistryPVC struct {
-	c      client.Client
-	scheme *runtime.Scheme
-	cond   status.ConditionType
-	pvc    *corev1.PersistentVolumeClaim
-	logger logr.Logger
 }
 
 // Handle makes pvc to be in the desired state

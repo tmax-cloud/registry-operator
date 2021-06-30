@@ -19,6 +19,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// RegistryPod contains things to handle pod resource
+type RegistryPod struct {
+	c      client.Client
+	scheme *runtime.Scheme
+	cond   status.ConditionType
+	deps   []Dependent
+	pod    *corev1.Pod
+	logger logr.Logger
+}
+
 // NewRegistryPod creates new registry pod controller
 // deps: deployment
 func NewRegistryPod(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, cond status.ConditionType, logger logr.Logger, deps ...Dependent) *RegistryPod {
@@ -29,16 +39,6 @@ func NewRegistryPod(client client.Client, scheme *runtime.Scheme, reg *regv1.Reg
 		logger: logger.WithName("Pod"),
 		deps:   deps,
 	}
-}
-
-// RegistryPod contains things to handle pod resource
-type RegistryPod struct {
-	c      client.Client
-	scheme *runtime.Scheme
-	cond   status.ConditionType
-	deps   []Dependent
-	pod    *corev1.Pod
-	logger logr.Logger
 }
 
 // Handle makes pod to be in the desired state
