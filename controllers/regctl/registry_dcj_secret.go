@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/go-logr/logr"
 	"time"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -22,23 +23,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// NewRegistryDCJSecret creates new registry docker config json secret controller
-// deps: service
-func NewRegistryDCJSecret(client client.Client, scheme *runtime.Scheme, deps ...Dependent) *RegistryDCJSecret {
-	return &RegistryDCJSecret{
-		c:      client,
-		scheme: scheme,
-		deps:   deps,
-	}
-}
-
 // RegistryDCJSecret contains things to handle docker config json secret resource
 type RegistryDCJSecret struct {
 	c         client.Client
 	scheme    *runtime.Scheme
+	reg       *regv1.Registry
 	deps      []Dependent
 	secretDCJ *corev1.Secret
-	logger    *utils.RegistryLogger
+	logger    logr.Logger
+}
+
+// NewRegistryDCJSecret creates new registry docker config json secret controller
+// deps: service
+func NewRegistryDCJSecret(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger, deps ...Dependent) *RegistryDCJSecret {
+	return &RegistryDCJSecret{
+		c:      client,
+		scheme: scheme,
+		reg:    reg,
+		logger: logger.WithName("DockerConfigSecret"),
+		deps:   deps,
+	}
 }
 
 // Handle makes docker config json secret to be in the desired state
@@ -129,7 +133,6 @@ func (r *RegistryDCJSecret) create(reg *regv1.Registry, patchReg *regv1.Registry
 }
 
 func (r *RegistryDCJSecret) get(reg *regv1.Registry) error {
-	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryDCJSecret))
 	r.secretDCJ = schemes.DCJSecret(reg)
 	if r.secretDCJ == nil {
 		return regv1.MakeRegistryError("Registry has no fields DCJ Secret required")

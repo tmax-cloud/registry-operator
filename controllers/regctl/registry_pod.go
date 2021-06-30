@@ -3,6 +3,7 @@ package regctl
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"time"
 
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
@@ -20,10 +21,12 @@ import (
 
 // NewRegistryPod creates new registry pod controller
 // deps: deployment
-func NewRegistryPod(client client.Client, scheme *runtime.Scheme, deps ...Dependent) *RegistryPod {
+func NewRegistryPod(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger, deps ...Dependent) *RegistryPod {
 	return &RegistryPod{
 		c:      client,
 		scheme: scheme,
+		reg:    reg,
+		logger: logger.WithName("Pod"),
 		deps:   deps,
 	}
 }
@@ -32,9 +35,10 @@ func NewRegistryPod(client client.Client, scheme *runtime.Scheme, deps ...Depend
 type RegistryPod struct {
 	c      client.Client
 	scheme *runtime.Scheme
+	reg    *regv1.Registry
 	deps   []Dependent
 	pod    *corev1.Pod
-	logger *utils.RegistryLogger
+	logger logr.Logger
 }
 
 // Handle makes pod to be in the desired state
@@ -154,7 +158,6 @@ func (r *RegistryPod) create(reg *regv1.Registry, patchReg *regv1.Registry) erro
 
 func (r *RegistryPod) get(reg *regv1.Registry) error {
 	r.pod = &corev1.Pod{}
-	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, reg.Name+" registry's pod")
 
 	podList := &corev1.PodList{}
 	label := map[string]string{}
@@ -177,8 +180,6 @@ func (r *RegistryPod) get(reg *regv1.Registry) error {
 	}
 
 	r.pod = &podList.Items[0]
-
-	r.logger = utils.NewRegistryLogger(*r, r.pod.Namespace, r.pod.Name)
 
 	return nil
 }

@@ -2,6 +2,7 @@ package regctl
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"strings"
 	"time"
 
@@ -23,10 +24,12 @@ import (
 )
 
 // NewRegistryPVC creates new registry pvc controller
-func NewRegistryPVC(client client.Client, scheme *runtime.Scheme) *RegistryPVC {
+func NewRegistryPVC(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger) *RegistryPVC {
 	return &RegistryPVC{
 		c:      client,
 		scheme: scheme,
+		reg:    reg,
+		logger: logger.WithName("PVC"),
 	}
 }
 
@@ -34,8 +37,9 @@ func NewRegistryPVC(client client.Client, scheme *runtime.Scheme) *RegistryPVC {
 type RegistryPVC struct {
 	c      client.Client
 	scheme *runtime.Scheme
+	reg    *regv1.Registry
 	pvc    *corev1.PersistentVolumeClaim
-	logger *utils.RegistryLogger
+	logger logr.Logger
 }
 
 // Handle makes pvc to be in the desired state
@@ -126,8 +130,6 @@ func (r *RegistryPVC) create(reg *regv1.Registry, patchReg *regv1.Registry) erro
 
 func (r *RegistryPVC) get(reg *regv1.Registry) error {
 	r.pvc = schemes.PersistentVolumeClaim(reg)
-	r.logger = utils.NewRegistryLogger(*r, r.pvc.Namespace, r.pvc.Name)
-
 	req := types.NamespacedName{Name: r.pvc.Name, Namespace: r.pvc.Namespace}
 	err := r.c.Get(context.TODO(), req, r.pvc)
 	if err != nil {

@@ -3,6 +3,7 @@ package regctl
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"time"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -23,10 +24,12 @@ import (
 
 // NewRegistryIngress creates new registry ingress controller
 // deps: cert
-func NewRegistryIngress(client client.Client, scheme *runtime.Scheme, deps ...Dependent) *RegistryIngress {
+func NewRegistryIngress(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger, deps ...Dependent) *RegistryIngress {
 	return &RegistryIngress{
 		c:      client,
 		scheme: scheme,
+		reg:    reg,
+		logger: logger.WithName("Ingress"),
 		deps:   deps,
 	}
 }
@@ -35,9 +38,10 @@ func NewRegistryIngress(client client.Client, scheme *runtime.Scheme, deps ...De
 type RegistryIngress struct {
 	c       client.Client
 	scheme  *runtime.Scheme
+	reg     *regv1.Registry
 	deps    []Dependent
 	ingress *v1beta1.Ingress
-	logger  *utils.RegistryLogger
+	logger  logr.Logger
 }
 
 func (r *RegistryIngress) mustCreated(reg *regv1.Registry) bool {
@@ -181,7 +185,6 @@ func (r *RegistryIngress) create(reg *regv1.Registry, patchReg *regv1.Registry) 
 }
 
 func (r *RegistryIngress) get(reg *regv1.Registry) error {
-	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryIngress))
 	r.ingress = schemes.Ingress(reg)
 	if r.ingress == nil {
 		return regv1.MakeRegistryError("Registry has no fields Ingress required")

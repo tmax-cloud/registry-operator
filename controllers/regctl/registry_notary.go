@@ -2,6 +2,7 @@ package regctl
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"path"
 	"time"
 
@@ -20,10 +21,12 @@ import (
 )
 
 // NewRegistryNotary creates new registry notary controller
-func NewRegistryNotary(client client.Client, scheme *runtime.Scheme, kcCtl *keycloakctl.KeycloakController) *RegistryNotary {
+func NewRegistryNotary(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger, kcCtl *keycloakctl.KeycloakController) *RegistryNotary {
 	return &RegistryNotary{
 		c:      client,
 		scheme: scheme,
+		reg:    reg,
+		logger: logger.WithName("Notary"),
 		kcCtl:  kcCtl,
 	}
 }
@@ -32,9 +35,10 @@ func NewRegistryNotary(client client.Client, scheme *runtime.Scheme, kcCtl *keyc
 type RegistryNotary struct {
 	c      client.Client
 	scheme *runtime.Scheme
+	reg    *regv1.Registry
 	kcCtl  *keycloakctl.KeycloakController
 	not    *regv1.Notary
-	logger *utils.RegistryLogger
+	logger logr.Logger
 }
 
 func (r *RegistryNotary) mustCreated(reg *regv1.Registry) bool {
@@ -165,7 +169,6 @@ func (r *RegistryNotary) getAuthConfig() *regv1.AuthConfig {
 }
 
 func (r *RegistryNotary) get(reg *regv1.Registry) error {
-	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryNotary))
 	not, err := schemes.Notary(reg, r.getAuthConfig())
 	if err != nil {
 		r.logger.Error(err, "Get regsitry notary is failed")

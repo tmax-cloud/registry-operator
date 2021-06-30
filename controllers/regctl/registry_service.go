@@ -3,6 +3,7 @@ package regctl
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"time"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -26,10 +27,12 @@ const (
 )
 
 // NewRegistryService creates new registry service
-func NewRegistryService(client client.Client, scheme *runtime.Scheme) *RegistryService {
+func NewRegistryService(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger) *RegistryService {
 	return &RegistryService{
 		c:      client,
 		scheme: scheme,
+		reg:    reg,
+		logger: logger.WithName("Service"),
 	}
 }
 
@@ -37,8 +40,9 @@ func NewRegistryService(client client.Client, scheme *runtime.Scheme) *RegistryS
 type RegistryService struct {
 	c      client.Client
 	scheme *runtime.Scheme
+	reg    *regv1.Registry
 	svc    *corev1.Service
-	logger *utils.RegistryLogger
+	logger logr.Logger
 }
 
 // Handle makes service to be in the desired state
@@ -137,7 +141,6 @@ func (r *RegistryService) create(reg *regv1.Registry, patchReg *regv1.Registry) 
 }
 
 func (r *RegistryService) get(reg *regv1.Registry) error {
-	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryService))
 	if r.svc == nil {
 		r.svc = schemes.Service(reg)
 	}

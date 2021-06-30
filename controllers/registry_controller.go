@@ -152,17 +152,17 @@ func (r *RegistryReconciler) updatePhaseByCondition(ctx context.Context, reg *re
 
 	switch {
 	case len(badConditions) == 0:
-		reg.Status.Phase = regv1.StatusCreating
-		reg.Status.Message = "Registry is creating. All resources in registry has not yet been created."
-		reg.Status.Reason = "AllConditionsNotTrue"
+		reg.Status.Phase = regv1.StatusRunning
+		reg.Status.Message = "Registry is running. All registry resources are operating normally."
+		reg.Status.Reason = "Running"
 	case len(badConditions) == 1 && badConditions[0] == regv1.ConditionTypeContainer:
 		reg.Status.Phase = regv1.StatusNotReady
 		reg.Status.Message = "Registry is not ready."
 		reg.Status.Reason = "NotReady"
 	case len(badConditions) > 1:
-		reg.Status.Phase = regv1.StatusRunning
-		reg.Status.Message = "Registry is running. All registry resources are operating normally."
-		reg.Status.Reason = "Running"
+		reg.Status.Phase = regv1.StatusCreating
+		reg.Status.Message = "Registry is creating. All resources in registry has not yet been created."
+		reg.Status.Reason = "AllConditionsNotTrue"
 	}
 	reg.Status.PhaseChangedAt = metav1.Now()
 	if err := r.Status().Update(ctx, reg); err != nil {
@@ -270,18 +270,19 @@ func (r *RegistryReconciler) update(origin, target *regv1.Registry) error {
 }
 
 func (r *RegistryReconciler) collectSubController(reg *regv1.Registry) []regctl.RegistrySubresource {
+	logger := r.Log.WithValues("Namespace", reg.Namespace, "Name", reg.Name)
+
+	notary := regctl.NewRegistryNotary(r.Client, r.Scheme, reg, logger, r.kc)
+	pvc := regctl.NewRegistryPVC(r.Client, r.Scheme, reg, logger)
+	svc := regctl.NewRegistryService(r.Client, r.Scheme, reg, logger)
+	certSecret := regctl.NewRegistryCertSecret(r.Client, r.Scheme, reg, logger, svc)
+	dcjSecret := regctl.NewRegistryDCJSecret(r.Client, r.Scheme, reg, logger, svc)
+	cm := regctl.NewRegistryConfigMap(r.Client, r.Scheme, reg, logger)
+	deploy := regctl.NewRegistryDeployment(r.Client, r.Scheme, reg, logger, r.kc, pvc, svc, cm)
+	pod := regctl.NewRegistryPod(r.Client, r.Scheme, reg, logger, deploy)
+	ing := regctl.NewRegistryIngress(r.Client, r.Scheme, reg, logger, certSecret)
+
 	collection := []regctl.RegistrySubresource{}
-
-	notary := regctl.NewRegistryNotary(r.Client, r.Scheme, r.kc)
-	pvc := regctl.NewRegistryPVC(r.Client, r.Scheme)
-	svc := regctl.NewRegistryService(r.Client, r.Scheme)
-	certSecret := regctl.NewRegistryCertSecret(r.Client, r.Scheme, svc)
-	dcjSecret := regctl.NewRegistryDCJSecret(r.Client, r.Scheme, svc)
-	cm := regctl.NewRegistryConfigMap(r.Client, r.Scheme)
-	deploy := regctl.NewRegistryDeployment(r.Client, r.Scheme, r.kc, pvc, svc, cm)
-	pod := regctl.NewRegistryPod(r.Client, r.Scheme, deploy)
-	ing := regctl.NewRegistryIngress(r.Client, r.Scheme, certSecret)
-
 	collection = append(collection, notary, pvc, svc, certSecret, dcjSecret, cm, deploy, pod, ing)
 	return collection
 }

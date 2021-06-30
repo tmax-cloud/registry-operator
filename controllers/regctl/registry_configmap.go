@@ -2,6 +2,7 @@ package regctl
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"time"
 
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
@@ -19,20 +20,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// NewRegistryConfigMap creates new registry configmap controller
-func NewRegistryConfigMap(client client.Client, scheme *runtime.Scheme) *RegistryConfigMap {
-	return &RegistryConfigMap{
-		c:      client,
-		scheme: scheme,
-	}
-}
-
 // RegistryConfigMap contains things to handle deployment resource
 type RegistryConfigMap struct {
 	c      client.Client
 	scheme *runtime.Scheme
+	reg    *regv1.Registry
 	cm     *corev1.ConfigMap
-	logger *utils.RegistryLogger
+	logger logr.Logger
+}
+
+// NewRegistryConfigMap creates new registry configmap controller
+func NewRegistryConfigMap(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger) *RegistryConfigMap {
+	return &RegistryConfigMap{
+		c:      client,
+		scheme: scheme,
+		reg:    reg,
+		logger: logger.WithName("Configmap"),
+	}
 }
 
 // Handle makes configmap to be in the desired state
@@ -133,7 +137,6 @@ func (r *RegistryConfigMap) create(reg *regv1.Registry, patchReg *regv1.Registry
 
 func (r *RegistryConfigMap) get(reg *regv1.Registry) error {
 	r.cm = schemes.ConfigMap(reg, map[string]string{})
-	r.logger = utils.NewRegistryLogger(*r, r.cm.Namespace, r.cm.Name)
 
 	req := types.NamespacedName{Name: r.cm.Name, Namespace: r.cm.Namespace}
 	err := r.c.Get(context.TODO(), req, r.cm)

@@ -3,6 +3,7 @@ package regctl
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"time"
 
 	"github.com/operator-framework/operator-lib/status"
@@ -20,24 +21,27 @@ import (
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 )
 
-// NewRegistryCertSecret creates new registry cert secret controller
-// deps: service
-func NewRegistryCertSecret(client client.Client, scheme *runtime.Scheme, deps ...Dependent) *RegistryCertSecret {
-	return &RegistryCertSecret{
-		c:      client,
-		scheme: scheme,
-		deps:   deps,
-	}
-}
-
 // RegistryCertSecret contains things to handle tls and opaque secret resource
 type RegistryCertSecret struct {
 	c            client.Client
 	scheme       *runtime.Scheme
+	reg          *regv1.Registry
 	deps         []Dependent
 	secretOpaque *corev1.Secret
 	secretTLS    *corev1.Secret
-	logger       *utils.RegistryLogger
+	logger       logr.Logger
+}
+
+// NewRegistryCertSecret creates new registry cert secret controller
+// deps: service
+func NewRegistryCertSecret(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger, deps ...Dependent) *RegistryCertSecret {
+	return &RegistryCertSecret{
+		c:      client,
+		scheme: scheme,
+		reg:    reg,
+		logger: logger.WithName("TLSSecret"),
+		deps:   deps,
+	}
 }
 
 // Handle makes secret to be in the desired state
@@ -158,7 +162,6 @@ func (r *RegistryCertSecret) create(reg *regv1.Registry, patchReg *regv1.Registr
 }
 
 func (r *RegistryCertSecret) get(reg *regv1.Registry) error {
-	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryOpaqueSecret))
 	r.secretOpaque, r.secretTLS = schemes.Secrets(reg, r.c)
 	if r.secretOpaque == nil && r.secretTLS == nil {
 		return regv1.MakeRegistryError("Registry has no fields Secrets required")

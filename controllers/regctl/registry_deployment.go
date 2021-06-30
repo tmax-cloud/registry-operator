@@ -3,6 +3,7 @@ package regctl
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"path"
 	"time"
 
@@ -38,10 +39,12 @@ const (
 
 // NewRegistryDeployment creates new registry deployment controller
 // deps: pvc, svc, cm
-func NewRegistryDeployment(client client.Client, scheme *runtime.Scheme, kcCli *keycloakctl.KeycloakController, deps ...Dependent) *RegistryDeployment {
+func NewRegistryDeployment(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, logger logr.Logger, kcCli *keycloakctl.KeycloakController, deps ...Dependent) *RegistryDeployment {
 	return &RegistryDeployment{
 		c:      client,
 		scheme: scheme,
+		reg:    reg,
+		logger: logger.WithName("Deployment"),
 		deps:   deps,
 		KcCli:  kcCli,
 	}
@@ -51,10 +54,11 @@ func NewRegistryDeployment(client client.Client, scheme *runtime.Scheme, kcCli *
 type RegistryDeployment struct {
 	c      client.Client
 	scheme *runtime.Scheme
+	reg    *regv1.Registry
 	deps   []Dependent
 	KcCli  *keycloakctl.KeycloakController
 	deploy *appsv1.Deployment
-	logger *utils.RegistryLogger
+	logger logr.Logger
 }
 
 // Handle makes deployment to be in the desired state
@@ -184,7 +188,6 @@ func (r *RegistryDeployment) getAuthConfig() *regv1.AuthConfig {
 }
 
 func (r *RegistryDeployment) get(reg *regv1.Registry) error {
-	r.logger = utils.NewRegistryLogger(*r, reg.Namespace, schemes.SubresourceName(reg, schemes.SubTypeRegistryDeployment))
 	deploy, err := schemes.Deployment(reg, r.getAuthConfig())
 	if err != nil {
 		r.logger.Error(err, "Get regsitry deployment scheme is failed")
