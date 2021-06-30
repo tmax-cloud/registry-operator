@@ -36,12 +36,18 @@ type RegistryDCJSecret struct {
 // NewRegistryDCJSecret creates new registry docker config json secret controller
 // deps: service
 func NewRegistryDCJSecret(client client.Client, scheme *runtime.Scheme, reg *regv1.Registry, cond status.ConditionType, logger logr.Logger, deps ...Dependent) *RegistryDCJSecret {
+	secretDCJ := schemes.DCJSecret(reg)
+	if secretDCJ == nil {
+		logger.Info("Registry has no fields DCJ Secret required")
+		return nil
+	}
 	return &RegistryDCJSecret{
-		c:      client,
-		scheme: scheme,
-		cond:   cond,
-		logger: logger.WithName("DockerConfigSecret"),
-		deps:   deps,
+		c:         client,
+		scheme:    scheme,
+		cond:      cond,
+		logger:    logger.WithName("DockerConfigSecret"),
+		secretDCJ: secretDCJ,
+		deps:      deps,
 	}
 }
 
@@ -102,7 +108,7 @@ func (r *RegistryDCJSecret) IsReady(reg *regv1.Registry, patchReg *regv1.Registr
 		}
 	}
 
-	if _, ok := r.secretDCJ.Data[schemes.DockerConfigJson]; !ok {
+	if _, ok := r.secretDCJ.Data[corev1.DockerConfigJsonKey]; !ok {
 		err = regv1.MakeRegistryError("Secret DCJ Error")
 		logger.Error(err, "No certificate in data")
 		return err
@@ -137,11 +143,6 @@ func (r *RegistryDCJSecret) create(reg *regv1.Registry, patchReg *regv1.Registry
 
 func (r *RegistryDCJSecret) get(reg *regv1.Registry) error {
 	logger := r.logger.WithName("get")
-	r.secretDCJ = schemes.DCJSecret(reg)
-	if r.secretDCJ == nil {
-		return regv1.MakeRegistryError("Registry has no fields DCJ Secret required")
-	}
-
 	req := types.NamespacedName{Name: r.secretDCJ.Name, Namespace: r.secretDCJ.Namespace}
 	if err := r.c.Get(context.TODO(), req, r.secretDCJ); err != nil {
 		logger.Error(err, "Get failed")
@@ -186,7 +187,7 @@ func (r *RegistryDCJSecret) compare(reg *regv1.Registry) []utils.Diff {
 	}
 
 	data := r.secretDCJ.Data
-	val, ok := data[schemes.DockerConfigJson]
+	val, ok := data[corev1.DockerConfigJsonKey]
 	if !ok {
 		return nil
 	}
