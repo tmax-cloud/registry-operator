@@ -12,12 +12,6 @@ func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secr
 	if !regBodyCheckForSecrets(reg) {
 		return nil, nil, fmt.Errorf("failed to generate manifest: not yet assigned registry service IP")
 	}
-	data := map[string][]byte{}
-	tlsData := map[string][]byte{}
-
-	data["ID"] = []byte(reg.Spec.LoginID)
-	data["PASSWD"] = []byte(reg.Spec.LoginPassword)
-
 	cert, err := NewCertFactory(c).CreateCertPair(reg, certTypeRegistry)
 	if err != nil {
 		return nil, nil, err
@@ -33,9 +27,6 @@ func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secr
 		return nil, nil, err
 	}
 
-	tlsData[TLSCert] = certPem
-	tlsData[TLSKey] = keyPem
-
 	return &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      SubresourceName(reg, SubTypeRegistryOpaqueSecret),
@@ -45,7 +36,10 @@ func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secr
 				},
 			},
 			Type: corev1.SecretTypeOpaque,
-			Data: data,
+			Data: map[string][]byte{
+				"ID":     []byte(reg.Spec.LoginID),
+				"PASSWD": []byte(reg.Spec.LoginPassword),
+			},
 		},
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -56,7 +50,10 @@ func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secr
 				},
 			},
 			Type: corev1.SecretTypeTLS,
-			Data: tlsData,
+			Data: map[string][]byte{
+				corev1.TLSCertKey:       certPem,
+				corev1.TLSPrivateKeyKey: keyPem,
+			},
 		},
 		nil
 }
