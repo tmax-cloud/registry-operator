@@ -38,11 +38,11 @@ func NewRegistryCertSecret(client client.Client, scheme *runtime.Scheme, reg *re
 	secretOpaque, secretTLS, err := schemes.Secrets(reg, client)
 	if err != nil {
 		logger.Error(err, "failed to initialize TLSSecret controller")
-		return nil
+		//return nil
 	}
 	if secretOpaque == nil && secretTLS == nil {
 		logger.Info("Registry has no fields Secrets required")
-		return nil
+		//return nil
 	}
 
 	return &RegistryCertSecret{

@@ -60,7 +60,7 @@ func NewRegistryDeployment(client client.Client, scheme *runtime.Scheme, reg *re
 	deploy, err := schemes.Deployment(reg, authcfg)
 	if err != nil {
 		logger.Error(err, "failed to generate manifest")
-		return nil
+		//return nil
 	}
 	return &RegistryDeployment{
 		c:      client,

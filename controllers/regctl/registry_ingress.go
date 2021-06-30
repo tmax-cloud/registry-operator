@@ -38,7 +38,7 @@ func NewRegistryIngress(client client.Client, scheme *runtime.Scheme, reg *regv1
 	ingress := schemes.Ingress(reg)
 	if ingress == nil {
 		logger.Error(fmt.Errorf("no ingress required"), "failed to initiate ingress controller")
-		return nil
+		//return nil
 	}
 
 	return &RegistryIngress{

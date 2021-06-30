@@ -39,7 +39,7 @@ func NewRegistryDCJSecret(client client.Client, scheme *runtime.Scheme, reg *reg
 	secretDCJ := schemes.DCJSecret(reg)
 	if secretDCJ == nil {
 		logger.Info("Registry has no fields DCJ Secret required")
-		return nil
+		//return nil
 	}
 	return &RegistryDCJSecret{
 		c:         client,
