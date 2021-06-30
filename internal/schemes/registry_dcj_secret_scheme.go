@@ -10,10 +10,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	DockerConfigJson = ".dockerconfigjson"
-)
-
 type DockerConfig struct {
 	Auths map[string]AuthValue `json:"auths"`
 }
@@ -45,7 +41,7 @@ func DCJSecret(reg *regv1.Registry) *corev1.Secret {
 	}
 
 	configBytes, _ := json.Marshal(config)
-	data[DockerConfigJson] = configBytes
+	data[corev1.DockerConfigJsonKey] = configBytes
 
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
