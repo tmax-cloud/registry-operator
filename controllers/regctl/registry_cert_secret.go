@@ -46,6 +46,7 @@ func NewRegistryCertSecret(client client.Client, scheme *runtime.Scheme, cond st
 
 // Handle makes secret to be in the desired state
 func (r *RegistryCertSecret) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("CreateIfNotExist")
 	for _, dep := range r.deps {
 		if !dep.IsSuccessfullyCompleted(reg) {
 			err := fmt.Errorf("unable to handle %s: %s condition is not satisfied", r.Condition(), dep.Condition())
@@ -57,13 +58,13 @@ func (r *RegistryCertSecret) CreateIfNotExist(reg *regv1.Registry, patchReg *reg
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
 			if createError := r.create(reg, patchReg); createError != nil {
-				r.logger.Error(createError, "Create failed in CreateIfNotExist")
+				logger.Error(createError, "Create failed in CreateIfNotExist")
 				r.notReady(patchReg, createError)
 				return createError
 			}
-			r.logger.Info("Create Succeeded")
+			logger.Info("Create Succeeded")
 		} else {
-			r.logger.Error(err, "cert secret is error")
+			logger.Error(err, "cert secret is error")
 			return err
 		}
 		return nil
@@ -72,7 +73,7 @@ func (r *RegistryCertSecret) CreateIfNotExist(reg *regv1.Registry, patchReg *reg
 	if isValid := r.compare(reg); isValid == nil {
 		r.notReady(patchReg, nil)
 		if deleteError := r.delete(patchReg); deleteError != nil {
-			r.logger.Error(deleteError, "Delete failed in CreateIfNotExist")
+			logger.Error(deleteError, "Delete failed in CreateIfNotExist")
 			r.notReady(patchReg, deleteError)
 			return deleteError
 		}
@@ -83,6 +84,7 @@ func (r *RegistryCertSecret) CreateIfNotExist(reg *regv1.Registry, patchReg *reg
 
 // Ready checks that secret is ready
 func (r *RegistryCertSecret) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+	logger := r.logger.WithName("IsReady")
 	var opaqueErr error = nil
 	var tlsErr error = nil
 
@@ -101,7 +103,7 @@ func (r *RegistryCertSecret) IsReady(reg *regv1.Registry, patchReg *regv1.Regist
 
 	if useGet {
 		if opaqueErr = r.get(reg); opaqueErr != nil {
-			r.logger.Error(opaqueErr, "Get failed")
+			logger.Error(opaqueErr, "Get failed")
 			return opaqueErr
 		}
 	}
@@ -110,25 +112,26 @@ func (r *RegistryCertSecret) IsReady(reg *regv1.Registry, patchReg *regv1.Regist
 
 	if _, ok := r.secretTLS.Data[schemes.TLSCert]; !ok {
 		tlsErr = regv1.MakeRegistryError("Secret TLS Error")
-		r.logger.Error(tlsErr, "No certificate in data")
+		logger.Error(tlsErr, "No certificate in data")
 		return nil
 	}
 
 	if _, ok := r.secretTLS.Data[schemes.TLSKey]; !ok {
 		tlsErr = regv1.MakeRegistryError("Secret TLS Error")
-		r.logger.Error(tlsErr, "No private key in data")
+		logger.Error(tlsErr, "No private key in data")
 		return nil
 	}
 
 	tlsCondition.Status = corev1.ConditionTrue
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
 // GetUserSecret returns username and password
 func (r *RegistryCertSecret) GetUserSecret(reg *regv1.Registry) (username, password string, err error) {
+	logger := r.logger.WithName("GetUserSecret")
 	if opaqueErr := r.get(reg); opaqueErr != nil {
-		r.logger.Error(opaqueErr, "Get failed")
+		logger.Error(opaqueErr, "Get failed")
 		err = opaqueErr
 		return
 	}
@@ -139,29 +142,31 @@ func (r *RegistryCertSecret) GetUserSecret(reg *regv1.Registry) (username, passw
 }
 
 func (r *RegistryCertSecret) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("create")
 	if err := controllerutil.SetControllerReference(reg, r.secretOpaque, r.scheme); err != nil {
-		r.logger.Error(err, "failed to set controller reference")
+		logger.Error(err, "failed to set controller reference")
 		return err
 	}
 
 	if err := controllerutil.SetControllerReference(reg, r.secretTLS, r.scheme); err != nil {
-		r.logger.Error(err, "failed to set controller reference")
+		logger.Error(err, "failed to set controller reference")
 		return err
 	}
 	if err := r.c.Create(context.TODO(), r.secretOpaque); err != nil {
-		r.logger.Error(err, "Create failed")
+		logger.Error(err, "Create failed")
 		return err
 	}
 	if err := r.c.Create(context.TODO(), r.secretTLS); err != nil {
-		r.logger.Error(err, "Create failed")
+		logger.Error(err, "Create failed")
 		return err
 	}
 
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
 func (r *RegistryCertSecret) get(reg *regv1.Registry) error {
+	logger := r.logger.WithName("get")
 	r.secretOpaque, r.secretTLS = schemes.Secrets(reg, r.c)
 	if r.secretOpaque == nil && r.secretTLS == nil {
 		return regv1.MakeRegistryError("Registry has no fields Secrets required")
@@ -169,17 +174,17 @@ func (r *RegistryCertSecret) get(reg *regv1.Registry) error {
 
 	req := types.NamespacedName{Name: r.secretOpaque.Name, Namespace: r.secretOpaque.Namespace}
 	if err := r.c.Get(context.TODO(), req, r.secretOpaque); err != nil {
-		r.logger.Error(err, "Get failed")
+		logger.Error(err, "Get failed")
 		return err
 	}
 
 	req = types.NamespacedName{Name: r.secretTLS.Name, Namespace: r.secretTLS.Namespace}
 	if err := r.c.Get(context.TODO(), req, r.secretTLS); err != nil {
-		r.logger.Error(err, "Get failed")
+		logger.Error(err, "Get failed")
 		return err
 	}
 
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
@@ -189,13 +194,14 @@ func (r *RegistryCertSecret) patch(reg *regv1.Registry, patchReg *regv1.Registry
 }
 
 func (r *RegistryCertSecret) delete(patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("delete")
 	if err := r.c.Delete(context.TODO(), r.secretOpaque); err != nil {
-		r.logger.Error(err, "Delete failed")
+		logger.Error(err, "Delete failed")
 		return err
 	}
 
 	if err := r.c.Delete(context.TODO(), r.secretTLS); err != nil {
-		r.logger.Error(err, "Delete failed")
+		logger.Error(err, "Delete failed")
 		return err
 	}
 

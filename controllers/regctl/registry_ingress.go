@@ -50,12 +50,13 @@ func (r *RegistryIngress) mustCreated(reg *regv1.Registry) bool {
 
 // Handle makes ingress to be in the desired state
 func (r *RegistryIngress) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("CreateIfNotExist")
 	if !r.mustCreated(reg) {
 		if err := r.get(reg); err != nil {
 			return nil
 		}
 		if err := r.delete(reg); err != nil {
-			r.logger.Error(err, "failed to delete ingress")
+			logger.Error(err, "failed to delete ingress")
 			return err
 		}
 		return nil
@@ -78,13 +79,13 @@ func (r *RegistryIngress) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.
 		if errors.IsNotFound(err) {
 			r.notReady(patchReg, err)
 			if createError := r.create(reg, patchReg); createError != nil {
-				r.logger.Error(createError, "Create failed in CreateIfNotExist")
+				logger.Error(createError, "Create failed in CreateIfNotExist")
 				r.notReady(patchReg, createError)
 				return createError
 			}
-			r.logger.Info("Create Succeeded")
+			logger.Info("Create Succeeded")
 		} else {
-			r.logger.Error(err, "ingress is error")
+			logger.Error(err, "ingress is error")
 			return err
 		}
 		return nil
@@ -93,18 +94,19 @@ func (r *RegistryIngress) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.
 	if isValid := r.compare(reg); isValid == nil {
 		r.notReady(patchReg, nil)
 		if err := r.delete(patchReg); err != nil {
-			r.logger.Error(err, "Delete failed in CreateIfNotExist")
+			logger.Error(err, "Delete failed in CreateIfNotExist")
 			r.notReady(patchReg, nil)
 			return err
 		}
 	}
 
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
 // Ready checks that ingress is ready
 func (r *RegistryIngress) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+	logger := r.logger.WithName("IsReady")
 	if !r.mustCreated(reg) {
 		return nil
 	}
@@ -118,7 +120,7 @@ func (r *RegistryIngress) IsReady(reg *regv1.Registry, patchReg *regv1.Registry,
 	defer utils.SetErrorConditionIfChanged(patchReg, reg, condition, err)
 	if useGet {
 		if err = r.get(reg); err != nil {
-			r.logger.Error(err, "Get failed")
+			logger.Error(err, "Get failed")
 			return err
 		}
 	}
@@ -160,31 +162,33 @@ func (r *RegistryIngress) IsReady(reg *regv1.Registry, patchReg *regv1.Registry,
 	}
 
 	condition.Status = corev1.ConditionTrue
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
 func (r *RegistryIngress) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("create")
 	r.ingress = schemes.Ingress(reg)
 	if r.ingress == nil {
 		return regv1.MakeRegistryError("Registry has no fields Ingress required")
 	}
 
 	if err := controllerutil.SetControllerReference(reg, r.ingress, r.scheme); err != nil {
-		r.logger.Error(err, "Controller reference failed")
+		logger.Error(err, "Controller reference failed")
 		return err
 	}
 
 	if err := r.c.Create(context.TODO(), r.ingress); err != nil {
-		r.logger.Error(err, "Create failed")
+		logger.Error(err, "Create failed")
 		return err
 	}
 
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
 func (r *RegistryIngress) get(reg *regv1.Registry) error {
+	logger := r.logger.WithName("get")
 	r.ingress = schemes.Ingress(reg)
 	if r.ingress == nil {
 		return regv1.MakeRegistryError("Registry has no fields Ingress required")
@@ -192,11 +196,11 @@ func (r *RegistryIngress) get(reg *regv1.Registry) error {
 
 	req := types.NamespacedName{Name: r.ingress.Name, Namespace: r.ingress.Namespace}
 	if err := r.c.Get(context.TODO(), req, r.ingress); err != nil {
-		r.logger.Error(err, "Get failed")
+		logger.Error(err, "Get failed")
 		return err
 	}
 
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
@@ -205,8 +209,9 @@ func (r *RegistryIngress) patch(reg *regv1.Registry, patchReg *regv1.Registry, d
 }
 
 func (r *RegistryIngress) delete(patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("delete")
 	if err := r.c.Delete(context.TODO(), r.ingress); err != nil {
-		r.logger.Error(err, "Delete failed")
+		logger.Error(err, "Delete failed")
 		return err
 	}
 
@@ -214,6 +219,7 @@ func (r *RegistryIngress) delete(patchReg *regv1.Registry) error {
 }
 
 func (r *RegistryIngress) compare(reg *regv1.Registry) []utils.Diff {
+	logger := r.logger.WithName("compare")
 	diff := []utils.Diff{}
 
 	if reg.Spec.RegistryService.ServiceType != "Ingress" {
@@ -235,7 +241,7 @@ func (r *RegistryIngress) compare(reg *regv1.Registry) []utils.Diff {
 		}
 	}
 
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return diff
 }
 

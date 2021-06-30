@@ -41,17 +41,18 @@ func NewRegistryConfigMap(client client.Client, scheme *runtime.Scheme, cond sta
 
 // Handle makes configmap to be in the desired state
 func (r *RegistryConfigMap) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("CreateIfNotExist")
 	if err := r.get(reg); err != nil {
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
 			if err := r.create(reg, patchReg); err != nil {
-				r.logger.Error(err, "create configmap error")
+				logger.Error(err, "create configmap error")
 				r.notReady(patchReg, err)
 				return err
 			}
-			r.logger.Info("Create Succeeded")
+			logger.Info("Create Succeeded")
 		} else {
-			r.logger.Error(err, "configmap error")
+			logger.Error(err, "configmap error")
 			return err
 		}
 		return nil
@@ -62,6 +63,7 @@ func (r *RegistryConfigMap) CreateIfNotExist(reg *regv1.Registry, patchReg *regv
 
 // Ready checks that configmap is ready
 func (r *RegistryConfigMap) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+	logger := r.logger.WithName("IsReady")
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
@@ -72,26 +74,27 @@ func (r *RegistryConfigMap) IsReady(reg *regv1.Registry, patchReg *regv1.Registr
 	if useGet {
 		err = r.get(reg)
 		if err != nil {
-			r.logger.Error(err, "PersistentVolumeClaim error")
+			logger.Error(err, "PersistentVolumeClaim error")
 			return err
 		}
 	}
 
 	_, exist := r.cm.Data["config.yml"]
 	if !exist {
-		r.logger.Info("NotReady")
+		logger.Info("NotReady")
 		err = regv1.MakeRegistryError("NotReady")
 		return err
 	}
 
-	r.logger.Info("Ready")
+	logger.Info("Ready")
 	condition.Status = corev1.ConditionTrue
 	return nil
 }
 
 func (r *RegistryConfigMap) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("create")
 	if len(reg.Spec.CustomConfigYml) > 0 {
-		r.logger.Info("Use exist registry configmap. Need not to create configmap. (Configmap: " + reg.Spec.CustomConfigYml + ")")
+		logger.Info("Use exist registry configmap. Need not to create configmap. (Configmap: " + reg.Spec.CustomConfigYml + ")")
 		return nil
 	}
 
@@ -100,14 +103,14 @@ func (r *RegistryConfigMap) create(reg *regv1.Registry, patchReg *regv1.Registry
 
 	// Read Default ConfigMap
 	if err := r.c.Get(context.TODO(), *defaultCmType, defaultCm); err != nil {
-		r.logger.Error(err, "get default configmap error")
+		logger.Error(err, "get default configmap error")
 		return nil
 	}
 
 	r.cm = schemes.ConfigMap(reg, defaultCm.Data)
 
 	if err := controllerutil.SetControllerReference(reg, r.cm, r.scheme); err != nil {
-		r.logger.Error(err, "SetOwnerReference Failed")
+		logger.Error(err, "SetOwnerReference Failed")
 		condition := status.Condition{
 			Status:  corev1.ConditionFalse,
 			Type:    regv1.ConditionTypeConfigMap,
@@ -118,7 +121,7 @@ func (r *RegistryConfigMap) create(reg *regv1.Registry, patchReg *regv1.Registry
 		return nil
 	}
 
-	r.logger.Info("Create registry configmap")
+	logger.Info("Create registry configmap")
 	err := r.c.Create(context.TODO(), r.cm)
 	if err != nil {
 		condition := status.Condition{
@@ -128,7 +131,7 @@ func (r *RegistryConfigMap) create(reg *regv1.Registry, patchReg *regv1.Registry
 		}
 
 		patchReg.Status.Conditions.SetCondition(condition)
-		r.logger.Error(err, "Creating registry configmap is failed.")
+		logger.Error(err, "Creating registry configmap is failed.")
 		return nil
 	}
 
@@ -136,12 +139,13 @@ func (r *RegistryConfigMap) create(reg *regv1.Registry, patchReg *regv1.Registry
 }
 
 func (r *RegistryConfigMap) get(reg *regv1.Registry) error {
+	logger := r.logger.WithName("get")
 	r.cm = schemes.ConfigMap(reg, map[string]string{})
 
 	req := types.NamespacedName{Name: r.cm.Name, Namespace: r.cm.Namespace}
 	err := r.c.Get(context.TODO(), req, r.cm)
 	if err != nil {
-		r.logger.Error(err, "Get regsitry configmap is failed")
+		logger.Error(err, "Get regsitry configmap is failed")
 		return err
 	}
 
@@ -153,8 +157,9 @@ func (r *RegistryConfigMap) patch(reg *regv1.Registry, patchReg *regv1.Registry,
 }
 
 func (r *RegistryConfigMap) delete(patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("delete")
 	if err := r.c.Delete(context.TODO(), r.cm); err != nil {
-		r.logger.Error(err, "Unknown error delete configmap")
+		logger.Error(err, "Unknown error delete configmap")
 		return err
 	}
 	condition := status.Condition{

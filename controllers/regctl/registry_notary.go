@@ -47,12 +47,14 @@ func (r *RegistryNotary) mustCreated(reg *regv1.Registry) bool {
 
 // Handle makes notary to be in the desired state
 func (r *RegistryNotary) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("CreateIfNotExist")
+
 	if !r.mustCreated(reg) {
 		if err := r.get(reg); err != nil {
 			return nil
 		}
 		if err := r.delete(reg); err != nil {
-			r.logger.Error(err, "failed to delete notary")
+			logger.Error(err, "failed to delete notary")
 			return err
 		}
 		return nil
@@ -62,22 +64,22 @@ func (r *RegistryNotary) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.R
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
 			if err := r.create(reg, patchReg); err != nil {
-				r.logger.Error(err, "create notary error")
+				logger.Error(err, "create notary error")
 				r.notReady(patchReg, err)
 				return err
 			}
-			r.logger.Info("Create Succeeded")
+			logger.Info("Create Succeeded")
 		} else {
-			r.logger.Error(err, "notary is error")
+			logger.Error(err, "notary is error")
 			return err
 		}
 		return nil
 	}
 
-	r.logger.Info("Check if patch exists.")
+	logger.Info("Check if patch exists.")
 	diff := r.compare(reg)
 	if len(diff) > 0 {
-		r.logger.Info("patch exists.")
+		logger.Info("patch exists.")
 		r.notReady(patchReg, nil)
 		if err := r.patch(reg, patchReg, diff); err != nil {
 			r.notReady(patchReg, err)
@@ -90,6 +92,7 @@ func (r *RegistryNotary) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.R
 
 // Ready checks that notary is ready
 func (r *RegistryNotary) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+	logger := r.logger.WithName("IsReady")
 	if !r.mustCreated(reg) {
 		return nil
 	}
@@ -105,7 +108,7 @@ func (r *RegistryNotary) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, 
 	if r.not == nil || useGet {
 		err := r.get(reg)
 		if err != nil {
-			r.logger.Error(err, "notary error")
+			logger.Error(err, "notary error")
 			return err
 		}
 	}
@@ -117,19 +120,20 @@ func (r *RegistryNotary) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, 
 	patchReg.Status.NotaryURL = r.not.Status.NotaryURL
 	condition.Status = corev1.ConditionTrue
 
-	r.logger.Info("Ready")
+	logger.Info("Ready")
 	return nil
 }
 
 func (r *RegistryNotary) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("create")
 	if reg.Spec.PersistentVolumeClaim.Exist != nil {
-		r.logger.Info("Use exist registry notary. Need not to create notary.")
+		logger.Info("Use exist registry notary. Need not to create notary.")
 		return nil
 	}
 
 	if reg.Spec.PersistentVolumeClaim.Create.DeleteWithPvc {
 		if err := controllerutil.SetControllerReference(reg, r.not, r.scheme); err != nil {
-			r.logger.Error(err, "SetOwnerReference Failed")
+			logger.Error(err, "SetOwnerReference Failed")
 			condition := status.Condition{
 				Status:  corev1.ConditionFalse,
 				Type:    regv1.ConditionTypeNotary,
@@ -141,7 +145,7 @@ func (r *RegistryNotary) create(reg *regv1.Registry, patchReg *regv1.Registry) e
 		}
 	}
 
-	r.logger.Info("Create registry notary")
+	logger.Info("Create registry notary")
 	err := r.c.Create(context.TODO(), r.not)
 	if err != nil {
 		condition := status.Condition{
@@ -151,7 +155,7 @@ func (r *RegistryNotary) create(reg *regv1.Registry, patchReg *regv1.Registry) e
 		}
 
 		patchReg.Status.Conditions.SetCondition(condition)
-		r.logger.Error(err, "Creating registry notary is failed.")
+		logger.Error(err, "Creating registry notary is failed.")
 		return err
 	}
 
@@ -169,16 +173,17 @@ func (r *RegistryNotary) getAuthConfig() *regv1.AuthConfig {
 }
 
 func (r *RegistryNotary) get(reg *regv1.Registry) error {
+	logger := r.logger.WithName("get")
 	not, err := schemes.Notary(reg, r.getAuthConfig())
 	if err != nil {
-		r.logger.Error(err, "Get regsitry notary is failed")
+		logger.Error(err, "Get regsitry notary is failed")
 		return err
 	}
 	r.not = not
 
 	req := types.NamespacedName{Name: r.not.Name, Namespace: r.not.Namespace}
 	if err := r.c.Get(context.TODO(), req, r.not); err != nil {
-		r.logger.Error(err, "Get regsitry notary is failed")
+		logger.Error(err, "Get regsitry notary is failed")
 		return err
 	}
 
@@ -190,8 +195,9 @@ func (r *RegistryNotary) patch(reg *regv1.Registry, patchReg *regv1.Registry, di
 }
 
 func (r *RegistryNotary) delete(patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("delete")
 	if err := r.c.Delete(context.TODO(), r.not); err != nil {
-		r.logger.Error(err, "Unknown error delete notary")
+		logger.Error(err, "Unknown error delete notary")
 		return err
 	}
 

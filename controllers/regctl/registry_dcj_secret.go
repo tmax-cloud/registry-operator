@@ -47,6 +47,7 @@ func NewRegistryDCJSecret(client client.Client, scheme *runtime.Scheme, cond sta
 
 // Handle makes docker config json secret to be in the desired state
 func (r *RegistryDCJSecret) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("CreateIfNotExist")
 	for _, dep := range r.deps {
 		if !dep.IsSuccessfullyCompleted(reg) {
 			err := fmt.Errorf("unable to handle %s: %s condition is not satisfied", r.Condition(), dep.Condition())
@@ -58,13 +59,13 @@ func (r *RegistryDCJSecret) CreateIfNotExist(reg *regv1.Registry, patchReg *regv
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
 			if createError := r.create(reg, patchReg); createError != nil {
-				r.logger.Error(createError, "Create failed in CreateIfNotExist")
+				logger.Error(createError, "Create failed in CreateIfNotExist")
 				r.notReady(patchReg, createError)
 				return createError
 			}
-			r.logger.Info("Create Succeeded")
+			logger.Info("Create Succeeded")
 		} else {
-			r.logger.Error(err, "docker config json secret error")
+			logger.Error(err, "docker config json secret error")
 			return err
 		}
 		return nil
@@ -73,18 +74,19 @@ func (r *RegistryDCJSecret) CreateIfNotExist(reg *regv1.Registry, patchReg *regv
 	if isValid := r.compare(reg); isValid == nil {
 		r.notReady(patchReg, nil)
 		if deleteError := r.delete(patchReg); deleteError != nil {
-			r.logger.Error(deleteError, "Delete failed in CreateIfNotExist")
+			logger.Error(deleteError, "Delete failed in CreateIfNotExist")
 			r.notReady(patchReg, deleteError)
 			return deleteError
 		}
 	}
 
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
 // Ready checks that docker config json secret is ready
 func (r *RegistryDCJSecret) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+	logger := r.logger.WithName("IsReady")
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
@@ -95,23 +97,24 @@ func (r *RegistryDCJSecret) IsReady(reg *regv1.Registry, patchReg *regv1.Registr
 
 	if useGet {
 		if err = r.get(reg); err != nil {
-			r.logger.Error(err, "Get failed")
+			logger.Error(err, "Get failed")
 			return err
 		}
 	}
 
 	if _, ok := r.secretDCJ.Data[schemes.DockerConfigJson]; !ok {
 		err = regv1.MakeRegistryError("Secret DCJ Error")
-		r.logger.Error(err, "No certificate in data")
+		logger.Error(err, "No certificate in data")
 		return err
 	}
 
 	condition.Status = corev1.ConditionTrue
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
 func (r *RegistryDCJSecret) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("create")
 	condition := status.Condition{
 		Status: corev1.ConditionFalse,
 		Type:   regv1.ConditionTypeSecretDockerConfigJSON,
@@ -123,16 +126,17 @@ func (r *RegistryDCJSecret) create(reg *regv1.Registry, patchReg *regv1.Registry
 	}
 
 	if err := r.c.Create(context.TODO(), r.secretDCJ); err != nil {
-		r.logger.Error(err, "Create failed")
+		logger.Error(err, "Create failed")
 		utils.SetCondition(err, patchReg, &condition)
 		return err
 	}
 
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
 func (r *RegistryDCJSecret) get(reg *regv1.Registry) error {
+	logger := r.logger.WithName("get")
 	r.secretDCJ = schemes.DCJSecret(reg)
 	if r.secretDCJ == nil {
 		return regv1.MakeRegistryError("Registry has no fields DCJ Secret required")
@@ -140,11 +144,11 @@ func (r *RegistryDCJSecret) get(reg *regv1.Registry) error {
 
 	req := types.NamespacedName{Name: r.secretDCJ.Name, Namespace: r.secretDCJ.Namespace}
 	if err := r.c.Get(context.TODO(), req, r.secretDCJ); err != nil {
-		r.logger.Error(err, "Get failed")
+		logger.Error(err, "Get failed")
 		return err
 	}
 
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
@@ -153,13 +157,14 @@ func (r *RegistryDCJSecret) patch(reg *regv1.Registry, patchReg *regv1.Registry,
 }
 
 func (r *RegistryDCJSecret) delete(patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("delete")
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
 		Type:   regv1.ConditionTypeSecretDockerConfigJSON,
 	}
 
 	if err := r.c.Delete(context.TODO(), r.secretDCJ); err != nil {
-		r.logger.Error(err, "Delete failed")
+		logger.Error(err, "Delete failed")
 		utils.SetCondition(err, patchReg, condition)
 		return err
 	}
@@ -168,6 +173,7 @@ func (r *RegistryDCJSecret) delete(patchReg *regv1.Registry) error {
 }
 
 func (r *RegistryDCJSecret) compare(reg *regv1.Registry) []utils.Diff {
+	logger := r.logger.WithName("compare")
 	diff := []utils.Diff{}
 	cond := reg.Status.Conditions.GetCondition(regv1.ConditionTypeSecretDockerConfigJSON)
 
@@ -209,7 +215,7 @@ func (r *RegistryDCJSecret) compare(reg *regv1.Registry) []utils.Diff {
 		}
 	}
 
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return diff
 }
 

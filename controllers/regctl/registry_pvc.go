@@ -44,29 +44,31 @@ type RegistryPVC struct {
 
 // Handle makes pvc to be in the desired state
 func (r *RegistryPVC) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("CreateIfNotExist")
+
 	if err := r.get(reg); err != nil {
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
 			if err := r.create(reg, patchReg); err != nil {
-				r.logger.Error(err, "create pvc error")
+				logger.Error(err, "create pvc error")
 				r.notReady(patchReg, err)
 				return err
 			}
-			r.logger.Info("Create Succeeded")
+			logger.Info("Create Succeeded")
 		} else {
-			r.logger.Error(err, "pvc is error")
+			logger.Error(err, "pvc is error")
 			return err
 		}
 		return nil
 	}
 
-	r.logger.Info("Check if patch exists.")
+	logger.Info("Check if patch exists.")
 	diff := r.compare(reg)
 	if len(diff) > 0 {
-		r.logger.Info("patch exists.")
+		logger.Info("patch exists.")
 		r.notReady(patchReg, nil)
 		if err := r.patch(reg, patchReg, diff); err != nil {
-			r.logger.Error(err, "failed to patch pvc")
+			logger.Error(err, "failed to patch pvc")
 			r.notReady(patchReg, err)
 			return err
 		}
@@ -77,6 +79,7 @@ func (r *RegistryPVC) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Regi
 
 // Ready checks that pvc is ready
 func (r *RegistryPVC) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+	logger := r.logger.WithName("IsReady")
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
@@ -88,13 +91,13 @@ func (r *RegistryPVC) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, use
 	if r.pvc == nil || useGet {
 		err := r.get(reg)
 		if err != nil {
-			r.logger.Error(err, "pvc error")
+			logger.Error(err, "pvc error")
 			return err
 		}
 	}
 
 	if string(r.pvc.Status.Phase) == "pending" {
-		r.logger.Info("NotReady")
+		logger.Info("NotReady")
 		err = regv1.MakeRegistryError("NotReady")
 		return err
 	}
@@ -102,26 +105,27 @@ func (r *RegistryPVC) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, use
 	patchReg.Status.Capacity = r.pvc.Status.Capacity.Storage().String()
 	condition.Status = corev1.ConditionTrue
 
-	r.logger.Info("Ready")
+	logger.Info("Ready")
 	return nil
 }
 
 func (r *RegistryPVC) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("create")
 	if reg.Spec.PersistentVolumeClaim.Exist != nil {
-		r.logger.Info("Use exist registry pvc. Need not to create pvc.")
+		logger.Info("Use exist registry pvc. Need not to create pvc.")
 		return nil
 	}
 
 	if reg.Spec.PersistentVolumeClaim.Create.DeleteWithPvc {
 		if err := controllerutil.SetControllerReference(reg, r.pvc, r.scheme); err != nil {
-			r.logger.Error(err, "SetOwnerReference Failed")
+			logger.Error(err, "SetOwnerReference Failed")
 			return err
 		}
 	}
 
-	r.logger.Info("Create registry pvc")
+	logger.Info("Create registry pvc")
 	if err := r.c.Create(context.TODO(), r.pvc); err != nil {
-		r.logger.Error(err, "Creating registry pvc is failed.")
+		logger.Error(err, "Creating registry pvc is failed.")
 		return err
 	}
 
@@ -129,11 +133,12 @@ func (r *RegistryPVC) create(reg *regv1.Registry, patchReg *regv1.Registry) erro
 }
 
 func (r *RegistryPVC) get(reg *regv1.Registry) error {
+	logger := r.logger.WithName("get")
 	r.pvc = schemes.PersistentVolumeClaim(reg)
 	req := types.NamespacedName{Name: r.pvc.Name, Namespace: r.pvc.Namespace}
 	err := r.c.Get(context.TODO(), req, r.pvc)
 	if err != nil {
-		r.logger.Error(err, "Get regsitry pvc is failed")
+		logger.Error(err, "Get regsitry pvc is failed")
 		return err
 	}
 
@@ -141,21 +146,22 @@ func (r *RegistryPVC) get(reg *regv1.Registry) error {
 }
 
 func (r *RegistryPVC) patch(reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
+	logger := r.logger.WithName("patch")
 	target := r.pvc.DeepCopy()
 	originObject := client.MergeFrom(r.pvc)
 
-	r.logger.Info("Get", "Patch Keys", strings.Join(utils.DiffKeyList(diff), ","))
+	logger.Info("Get", "Patch Keys", strings.Join(utils.DiffKeyList(diff), ","))
 
 	for _, d := range diff {
 		switch d.Key {
 		case "DeleteWithPvc":
 			if d.Type == utils.Remove {
-				r.logger.Info("Remove OwnerReferences")
+				logger.Info("Remove OwnerReferences")
 				target.OwnerReferences = []metav1.OwnerReference{}
 			} else {
-				r.logger.Info("Replace or Add OwnerReferences")
+				logger.Info("Replace or Add OwnerReferences")
 				if err := controllerutil.SetControllerReference(reg, target, r.scheme); err != nil {
-					r.logger.Error(err, "SetOwnerReference Failed")
+					logger.Error(err, "SetOwnerReference Failed")
 					condition := status.Condition{
 						Status:  corev1.ConditionFalse,
 						Type:    regv1.ConditionTypePvc,
@@ -171,22 +177,23 @@ func (r *RegistryPVC) patch(reg *regv1.Registry, patchReg *regv1.Registry, diff 
 
 	// Patch
 	if err := r.c.Patch(context.TODO(), target, originObject); err != nil {
-		r.logger.Error(err, "Unknown error patching status")
+		logger.Error(err, "Unknown error patching status")
 		return err
 	}
 	return nil
 }
 
 func (r *RegistryPVC) delete(patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("delete")
 	if err := r.c.Delete(context.TODO(), r.pvc); err != nil {
-		r.logger.Error(err, "Unknown error delete pvc")
+		logger.Error(err, "Unknown error delete pvc")
 		return err
 	}
-
 	return nil
 }
 
 func (r *RegistryPVC) compare(reg *regv1.Registry) []utils.Diff {
+	logger := r.logger.WithName("compare")
 	diff := []utils.Diff{}
 	regPvc := reg.Spec.PersistentVolumeClaim
 
@@ -201,7 +208,9 @@ func (r *RegistryPVC) compare(reg *regv1.Registry) []utils.Diff {
 			}
 		}
 	}
-
+	if len(diff) > 0 {
+		logger.Info("diff exist")
+	}
 	return diff
 }
 

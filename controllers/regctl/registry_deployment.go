@@ -63,6 +63,7 @@ type RegistryDeployment struct {
 
 // Handle makes deployment to be in the desired state
 func (r *RegistryDeployment) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("CreateIfNotExist")
 	for _, dep := range r.deps {
 		if !dep.IsSuccessfullyCompleted(reg) {
 			err := fmt.Errorf("unable to handle %s: %s condition is not satisfied", r.Condition(), dep.Condition())
@@ -74,22 +75,22 @@ func (r *RegistryDeployment) CreateIfNotExist(reg *regv1.Registry, patchReg *reg
 		r.notReady(patchReg, err)
 		if errors.IsNotFound(err) {
 			if err := r.create(reg, patchReg); err != nil {
-				r.logger.Error(err, "create Deployment error")
+				logger.Error(err, "create Deployment error")
 				r.notReady(patchReg, err)
 				return err
 			}
-			r.logger.Info("Create Succeeded")
+			logger.Info("Create Succeeded")
 		} else {
-			r.logger.Error(err, "Deployment error")
+			logger.Error(err, "Deployment error")
 			return err
 		}
 		return nil
 	}
 
-	r.logger.Info("Check if patch exists.")
+	logger.Info("Check if patch exists.")
 	diff := r.compare(reg)
 	if diff == nil {
-		r.logger.Error(nil, "Invalid deployment!!!")
+		logger.Error(nil, "Invalid deployment!!!")
 		r.notReady(patchReg, nil)
 		if err := r.delete(patchReg); err != nil {
 			r.notReady(patchReg, appsv1.ErrIntOverflowGenerated)
@@ -108,6 +109,7 @@ func (r *RegistryDeployment) CreateIfNotExist(reg *regv1.Registry, patchReg *reg
 
 // Ready checks that deployment is ready
 func (r *RegistryDeployment) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+	logger := r.logger.WithName("IsReady")
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
@@ -117,39 +119,40 @@ func (r *RegistryDeployment) IsReady(reg *regv1.Registry, patchReg *regv1.Regist
 	if useGet {
 		err = r.get(reg)
 		if err != nil {
-			r.logger.Error(err, "Deployment error")
+			logger.Error(err, "Deployment error")
 			return err
 		}
 	}
 
 	if r.deploy == nil {
-		r.logger.Info("NotReady")
+		logger.Info("NotReady")
 		err = regv1.MakeRegistryError("NotReady")
 		return err
 	}
 
 	diff := r.compare(reg)
 	if diff == nil {
-		r.logger.Error(nil, "Invalid deployment!!!")
+		logger.Error(nil, "Invalid deployment!!!")
 		if err := r.delete(patchReg); err != nil {
 			return err
 		}
 	} else if len(diff) > 0 {
-		r.logger.Info("NotReady")
+		logger.Info("NotReady")
 		err = regv1.MakeRegistryError("NotReady")
 		return err
 	}
 
 	reg.Status.ReadOnly = reg.Spec.ReadOnly
 
-	r.logger.Info("Ready")
+	logger.Info("Ready")
 	condition.Status = corev1.ConditionTrue
 	return nil
 }
 
 func (r *RegistryDeployment) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("create")
 	if err := controllerutil.SetControllerReference(reg, r.deploy, r.scheme); err != nil {
-		r.logger.Error(err, "SetOwnerReference Failed")
+		logger.Error(err, "SetOwnerReference Failed")
 		condition := status.Condition{
 			Status:  corev1.ConditionFalse,
 			Type:    regv1.ConditionTypeDeployment,
@@ -160,7 +163,7 @@ func (r *RegistryDeployment) create(reg *regv1.Registry, patchReg *regv1.Registr
 		return nil
 	}
 
-	r.logger.Info("Create registry deployment")
+	logger.Info("Create registry deployment")
 	err := r.c.Create(context.TODO(), r.deploy)
 	if err != nil {
 		condition := status.Condition{
@@ -170,7 +173,7 @@ func (r *RegistryDeployment) create(reg *regv1.Registry, patchReg *regv1.Registr
 		}
 
 		patchReg.Status.Conditions.SetCondition(condition)
-		r.logger.Error(err, "Creating registry deployment is failed.")
+		logger.Error(err, "Creating registry deployment is failed.")
 		return nil
 	}
 
@@ -188,16 +191,17 @@ func (r *RegistryDeployment) getAuthConfig() *regv1.AuthConfig {
 }
 
 func (r *RegistryDeployment) get(reg *regv1.Registry) error {
+	logger := r.logger.WithName("get")
 	deploy, err := schemes.Deployment(reg, r.getAuthConfig())
 	if err != nil {
-		r.logger.Error(err, "Get regsitry deployment scheme is failed")
+		logger.Error(err, "Get regsitry deployment scheme is failed")
 		return err
 	}
 	r.deploy = deploy
 
 	req := types.NamespacedName{Name: r.deploy.Name, Namespace: r.deploy.Namespace}
 	if err := r.c.Get(context.TODO(), req, r.deploy); err != nil {
-		r.logger.Error(err, "Get regsitry deployment is failed")
+		logger.Error(err, "Get regsitry deployment is failed")
 		return err
 	}
 
@@ -205,11 +209,12 @@ func (r *RegistryDeployment) get(reg *regv1.Registry) error {
 }
 
 func (r *RegistryDeployment) patch(reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
+	logger := r.logger.WithName("patch")
 	target := r.deploy.DeepCopy()
 	originObject := client.MergeFrom(r.deploy)
 	podSpec := target.Spec.Template.Spec
 
-	r.logger.Info("Get", "Patch", fmt.Sprintf("%+v\n", diff))
+	logger.Info("Get", "Patch", fmt.Sprintf("%+v\n", diff))
 
 	// Get registry container
 	var deployContainer *corev1.Container = nil
@@ -221,7 +226,7 @@ func (r *RegistryDeployment) patch(reg *regv1.Registry, patchReg *regv1.Registry
 	}
 
 	if deployContainer == nil {
-		r.logger.Error(regv1.MakeRegistryError(regv1.ContainerNotFound), "registry container is nil")
+		logger.Error(regv1.MakeRegistryError(regv1.ContainerNotFound), "registry container is nil")
 		return nil
 	}
 
@@ -271,7 +276,7 @@ func (r *RegistryDeployment) patch(reg *regv1.Registry, patchReg *regv1.Registry
 			}
 
 			if !found {
-				r.logger.Error(regv1.MakeRegistryError(regv1.PvcVolumeMountNotFound), "registry pvc volume mount is nil")
+				logger.Error(regv1.MakeRegistryError(regv1.PvcVolumeMountNotFound), "registry pvc volume mount is nil")
 			}
 
 		case pvcNameDiffKey:
@@ -285,7 +290,7 @@ func (r *RegistryDeployment) patch(reg *regv1.Registry, patchReg *regv1.Registry
 			}
 
 			if !found {
-				r.logger.Error(regv1.MakeRegistryError(regv1.PvcVolumeNotFound), "registry pvc volume is nil")
+				logger.Error(regv1.MakeRegistryError(regv1.PvcVolumeNotFound), "registry pvc volume is nil")
 			}
 
 		case limitCPUDiffKey:
@@ -316,15 +321,16 @@ func (r *RegistryDeployment) patch(reg *regv1.Registry, patchReg *regv1.Registry
 
 	// Patch
 	if err := r.c.Patch(context.TODO(), target, originObject); err != nil {
-		r.logger.Error(err, "Unknown error patch")
+		logger.Error(err, "Unknown error patch")
 		return err
 	}
 	return nil
 }
 
 func (r *RegistryDeployment) delete(patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("delete")
 	if err := r.c.Delete(context.TODO(), r.deploy); err != nil {
-		r.logger.Error(err, "Unknown error delete deployment")
+		logger.Error(err, "Unknown error delete deployment")
 		return err
 	}
 
@@ -339,6 +345,7 @@ func (r *RegistryDeployment) delete(patchReg *regv1.Registry) error {
 }
 
 func (r *RegistryDeployment) compare(reg *regv1.Registry) []utils.Diff {
+	logger := r.logger.WithName("compare")
 	diff := []utils.Diff{}
 	podSpec := r.deploy.Spec.Template.Spec
 
@@ -352,7 +359,7 @@ func (r *RegistryDeployment) compare(reg *regv1.Registry) []utils.Diff {
 	}
 
 	if deployContainer == nil {
-		r.logger.Error(regv1.MakeRegistryError(regv1.ContainerNotFound), "registry container is nil")
+		logger.Error(regv1.MakeRegistryError(regv1.ContainerNotFound), "registry container is nil")
 		return nil
 	}
 
@@ -415,7 +422,7 @@ func (r *RegistryDeployment) compare(reg *regv1.Registry) []utils.Diff {
 	}
 
 	if deployVolume == nil {
-		r.logger.Error(regv1.MakeRegistryError(regv1.PvcVolumeNotFound), "registry pvc volume mount is nil ")
+		logger.Error(regv1.MakeRegistryError(regv1.PvcVolumeNotFound), "registry pvc volume mount is nil ")
 	} else if deployVolume.VolumeSource.PersistentVolumeClaim.ClaimName != volumeName {
 		diff = append(diff, utils.Diff{Type: utils.Replace, Key: pvcNameDiffKey, Value: volumeName})
 	}
@@ -434,7 +441,7 @@ func (r *RegistryDeployment) compare(reg *regv1.Registry) []utils.Diff {
 		}
 	}
 	if contPvcVM == nil {
-		r.logger.Error(regv1.MakeRegistryError(regv1.PvcVolumeMountNotFound), "registry pvc volume mount is nil ")
+		logger.Error(regv1.MakeRegistryError(regv1.PvcVolumeMountNotFound), "registry pvc volume mount is nil ")
 	} else if contPvcVM.MountPath != mountPath {
 		diff = append(diff, utils.Diff{Type: utils.Replace, Key: mountPathDiffKey, Value: mountPath})
 	}

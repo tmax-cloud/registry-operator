@@ -47,17 +47,19 @@ type RegistryService struct {
 
 // Handle makes service to be in the desired state
 func (r *RegistryService) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("CreateIfNotExist")
+
 	if err := r.get(reg); err != nil {
 		r.setConditionFalseWithError(err, patchReg)
 		if errors.IsNotFound(err) {
 			if createError := r.create(reg, patchReg); createError != nil {
-				r.logger.Error(createError, "Create failed in CreateIfNotExist")
+				logger.Error(createError, "Create failed in CreateIfNotExist")
 				r.setConditionFalseWithError(createError, patchReg)
 				return createError
 			}
-			r.logger.Info("Create Succeeded")
+			logger.Info("Create Succeeded")
 		} else {
-			r.logger.Error(err, "service is error")
+			logger.Error(err, "service is error")
 			return err
 		}
 		return nil
@@ -65,7 +67,7 @@ func (r *RegistryService) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.
 
 	diff := r.compare(reg)
 	if len(diff) > 0 {
-		r.logger.Info("service must be patched")
+		logger.Info("service must be patched")
 		r.setConditionFalseWithError(nil, patchReg)
 		if err := r.patch(reg, patchReg, diff); err != nil {
 			r.setConditionFalseWithError(err, patchReg)
@@ -73,12 +75,13 @@ func (r *RegistryService) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.
 		}
 	}
 
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
 // Ready checks that service is ready
 func (r *RegistryService) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+	logger := r.logger.WithName("IsReady")
 	var err error = nil
 	condition := &status.Condition{
 		Status: corev1.ConditionFalse,
@@ -88,7 +91,7 @@ func (r *RegistryService) IsReady(reg *regv1.Registry, patchReg *regv1.Registry,
 
 	if useGet {
 		if err = r.get(reg); err != nil {
-			r.logger.Error(err, "Getting Service error")
+			logger.Error(err, "Getting Service error")
 			return err
 		}
 	}
@@ -110,55 +113,58 @@ func (r *RegistryService) IsReady(reg *regv1.Registry, patchReg *regv1.Registry,
 		}
 		patchReg.Status.LoadBalancerIP = lbIP
 		patchReg.Status.ServerURL = "https://" + lbIP
-		r.logger.Info("LoadBalancer info", "LoadBalancer IP", lbIP)
+		logger.Info("LoadBalancer info", "LoadBalancer IP", lbIP)
 	} else if r.svc.Spec.Type == corev1.ServiceTypeClusterIP {
 		if r.svc.Spec.ClusterIP == "" {
 			err = regv1.MakeRegistryError("NotReady")
 			return err
 		}
-		r.logger.Info("Service Type is ClusterIP(Ingress)")
+		logger.Info("Service Type is ClusterIP(Ingress)")
 		// [TODO]
 	}
 	patchReg.Status.ClusterIP = r.svc.Spec.ClusterIP
 	condition.Status = corev1.ConditionTrue
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
 func (r *RegistryService) create(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("create")
 	if err := controllerutil.SetControllerReference(reg, r.svc, r.scheme); err != nil {
-		r.logger.Error(err, "Set owner reference failed")
+		logger.Error(err, "Set owner reference failed")
 		return err
 	}
 
 	if err := r.c.Create(context.TODO(), r.svc); err != nil {
-		r.logger.Error(err, "Create failed")
+		logger.Error(err, "Create failed")
 		return err
 	}
 
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
 func (r *RegistryService) get(reg *regv1.Registry) error {
+	logger := r.logger.WithName("get")
 	if r.svc == nil {
 		r.svc = schemes.Service(reg)
 	}
 
 	req := types.NamespacedName{Name: r.svc.Name, Namespace: r.svc.Namespace}
 	if err := r.c.Get(context.TODO(), req, r.svc); err != nil {
-		r.logger.Error(err, "Get Failed")
+		logger.Error(err, "Get Failed")
 		return err
 	}
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
 func (r *RegistryService) patch(reg *regv1.Registry, patchReg *regv1.Registry, diff []utils.Diff) error {
+	logger := r.logger.WithName("patch")
 	target := r.svc.DeepCopy()
 	originObject := client.MergeFrom(r.svc)
 
-	r.logger.Info("Get", "Patch", fmt.Sprintf("%+v\n", diff))
+	logger.Info("Get", "Patch", fmt.Sprintf("%+v\n", diff))
 
 	for _, d := range diff {
 		switch d.Key {
@@ -172,23 +178,24 @@ func (r *RegistryService) patch(reg *regv1.Registry, patchReg *regv1.Registry, d
 
 	// Patch
 	if err := r.c.Patch(context.TODO(), target, originObject); err != nil {
-		r.logger.Error(err, "Unknown error patch")
+		logger.Error(err, "Unknown error patch")
 		return err
 	}
 	return nil
 }
 
 func (r *RegistryService) delete(patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("delete")
 	if err := r.c.Delete(context.TODO(), r.svc); err != nil {
-		r.logger.Error(err, "Delete failed")
+		logger.Error(err, "Delete failed")
 		return err
 	}
-
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return nil
 }
 
 func (r *RegistryService) compare(reg *regv1.Registry) []utils.Diff {
+	logger := r.logger.WithName("compare")
 	diff := []utils.Diff{}
 	switch reg.Spec.RegistryService.ServiceType {
 	case "LoadBalancer":
@@ -201,7 +208,7 @@ func (r *RegistryService) compare(reg *regv1.Registry) []utils.Diff {
 		}
 	}
 
-	r.logger.Info("Succeed")
+	logger.Info("Succeed")
 	return diff
 }
 

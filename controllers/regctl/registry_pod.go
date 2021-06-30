@@ -43,6 +43,7 @@ type RegistryPod struct {
 
 // Handle makes pod to be in the desired state
 func (r *RegistryPod) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("CreateIfNotExist")
 	for _, dep := range r.deps {
 		if !dep.IsSuccessfullyCompleted(reg) {
 			err := fmt.Errorf("unable to handle %s: %s condition is not satisfied", r.Condition(), dep.Condition())
@@ -51,19 +52,19 @@ func (r *RegistryPod) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Regi
 	}
 
 	if err := r.get(reg); err != nil {
-		r.logger.Error(err, "Pod error")
+		logger.Error(err, "Pod error")
 		r.notReady(patchReg, err)
 		return err
 	}
 
-	r.logger.Info("Check if recreating pod is required.")
+	logger.Info("Check if recreating pod is required.")
 	if reg.Status.PodRecreateRequired || r.compare(reg) == nil {
 		r.notReady(patchReg, nil)
 		if err := r.delete(patchReg); err != nil {
 			return err
 		}
 
-		r.logger.Info("Recreate pod.")
+		logger.Info("Recreate pod.")
 		patchReg.Status.PodRecreateRequired = false
 	}
 
@@ -72,6 +73,7 @@ func (r *RegistryPod) CreateIfNotExist(reg *regv1.Registry, patchReg *regv1.Regi
 
 // Ready checks that pod is ready
 func (r *RegistryPod) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, useGet bool) error {
+	logger := r.logger.WithName("IsReady")
 	var err error = nil
 	podCondition := &status.Condition{
 		Type:   regv1.ConditionTypePod,
@@ -88,13 +90,13 @@ func (r *RegistryPod) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, use
 	if r.pod == nil || useGet {
 		err = r.get(reg)
 		if err != nil {
-			r.logger.Error(err, "Pod error")
+			logger.Error(err, "Pod error")
 			return err
 		}
 	}
 
 	if r.pod == nil {
-		r.logger.Info("Pod is nil")
+		logger.Info("Pod is nil")
 		podCondition.Status = corev1.ConditionFalse
 		contCondition.Status = corev1.ConditionFalse
 		err = regv1.MakeRegistryError(regv1.PodNotFound)
@@ -103,7 +105,7 @@ func (r *RegistryPod) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, use
 
 	contStatuses := r.pod.Status.ContainerStatuses
 	if len(contStatuses) == 0 {
-		r.logger.Info("Container's status is nil")
+		logger.Info("Container's status is nil")
 		podCondition.Status = corev1.ConditionFalse
 		contCondition.Status = corev1.ConditionFalse
 		err = regv1.MakeRegistryError(regv1.ContainerStatusIsNil)
@@ -114,9 +116,9 @@ func (r *RegistryPod) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, use
 
 	if contState.State.Waiting != nil {
 		reason = contState.State.Waiting.Reason
-		r.logger.Info(reason)
+		logger.Info(reason)
 	} else if contState.State.Running != nil {
-		// r.logger.Info(contState.String())
+		// logger.Info(contState.String())
 		if contState.Ready {
 			reason = "Running"
 		} else {
@@ -124,12 +126,12 @@ func (r *RegistryPod) IsReady(reg *regv1.Registry, patchReg *regv1.Registry, use
 		}
 	} else if contState.State.Terminated != nil {
 		reason = contState.State.Terminated.Reason
-		r.logger.Info(reason)
+		logger.Info(reason)
 	} else {
 		reason = "Unknown"
 	}
 
-	r.logger.Info("Get container state", "reason", reason)
+	logger.Info("Get container state", "reason", reason)
 
 	switch reason {
 	case "NotReady":
@@ -157,6 +159,7 @@ func (r *RegistryPod) create(reg *regv1.Registry, patchReg *regv1.Registry) erro
 }
 
 func (r *RegistryPod) get(reg *regv1.Registry) error {
+	logger := r.logger.WithName("get")
 	r.pod = &corev1.Pod{}
 
 	podList := &corev1.PodList{}
@@ -171,7 +174,7 @@ func (r *RegistryPod) get(reg *regv1.Registry) error {
 	}
 	err := r.c.List(context.TODO(), podList, listOps)
 	if err != nil {
-		r.logger.Error(err, "Failed to list pods.")
+		logger.Error(err, "Failed to list pods.")
 		return err
 	}
 
@@ -189,8 +192,9 @@ func (r *RegistryPod) patch(reg *regv1.Registry, patchReg *regv1.Registry, diff 
 }
 
 func (r *RegistryPod) delete(patchReg *regv1.Registry) error {
+	logger := r.logger.WithName("delete")
 	if err := r.c.Delete(context.TODO(), r.pod); err != nil {
-		r.logger.Error(err, "Unknown error delete pod")
+		logger.Error(err, "Unknown error delete pod")
 		return err
 	}
 
@@ -209,6 +213,7 @@ func (r *RegistryPod) compare(reg *regv1.Registry) []utils.Diff {
 			}
 		}
 	}
+
 	return []utils.Diff{}
 }
 
