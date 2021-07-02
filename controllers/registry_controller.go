@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/Nerzal/gocloak/v7"
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-lib/status"
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
@@ -31,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"path"
-	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -39,7 +39,6 @@ import (
 	"strings"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/controllers/keycloakctl"
 	"github.com/tmax-cloud/registry-operator/controllers/regctl"
 )
 
@@ -48,7 +47,13 @@ type RegistryReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
-	kc     *keycloakctl.KeycloakController
+}
+
+var keycloak gocloak.GoCloak
+
+func init() {
+	address := config.Config.GetString(config.ConfigKeycloakService)
+	keycloak = gocloak.NewClient(address)
 }
 
 // +kubebuilder:rbac:groups=tmax.io,resources=registries,verbs=get;list;watch;create;update;patch;delete
@@ -67,20 +72,22 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	logger := r.Log.WithValues("registry", req.NamespacedName)
 
-	logger.Info(">>>> Start reconcile...")
-	// Fetch the Registry reg
 	reg := &regv1.Registry{}
 	err := r.Get(ctx, req.NamespacedName, reg)
 	if err != nil {
 		if k8serr.IsNotFound(err) {
-			// Delete 되었을 때 이 로직이 반드시 수행되는가?
-			logger.Info("****** DELETED registry *****")
-			r.kc = keycloakctl.NewKeycloakController(req.Namespace, req.Name, logger)
-			if r.kc == nil {
+			username := config.Config.GetString("keycloak.username")
+			password := config.Config.GetString("keycloak.password")
+
+			token, err := keycloak.LoginAdmin(ctx, username, password, "master")
+			if err != nil {
+				logger.Error(err, "failed to login keycloak")
 				return reconcile.Result{}, err
 			}
-			if err := r.kc.DeleteRealm(req.Namespace, req.Name); err != nil {
-				logger.Info("Couldn't delete keycloak realm")
+			realmName := fmt.Sprintf("%s-%s", reg.Namespace, reg.Name)
+			if err = keycloak.DeleteRealm(ctx, token.AccessToken, realmName); err != nil {
+				logger.Error(err, "failed to delete realm")
+				return reconcile.Result{}, err
 			}
 			return reconcile.Result{}, nil
 		}
@@ -93,6 +100,56 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	if reg.Status.Phase == "" {
+		username := config.Config.GetString("keycloak.username")
+		password := config.Config.GetString("keycloak.password")
+
+		token, err := keycloak.LoginAdmin(ctx, username, password, "master")
+		if err != nil {
+			logger.Error(err, "failed to login keycloak")
+			return reconcile.Result{}, err
+		}
+
+		realmName := fmt.Sprintf("%s-%s", reg.Namespace, reg.Name)
+		enabled := true
+		if _, err = keycloak.CreateRealm(ctx, token.AccessToken, gocloak.RealmRepresentation{
+			ID:      &realmName,
+			Realm:   &realmName,
+			Enabled: &enabled,
+		}); err != nil {
+			logger.Error(err, "failed to create realm")
+			return reconcile.Result{}, err
+		}
+
+		clientName := realmName + "-docker-client"
+		protocol := "docker-v2"
+		if _, err = keycloak.CreateClient(ctx, token.AccessToken, realmName, gocloak.Client{
+			ClientID: &clientName,
+			Protocol: &protocol,
+		}); err != nil {
+			logger.Error(err, "Couldn't create docker client in realm "+realmName)
+			return reconcile.Result{}, err
+		}
+
+		//if err := c.AddCertificate(); err != nil {
+		//	logger.Error(err, "failed to add a certificate")
+		//	return reconcile.Result{}, err
+		//}
+
+		user, err := keycloak.CreateUser(ctx, token.AccessToken, realmName, gocloak.User{
+			Username: &reg.Spec.LoginID,
+			Enabled:  &enabled,
+		})
+		if err != nil {
+			logger.Error(err, "failed to create user")
+			return reconcile.Result{}, err
+		}
+
+		if err = keycloak.SetPassword(ctx, token.AccessToken, user, realmName, reg.Spec.LoginPassword, false); err != nil {
+			logger.Error(err, "failed to set password")
+			return reconcile.Result{}, err
+		}
+
+		// -------------------
 		reg.Status.Conditions = status.NewConditions(getResourceConditionList(reg)...)
 		reg.Status.Message = "registry is creating. All resources in registry has not yet been created."
 		reg.Status.Reason = "AllConditionsNotTrue"
@@ -123,13 +180,13 @@ func getResourceConditionList(reg *regv1.Registry) status.Conditions {
 	condTypes := []status.ConditionType{
 		regv1.ConditionTypeDeployment,
 		regv1.ConditionTypePod,
+		regv1.ConditionTypeContainer,
 		regv1.ConditionTypeService,
 		regv1.ConditionTypeSecretTLS,
 		regv1.ConditionTypeSecretOpaque,
 		regv1.ConditionTypeSecretDockerConfigJSON,
 		regv1.ConditionTypePvc,
 		regv1.ConditionTypeConfigMap,
-		regv1.ConditionTypeKeycloakResources,
 	}
 	if reg.Spec.Notary.Enabled {
 		condTypes = append(condTypes, regv1.ConditionTypeNotary)
@@ -198,30 +255,15 @@ func (r *RegistryReconciler) validate(reg *regv1.Registry) error {
 }
 
 func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) (bool, error) { // if want to requeue, return true
-	logger := r.Log.WithName("subresource").WithValues("namespace", reg.Namespace, "name", reg.Name)
-	patchReg := reg.DeepCopy() // Target to Patch object
+	logger := r.Log.WithValues("namespace", reg.Namespace, "name", reg.Name)
 	gErrors := []error{}
 	gRequeue := false
+
 	defer func() {
-		if err := r.update(reg, patchReg); err != nil {
-			logger.Error(err, "failed to patch")
+		if err := r.Status().Update(context.TODO(), reg); err != nil {
+			logger.Error(err, "failed to update condition")
 		}
 	}()
-
-	r.kc = keycloakctl.NewKeycloakController(reg.Namespace, reg.Name, logger)
-	if r.kc == nil {
-		return false, fmt.Errorf("unable to get keycloak controller")
-	}
-	if err := r.kc.CreateResources(reg, patchReg); err != nil {
-		return false, err
-	}
-
-	reg.Status.Conditions.SetCondition(
-		status.Condition{
-			Type:    regv1.ConditionTypeKeycloakResources,
-			Status:  corev1.ConditionTrue,
-			Message: "Success",
-		})
 
 	components := r.getComponentControllerList(reg)
 	for _, component := range components {
@@ -245,25 +287,16 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) (bool, e
 	return gRequeue, nil
 }
 
-func (r *RegistryReconciler) update(origin, target *regv1.Registry) error {
-	if !reflect.DeepEqual(origin.Spec, target.Spec) {
-		if err := r.Update(context.TODO(), target); err != nil {
-			return err
-		}
-	}
-	if err := r.Status().Update(context.TODO(), origin); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (r *RegistryReconciler) getComponentControllerList(reg *regv1.Registry) []regctl.ResourceController {
 	logger := r.Log.WithValues("namespace", reg.Namespace, "name", reg.Name)
+
 	serverAddr := config.Config.GetString(config.ConfigKeycloakService)
+	realmName := fmt.Sprintf("%s-%s", reg.Namespace, reg.Name)
+	clientName := realmName + "-docker-client"
 	authcfg := &regv1.AuthConfig{
-		Realm:   path.Join(serverAddr, "auth", "realms", r.kc.GetRealmName(), "protocol", "docker-v2", "auth"),
-		Service: r.kc.GetDockerV2ClientName(),
-		Issuer:  path.Join(serverAddr, "auth", "realms", r.kc.GetRealmName()),
+		Realm:   path.Join(serverAddr, "auth", "realms", realmName, "protocol", "docker-v2", "auth"),
+		Service: clientName,
+		Issuer:  path.Join(serverAddr, "auth", "realms", realmName),
 	}
 
 	collection := []regctl.ResourceController{}
@@ -284,6 +317,10 @@ func (r *RegistryReconciler) getComponentControllerList(reg *regv1.Registry) []r
 			collection = append(collection, regctl.NewRegistryPod(r.Client, func() (interface{}, error) {
 				return nil, nil
 			}, cond.Type, logger))
+		case regv1.ConditionTypeContainer:
+			collection = append(collection, regctl.NewRegistryContainer(r.Client, func() (interface{}, error) {
+				return nil, nil
+			}, cond.Type, logger).Require(regv1.ConditionTypeDeployment).Require(regv1.ConditionTypeDeployment).Require(regv1.ConditionTypePod))
 		case regv1.ConditionTypeService:
 			collection = append(collection, regctl.NewRegistryService(r.Client, func() (interface{}, error) {
 				manifest := schemes.Service(reg)
@@ -340,8 +377,6 @@ func (r *RegistryReconciler) getComponentControllerList(reg *regv1.Registry) []r
 				}
 				return manifest, nil
 			}, cond.Type, logger))
-		case regv1.ConditionTypeKeycloakResources:
-			//
 		case regv1.ConditionTypeNotary:
 			collection = append(collection, regctl.NewRegistryNotary(r.Client, func() (interface{}, error) {
 				manifest, err := schemes.Notary(reg, authcfg)
