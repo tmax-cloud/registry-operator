@@ -4,18 +4,16 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
-	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	"github.com/operator-framework/operator-lib/status"
+	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// RegistryConfigMap contains things to handle deployment resource
-type RegistryConfigMap struct {
+type RegistryCrendentialSecret struct {
 	c            client.Client
 	manifest     func() (interface{}, error)
 	cond         status.ConditionType
@@ -23,17 +21,16 @@ type RegistryConfigMap struct {
 	logger       logr.Logger
 }
 
-// NewRegistryConfigMap creates new registry configmap controller
-func NewRegistryConfigMap(client client.Client, manifest func() (interface{}, error), cond status.ConditionType, logger logr.Logger) *RegistryConfigMap {
-	return &RegistryConfigMap{
+func NewRegistryCrendentialSecret(client client.Client, manifest func() (interface{}, error), cond status.ConditionType, logger logr.Logger) *RegistryCrendentialSecret {
+	return &RegistryCrendentialSecret{
 		c:        client,
 		manifest: manifest,
 		cond:     cond,
-		logger:   logger.WithName("Configmap"),
+		logger:   logger.WithName("TLSSecret"),
 	}
 }
 
-func (r *RegistryConfigMap) ReconcileByConditionStatus(reg *regv1.Registry) error {
+func (r *RegistryCrendentialSecret) ReconcileByConditionStatus(reg *regv1.Registry) error {
 	var err error
 	defer func() {
 		if err != nil {
@@ -58,9 +55,9 @@ func (r *RegistryConfigMap) ReconcileByConditionStatus(reg *regv1.Registry) erro
 	if err != nil {
 		return err
 	}
-	manifest := m.(corev1.ConfigMap)
-	cm := &corev1.ConfigMap{}
-	if err = r.c.Get(ctx, types.NamespacedName{Name: manifest.Name, Namespace: manifest.Namespace}, cm); err != nil {
+	manifest := m.(corev1.Secret)
+	secretOpaque := &corev1.Secret{}
+	if err = r.c.Get(ctx, types.NamespacedName{Name: manifest.Name, Namespace: manifest.Namespace}, secretOpaque); err != nil {
 		if errors.IsNotFound(err) {
 			if err = r.c.Create(ctx, &manifest); err != nil {
 				return err
@@ -69,12 +66,6 @@ func (r *RegistryConfigMap) ReconcileByConditionStatus(reg *regv1.Registry) erro
 		}
 		return err
 	}
-
-	if _, exist := cm.Data["config.yml"]; !exist {
-		err = regv1.MakeRegistryError("NotReady")
-		return err
-	}
-
 	reg.Status.Conditions.SetCondition(
 		status.Condition{
 			Type:    r.cond,
@@ -84,7 +75,7 @@ func (r *RegistryConfigMap) ReconcileByConditionStatus(reg *regv1.Registry) erro
 	return nil
 }
 
-func (r *RegistryConfigMap) Require(cond status.ConditionType) ResourceController {
+func (r *RegistryCrendentialSecret) Require(cond status.ConditionType) ResourceController {
 	r.requirements = append(r.requirements, cond)
 	return r
 }

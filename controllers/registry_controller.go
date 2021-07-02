@@ -19,19 +19,24 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/operator-framework/operator-lib/status"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"reflect"
-
 	"github.com/go-logr/logr"
+	"github.com/operator-framework/operator-lib/status"
+	"github.com/tmax-cloud/registry-operator/internal/common/config"
+	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	exv1beta1 "k8s.io/api/extensions/v1beta1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"path"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"strings"
 
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/controllers/keycloakctl"
@@ -106,9 +111,7 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, err
 	}
 
-	logger.Info("Processing resources...")
 	if err = r.handleAllSubresources(reg); err != nil {
-		logger.Error(err, "Subresource creation failed")
 		return reconcile.Result{}, err
 	}
 
@@ -196,9 +199,7 @@ func (r *RegistryReconciler) validate(reg *regv1.Registry) error {
 
 func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { // if want to requeue, return true
 	logger := r.Log.WithName("subresource").WithValues("namespace", reg.Namespace, "name", reg.Name)
-	logger.Info("start")
-
-	var requeueErr error
+	gErrors := []error{}
 	patchReg := reg.DeepCopy() // Target to Patch object
 
 	defer func() {
@@ -214,34 +215,22 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 	if err := r.kc.CreateResources(reg, patchReg); err != nil {
 		return err
 	}
-	collectSubController := r.collectSubController(reg)
-	printSubresources(log, collectSubController)
 
-	// Check if subresources are created.
-	for _, sctl := range collectSubController {
-		subresourceType := reflect.TypeOf(sctl).String()
-		logger.Info("Check subresource", "subresourceType", subresourceType)
-
-		// Check if subresource is handled.
-		if err := sctl.CreateIfNotExist(reg, patchReg); err != nil {
-			errMsg := "Got an error in handling subresource"
-			logger.Error(err, errMsg)
-			requeueErr = regv1.AppendError(requeueErr, errMsg)
+	components := r.getComponentControllerList(reg)
+	for _, component := range components {
+		if err := component.ReconcileByConditionStatus(reg); err != nil {
+			gErrors = append(gErrors, err)
 			continue
 		}
+	}
 
-		// Check if subresource is ready.
-		if err := sctl.IsReady(reg, patchReg, true); err != nil {
-			errMsg := "Got an error in checking ready"
-			logger.Error(err, errMsg)
-			requeueErr = regv1.AppendError(requeueErr, errMsg)
+	if len(gErrors) > 0 {
+		eMsgs := []string{}
+		for _, e := range gErrors {
+			eMsgs = append(eMsgs, e.Error())
 		}
+		return fmt.Errorf(strings.Join(eMsgs, ", "))
 	}
-
-	if requeueErr != nil {
-		return requeueErr
-	}
-
 	return nil
 }
 
@@ -269,89 +258,126 @@ func (r *RegistryReconciler) update(origin, target *regv1.Registry) error {
 	return nil
 }
 
-func (r *RegistryReconciler) collectSubController(reg *regv1.Registry) []regctl.RegistrySubresource {
-	logger := r.Log.WithValues("Namespace", reg.Namespace, "Name", reg.Name)
+func (r *RegistryReconciler) getComponentControllerList(reg *regv1.Registry) []regctl.ResourceController {
+	logger := r.Log.WithValues("namespace", reg.Namespace, "name", reg.Name)
+	serverAddr := config.Config.GetString(config.ConfigKeycloakService)
+	authcfg := &regv1.AuthConfig{
+		Realm:   path.Join(serverAddr, "auth", "realms", r.kc.GetRealmName(), "protocol", "docker-v2", "auth"),
+		Service: r.kc.GetDockerV2ClientName(),
+		Issuer:  path.Join(serverAddr, "auth", "realms", r.kc.GetRealmName()),
+	}
 
-	collection := []regctl.RegistrySubresource{}
-	notary := regctl.NewRegistryNotary(r.Client, r.Scheme, reg, regv1.ConditionTypeNotary, logger, r.kc)
-	pvc := regctl.NewRegistryPVC(r.Client, r.Scheme, reg, regv1.ConditionTypePvc, logger)
-	svc := regctl.NewRegistryService(r.Client, r.Scheme, reg, regv1.ConditionTypeService, logger)
-	certSecret := regctl.NewRegistryCertSecret(r.Client, r.Scheme, reg, regv1.ConditionTypeSecretTLS, logger, svc)
-	dcjSecret := regctl.NewRegistryDCJSecret(r.Client, r.Scheme, reg, regv1.ConditionTypeSecretDockerConfigJSON, logger, svc)
-	cm := regctl.NewRegistryConfigMap(r.Client, r.Scheme, reg, regv1.ConditionTypeConfigMap, logger)
-	deploy := regctl.NewRegistryDeployment(r.Client, r.Scheme, reg, regv1.ConditionTypeDeployment, logger, r.kc, pvc, svc, cm)
-	pod := regctl.NewRegistryPod(r.Client, r.Scheme, reg, regv1.ConditionTypePod, logger, deploy)
-	ing := regctl.NewRegistryIngress(r.Client, r.Scheme, reg, regv1.ConditionTypeIngress, logger, certSecret)
-
+	collection := []regctl.ResourceController{}
 	for _, cond := range reg.Status.Conditions {
 		switch cond.Type {
 		case regv1.ConditionTypeDeployment:
-			//collection = append(collection, regctl.NewRegistryDeployment(r.Client, r.Scheme, reg, logger, r.kc, pvc, svc, cm))
-			collection = append(collection, deploy)
+			collection = append(collection, regctl.NewRegistryDeployment(r.Client, func() (interface{}, error) {
+				manifest, err := schemes.Deployment(reg, authcfg)
+				if err != nil {
+					return nil, err
+				}
+				if err = controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
+					return nil, err
+				}
+				return manifest, nil
+			}, cond.Type, logger).Require(regv1.ConditionTypeService).Require(regv1.ConditionTypePvc).Require(regv1.ConditionTypeConfigMap))
 		case regv1.ConditionTypePod:
-			//collection = append(collection, regctl.NewRegistryPod(r.Client, r.Scheme, reg, logger, deploy))
-			collection = append(collection, pod)
+			collection = append(collection, regctl.NewRegistryPod(r.Client, func() (interface{}, error) {
+				return nil, nil
+			}, cond.Type, logger))
 		case regv1.ConditionTypeContainer:
-			// collection = append(collection,)
-			continue
+			collection = append(collection, regctl.NewRegistryContainer(r.Client, func() (interface{}, error) {
+				return nil, nil
+			}, cond.Type, logger).Require(regv1.ConditionTypeDeployment).Require(regv1.ConditionTypeDeployment).Require(regv1.ConditionTypePod))
 		case regv1.ConditionTypeService:
-			//collection = append(collection, regctl.NewRegistryService(r.Client, r.Scheme, reg, logger))
-			collection = append(collection, svc)
+			collection = append(collection, regctl.NewRegistryService(r.Client, func() (interface{}, error) {
+				manifest := schemes.Service(reg)
+				if err := controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
+					return nil, err
+				}
+				return manifest, nil
+			}, cond.Type, logger))
 		case regv1.ConditionTypeSecretTLS:
-			//collection = append(collection, regctl.NewRegistryCertSecret(r.Client, r.Scheme, reg, logger, svc))
-			collection = append(collection, certSecret)
+			collection = append(collection, regctl.NewRegistryTlsCertSecret(r.Client, func() (interface{}, error) {
+				manifest, err := schemes.TlsSecret(reg, r.Client)
+				if err != nil {
+					logger.Error(err, "failed to initialize TLSSecret controller")
+					return nil, err
+				}
+				if err = controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
+					logger.Error(err, "failed to set controller reference")
+					return nil, err
+				}
+				return manifest, nil
+			}, cond.Type, logger).Require(regv1.ConditionTypeService))
 		case regv1.ConditionTypeSecretOpaque:
-			//collection = append(collection,)
-			continue
+			collection = append(collection, regctl.NewRegistryCrendentialSecret(r.Client, func() (interface{}, error) {
+				manifest := schemes.CredentialSecret(reg)
+				if err := controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
+					logger.Error(err, "failed to set controller reference")
+					return nil, err
+				}
+				return manifest, nil
+			}, cond.Type, logger).Require(regv1.ConditionTypeService))
 		case regv1.ConditionTypeSecretDockerConfigJSON:
-			//collection = append(collection, regctl.NewRegistryDCJSecret(r.Client, r.Scheme, reg, logger, svc))
-			collection = append(collection, dcjSecret)
+			collection = append(collection, regctl.NewRegistryDCJSecret(r.Client, func() (interface{}, error) {
+				manifest := schemes.DCJSecret(reg)
+				if manifest == nil {
+					return nil, fmt.Errorf("Registry has no fields DCJ Secret required")
+				}
+				if err := controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
+					logger.Error(err, "failed to set owner reference")
+					return nil, err
+				}
+				return manifest, nil
+			}, cond.Type, logger).Require(regv1.ConditionTypeService))
 		case regv1.ConditionTypePvc:
-			//collection = append(collection, regctl.NewRegistryPVC(r.Client, r.Scheme, reg, logger))
-			collection = append(collection, pvc)
+			collection = append(collection, regctl.NewRegistryPVC(r.Client, func() (interface{}, error) {
+				manifest := schemes.PersistentVolumeClaim(reg)
+				if err := controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
+					logger.Error(err, "failed to set Owner Reference")
+					return nil, err
+				}
+				return manifest, nil
+			}, cond.Type, logger))
 		case regv1.ConditionTypeConfigMap:
-			//collection = append(collection, regctl.NewRegistryConfigMap(r.Client, r.Scheme, reg, logger))
-			collection = append(collection, cm)
+			collection = append(collection, regctl.NewRegistryConfigMap(r.Client, func() (interface{}, error) {
+				ctx := context.TODO()
+				base := &corev1.ConfigMap{}
+				if err := r.Get(ctx, types.NamespacedName{Name: "registry-config", Namespace: regv1.OperatorNamespace}, base); err != nil {
+					return nil, err
+				}
+				manifest := schemes.ConfigMap(reg, base.Data)
+				if err := controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
+					return nil, err
+				}
+				return manifest, nil
+			}, cond.Type, logger))
 		case regv1.ConditionTypeKeycloakResources:
-			continue
+			//
 		case regv1.ConditionTypeNotary:
-			//collection = append(collection, regctl.NewRegistryNotary(r.Client, r.Scheme, reg, logger, r.kc))
-			collection = append(collection, notary)
+			collection = append(collection, regctl.NewRegistryNotary(r.Client, func() (interface{}, error) {
+				manifest, err := schemes.Notary(reg, authcfg)
+				if err != nil {
+					return nil, err
+				}
+				if err = controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
+					return nil, err
+				}
+				return manifest, nil
+			}, cond.Type, logger))
 		case regv1.ConditionTypeIngress:
-			//collection = append(collection, regctl.NewRegistryIngress(r.Client, r.Scheme, reg, logger, certSecret))
-			collection = append(collection, ing)
+			collection = append(collection, regctl.NewRegistryIngress(r.Client, func() (interface{}, error) {
+				manifest := schemes.Ingress(reg)
+				if err := controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
+					return nil, err
+				}
+				return manifest, nil
+			}, cond.Type, logger).Require(regv1.ConditionTypeSecretTLS))
 		default:
 			logger.Info("[WARN] Unknown condition: " + string(cond.Type))
 		}
 	}
 
 	return collection
-}
-
-func printSubresources(log logr.Logger, subresources []regctl.RegistrySubresource) {
-	var printStr []string
-	for _, res := range subresources {
-		switch res.(type) {
-		case *regctl.RegistryNotary:
-			printStr = append(printStr, "RegistryNotary")
-		case *regctl.RegistryPVC:
-			printStr = append(printStr, "RegistryPVC")
-		case *regctl.RegistryService:
-			printStr = append(printStr, "RegistryService")
-		case *regctl.RegistryCertSecret:
-			printStr = append(printStr, "RegistryCertSecret")
-		case *regctl.RegistryDCJSecret:
-			printStr = append(printStr, "RegistryDCJSecret")
-		case *regctl.RegistryConfigMap:
-			printStr = append(printStr, "RegistryConfigMap")
-		case *regctl.RegistryDeployment:
-			printStr = append(printStr, "RegistryDeployment")
-		case *regctl.RegistryPod:
-			printStr = append(printStr, "RegistryPod")
-		case *regctl.RegistryIngress:
-			printStr = append(printStr, "RegistryIngress")
-		}
-	}
-
-	log.Info("debug", "subresources", printStr)
 }
