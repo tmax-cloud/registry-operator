@@ -32,7 +32,7 @@ func NewRegistryPVC(client client.Client, manifest func() (interface{}, error), 
 	}
 }
 
-func (r *RegistryPVC) ReconcileByConditionStatus(reg *regv1.Registry) error {
+func (r *RegistryPVC) ReconcileByConditionStatus(reg *regv1.Registry) (bool, error) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -47,29 +47,30 @@ func (r *RegistryPVC) ReconcileByConditionStatus(reg *regv1.Registry) error {
 
 	for _, dep := range r.requirements {
 		if !reg.Status.Conditions.GetCondition(dep).IsTrue() {
-			err = fmt.Errorf("required conditions is not ready")
-			return err
+			r.logger.Info(string(r.cond) + " needs " + string(dep))
+			return true, nil
 		}
 	}
 
 	ctx := context.TODO()
 	m, err := r.manifest()
 	if err != nil {
-		return err
+		return false, err
 	}
-	manifest := m.(corev1.PersistentVolumeClaim)
+	manifest := m.(*corev1.PersistentVolumeClaim)
 	pvc := &corev1.PersistentVolumeClaim{}
 	if err = r.c.Get(ctx, types.NamespacedName{Name: manifest.Name, Namespace: manifest.Namespace}, pvc); err != nil {
 		if errors.IsNotFound(err) {
-			if err := r.c.Create(ctx, &manifest); err != nil {
-				return err
+			r.logger.Info("not found. create new one.")
+			if err = r.c.Create(ctx, manifest); err != nil {
+				return true, err
 			}
 		}
-		return err
+		return true, err
 	}
 
 	if string(pvc.Status.Phase) == "pending" {
-		return fmt.Errorf("pvc is pending")
+		return true, fmt.Errorf("pvc is pending")
 	}
 
 	reg.Status.Capacity = pvc.Status.Capacity.Storage().String()
@@ -79,7 +80,8 @@ func (r *RegistryPVC) ReconcileByConditionStatus(reg *regv1.Registry) error {
 			Status:  corev1.ConditionTrue,
 			Message: "Success",
 		})
-	return nil
+	r.logger.Info("fine")
+	return false, nil
 }
 
 func (r *RegistryPVC) Require(cond status.ConditionType) ResourceController {

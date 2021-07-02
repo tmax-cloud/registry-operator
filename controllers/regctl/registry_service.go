@@ -2,7 +2,6 @@ package regctl
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-logr/logr"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -12,10 +11,6 @@ import (
 	"github.com/operator-framework/operator-lib/status"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	serviceTypeDiffKey = "ServiceType"
 )
 
 // RegistryService things to handle service resource
@@ -39,7 +34,7 @@ func NewRegistryService(client client.Client, manifest func() (interface{}, erro
 }
 
 // Ready checks that service is ready
-func (r *RegistryService) ReconcileByConditionStatus(reg *regv1.Registry) error {
+func (r *RegistryService) ReconcileByConditionStatus(reg *regv1.Registry) (bool, error) {
 	logger := r.logger.WithName("ReconcileByConditionStatus")
 	var err error
 	defer func() {
@@ -55,25 +50,26 @@ func (r *RegistryService) ReconcileByConditionStatus(reg *regv1.Registry) error 
 
 	for _, dep := range r.requirements {
 		if !reg.Status.Conditions.GetCondition(dep).IsTrue() {
-			err = fmt.Errorf("required conditions is not ready")
-			return err
+			r.logger.Info(string(r.cond) + " needs " + string(dep))
+			return true, nil
 		}
 	}
 
 	ctx := context.TODO()
 	m, err := r.manifest()
 	if err != nil {
-		return err
+		return false, err
 	}
-	manifest := m.(corev1.Service)
+	manifest := m.(*corev1.Service)
 	svc := &corev1.Service{}
 	if err = r.c.Get(ctx, types.NamespacedName{Name: manifest.Name, Namespace: manifest.Namespace}, svc); err != nil {
 		if errors.IsNotFound(err) {
-			if err = r.c.Create(ctx, &manifest); err != nil {
-				return err
+			r.logger.Info("not found. create new one.")
+			if err = r.c.Create(ctx, manifest); err != nil {
+				return true, err
 			}
 		}
-		return err
+		return true, err
 	}
 
 	switch svc.Spec.Type {
@@ -90,7 +86,7 @@ func (r *RegistryService) ReconcileByConditionStatus(reg *regv1.Registry) error 
 		} else if len(loadBalancer.Ingress) == 0 {
 			// Several Ingress
 			err = regv1.MakeRegistryError("NotReady")
-			return err
+			return true, err
 		}
 		reg.Status.LoadBalancerIP = lbIP
 		reg.Status.ServerURL = "https://" + lbIP
@@ -98,7 +94,7 @@ func (r *RegistryService) ReconcileByConditionStatus(reg *regv1.Registry) error 
 	case corev1.ServiceTypeClusterIP:
 		if svc.Spec.ClusterIP == "" {
 			err = regv1.MakeRegistryError("NotReady")
-			return err
+			return true, err
 		}
 		logger.Info("Service Type is ClusterIP(Ingress)")
 		// [TODO]
@@ -111,7 +107,8 @@ func (r *RegistryService) ReconcileByConditionStatus(reg *regv1.Registry) error 
 			Status:  corev1.ConditionTrue,
 			Message: "Success",
 		})
-	return nil
+	r.logger.Info("fine")
+	return false, nil
 }
 
 func (r *RegistryService) Require(cond status.ConditionType) ResourceController {

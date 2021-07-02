@@ -2,7 +2,6 @@ package regctl
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-logr/logr"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,7 +32,7 @@ func NewRegistryConfigMap(client client.Client, manifest func() (interface{}, er
 	}
 }
 
-func (r *RegistryConfigMap) ReconcileByConditionStatus(reg *regv1.Registry) error {
+func (r *RegistryConfigMap) ReconcileByConditionStatus(reg *regv1.Registry) (bool, error) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -48,31 +47,32 @@ func (r *RegistryConfigMap) ReconcileByConditionStatus(reg *regv1.Registry) erro
 
 	for _, dep := range r.requirements {
 		if !reg.Status.Conditions.GetCondition(dep).IsTrue() {
-			err = fmt.Errorf("required conditions is not ready")
-			return err
+			r.logger.Info(string(r.cond) + " needs " + string(dep))
+			return true, nil
 		}
 	}
 
 	ctx := context.TODO()
 	m, err := r.manifest()
 	if err != nil {
-		return err
+		return false, err
 	}
-	manifest := m.(corev1.ConfigMap)
+	manifest := m.(*corev1.ConfigMap)
 	cm := &corev1.ConfigMap{}
 	if err = r.c.Get(ctx, types.NamespacedName{Name: manifest.Name, Namespace: manifest.Namespace}, cm); err != nil {
 		if errors.IsNotFound(err) {
-			if err = r.c.Create(ctx, &manifest); err != nil {
-				return err
+			r.logger.Info("not found. create new one.")
+			if err = r.c.Create(ctx, manifest); err != nil {
+				return false, err
 			}
-			return nil
+			return false, nil
 		}
-		return err
+		return false, err
 	}
 
 	if _, exist := cm.Data["config.yml"]; !exist {
 		err = regv1.MakeRegistryError("NotReady")
-		return err
+		return false, err
 	}
 
 	reg.Status.Conditions.SetCondition(
@@ -81,7 +81,8 @@ func (r *RegistryConfigMap) ReconcileByConditionStatus(reg *regv1.Registry) erro
 			Status:  corev1.ConditionTrue,
 			Message: "Success",
 		})
-	return nil
+	r.logger.Info("fine")
+	return false, nil
 }
 
 func (r *RegistryConfigMap) Require(cond status.ConditionType) ResourceController {

@@ -2,7 +2,6 @@ package regctl
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-lib/status"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -33,7 +32,7 @@ func NewRegistryPod(cli client.Client, manifest func() (interface{}, error), con
 	}
 }
 
-func (r *RegistryPod) ReconcileByConditionStatus(reg *regv1.Registry) error {
+func (r *RegistryPod) ReconcileByConditionStatus(reg *regv1.Registry) (bool, error) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -48,8 +47,8 @@ func (r *RegistryPod) ReconcileByConditionStatus(reg *regv1.Registry) error {
 
 	for _, dep := range r.requirements {
 		if !reg.Status.Conditions.GetCondition(dep).IsTrue() {
-			err = fmt.Errorf("required conditions is not ready")
-			return err
+			r.logger.Info(string(r.cond) + " needs " + string(dep))
+			return true, nil
 		}
 	}
 
@@ -62,15 +61,16 @@ func (r *RegistryPod) ReconcileByConditionStatus(reg *regv1.Registry) error {
 			"apps": schemes.SubresourceName(reg, schemes.SubTypeRegistryDeployment),
 		})),
 	}); err != nil {
-		return err
+		return false, err
 	}
 
 	if len(podList.Items) == 0 {
-		err = regv1.MakeRegistryError(regv1.PodNotFound)
-		return err
+		r.logger.Info("no pod found")
+		return true, nil
 	}
-
-	return nil
+	r.logger.Info("pod phase: " + string(podList.Items[0].Status.Phase))
+	r.logger.Info("fine")
+	return false, nil
 }
 
 func (r *RegistryPod) Require(cond status.ConditionType) ResourceController {

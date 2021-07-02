@@ -6,6 +6,7 @@ import (
 )
 
 type ResourceController interface {
-	ReconcileByConditionStatus(*regv1.Registry) error
+	//ReconcileByConditionStatus
+	ReconcileByConditionStatus(*regv1.Registry) (bool, error)
 	Require(status.ConditionType) ResourceController
 }

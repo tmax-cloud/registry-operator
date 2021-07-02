@@ -111,10 +111,11 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, err
 	}
 
-	if err = r.handleAllSubresources(reg); err != nil {
+	if requeue, err := r.handleAllSubresources(reg); err != nil {
 		return reconcile.Result{}, err
+	} else if requeue {
+		return reconcile.Result{Requeue: true}, nil
 	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -197,11 +198,11 @@ func (r *RegistryReconciler) validate(reg *regv1.Registry) error {
 	return nil
 }
 
-func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { // if want to requeue, return true
+func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) (bool, error) { // if want to requeue, return true
 	logger := r.Log.WithName("subresource").WithValues("namespace", reg.Namespace, "name", reg.Name)
-	gErrors := []error{}
 	patchReg := reg.DeepCopy() // Target to Patch object
-
+	gErrors := []error{}
+	gRequeue := false
 	defer func() {
 		if err := r.update(reg, patchReg); err != nil {
 			logger.Error(err, "failed to patch")
@@ -210,15 +211,19 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 
 	r.kc = keycloakctl.NewKeycloakController(reg.Namespace, reg.Name, logger)
 	if r.kc == nil {
-		return fmt.Errorf("unable to get keycloak controller")
+		return false, fmt.Errorf("unable to get keycloak controller")
 	}
 	if err := r.kc.CreateResources(reg, patchReg); err != nil {
-		return err
+		return false, err
 	}
 
 	components := r.getComponentControllerList(reg)
 	for _, component := range components {
-		if err := component.ReconcileByConditionStatus(reg); err != nil {
+		requeue, err := component.ReconcileByConditionStatus(reg)
+		if requeue {
+			gRequeue = true
+		}
+		if err != nil {
 			gErrors = append(gErrors, err)
 			continue
 		}
@@ -229,32 +234,20 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) error { 
 		for _, e := range gErrors {
 			eMsgs = append(eMsgs, e.Error())
 		}
-		return fmt.Errorf(strings.Join(eMsgs, ", "))
+		return gRequeue, fmt.Errorf(strings.Join(eMsgs, ", "))
 	}
-	return nil
+	return gRequeue, nil
 }
 
 func (r *RegistryReconciler) update(origin, target *regv1.Registry) error {
-	logger := r.Log.WithValues("SubResource.Namespace", origin.Namespace, "SubResource.Name", origin.Name)
-
-	// Check whether update is necessary or not
 	if !reflect.DeepEqual(origin.Spec, target.Spec) {
-		logger.Info("Update registry")
 		if err := r.Update(context.TODO(), target); err != nil {
-			logger.Error(err, "Unknown error updating")
 			return err
 		}
 	}
-
-	// Check whether update is necessary or not about status
-	// r.exceptStatus(origin, target)
-	if !reflect.DeepEqual(origin.Status, target.Status) {
-		if err := r.Status().Update(context.TODO(), target); err != nil {
-			logger.Error(err, "Unknown error updating status")
-			return err
-		}
+	if err := r.Status().Update(context.TODO(), origin); err != nil {
+		return err
 	}
-
 	return nil
 }
 
@@ -301,11 +294,9 @@ func (r *RegistryReconciler) getComponentControllerList(reg *regv1.Registry) []r
 			collection = append(collection, regctl.NewRegistryTlsCertSecret(r.Client, func() (interface{}, error) {
 				manifest, err := schemes.TlsSecret(reg, r.Client)
 				if err != nil {
-					logger.Error(err, "failed to initialize TLSSecret controller")
 					return nil, err
 				}
 				if err = controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
-					logger.Error(err, "failed to set controller reference")
 					return nil, err
 				}
 				return manifest, nil
@@ -314,7 +305,6 @@ func (r *RegistryReconciler) getComponentControllerList(reg *regv1.Registry) []r
 			collection = append(collection, regctl.NewRegistryCrendentialSecret(r.Client, func() (interface{}, error) {
 				manifest := schemes.CredentialSecret(reg)
 				if err := controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
-					logger.Error(err, "failed to set controller reference")
 					return nil, err
 				}
 				return manifest, nil
@@ -322,11 +312,7 @@ func (r *RegistryReconciler) getComponentControllerList(reg *regv1.Registry) []r
 		case regv1.ConditionTypeSecretDockerConfigJSON:
 			collection = append(collection, regctl.NewRegistryDCJSecret(r.Client, func() (interface{}, error) {
 				manifest := schemes.DCJSecret(reg)
-				if manifest == nil {
-					return nil, fmt.Errorf("Registry has no fields DCJ Secret required")
-				}
 				if err := controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
-					logger.Error(err, "failed to set owner reference")
 					return nil, err
 				}
 				return manifest, nil
@@ -335,7 +321,6 @@ func (r *RegistryReconciler) getComponentControllerList(reg *regv1.Registry) []r
 			collection = append(collection, regctl.NewRegistryPVC(r.Client, func() (interface{}, error) {
 				manifest := schemes.PersistentVolumeClaim(reg)
 				if err := controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
-					logger.Error(err, "failed to set Owner Reference")
 					return nil, err
 				}
 				return manifest, nil

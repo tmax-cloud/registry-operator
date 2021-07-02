@@ -33,7 +33,7 @@ func NewRegistryDCJSecret(client client.Client, manifest func() (interface{}, er
 	}
 }
 
-func (r *RegistryDockerConfigSecret) ReconcileByConditionStatus(reg *regv1.Registry) error {
+func (r *RegistryDockerConfigSecret) ReconcileByConditionStatus(reg *regv1.Registry) (bool, error) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -48,30 +48,32 @@ func (r *RegistryDockerConfigSecret) ReconcileByConditionStatus(reg *regv1.Regis
 
 	for _, dep := range r.requirements {
 		if !reg.Status.Conditions.GetCondition(dep).IsTrue() {
-			err = fmt.Errorf("required conditions is not ready")
-			return err
+			r.logger.Info(string(r.cond) + " needs " + string(dep))
+			return true, nil
 		}
 	}
 
 	ctx := context.TODO()
 	m, err := r.manifest()
 	if err != nil {
-		return err
+		return false, err
 	}
-	manifest := m.(corev1.Secret)
+	manifest := m.(*corev1.Secret)
 	secret := &corev1.Secret{}
 	if err = r.c.Get(ctx, types.NamespacedName{Name: manifest.Name, Namespace: manifest.Namespace}, secret); err != nil {
 		if errors.IsNotFound(err) {
-			if err = r.c.Create(ctx, &manifest); err != nil {
-				return err
+			r.logger.Info("not found. create new one.")
+			if err = r.c.Create(ctx, manifest); err != nil {
+				return false, err
 			}
-			return nil
+			return false, nil
 		}
-		return err
+		return false, err
 	}
+
 	if _, ok := secret.Data[corev1.DockerConfigJsonKey]; !ok {
-		err = regv1.MakeRegistryError("Secret DCJ Error")
-		return err
+		err = fmt.Errorf("secret has no .dockerconfigjson field")
+		return false, err
 	}
 
 	reg.Status.Conditions.SetCondition(
@@ -80,7 +82,8 @@ func (r *RegistryDockerConfigSecret) ReconcileByConditionStatus(reg *regv1.Regis
 			Status:  corev1.ConditionTrue,
 			Message: "Success",
 		})
-	return nil
+	r.logger.Info("fine")
+	return false, nil
 }
 
 func (r *RegistryDockerConfigSecret) Require(cond status.ConditionType) ResourceController {

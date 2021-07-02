@@ -2,7 +2,6 @@ package regctl
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-logr/logr"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 
@@ -34,7 +33,7 @@ func NewRegistryIngress(client client.Client, manifest func() (interface{}, erro
 	}
 }
 
-func (r *RegistryIngress) ReconcileByConditionStatus(reg *regv1.Registry) error {
+func (r *RegistryIngress) ReconcileByConditionStatus(reg *regv1.Registry) (bool, error) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -49,56 +48,27 @@ func (r *RegistryIngress) ReconcileByConditionStatus(reg *regv1.Registry) error 
 
 	for _, dep := range r.requirements {
 		if !reg.Status.Conditions.GetCondition(dep).IsTrue() {
-			err = fmt.Errorf("required conditions is not ready")
-			return err
+			r.logger.Info(string(r.cond) + " needs " + string(dep))
+			return true, nil
 		}
 	}
 
 	ctx := context.TODO()
 	m, err := r.manifest()
 	if err != nil {
-		return err
+		return false, err
 	}
-	manifest := m.(v1beta1.Ingress)
+	manifest := m.(*v1beta1.Ingress)
 	ingress := &v1beta1.Ingress{}
 	if err = r.c.Get(ctx, types.NamespacedName{Name: manifest.Name, Namespace: manifest.Namespace}, ingress); err != nil {
 		if errors.IsNotFound(err) {
-			if err = r.c.Create(ctx, &manifest); err != nil {
-				return err
+			r.logger.Info("not found. create new one.")
+			if err = r.c.Create(ctx, manifest); err != nil {
+				return false, err
 			}
-			return nil
+			return false, nil
 		}
-		return err
-	}
-
-	if _, ok := ingress.Annotations["kubernetes.io/ingress.class"]; !ok {
-		err = regv1.MakeRegistryError("Ingress Error")
-		return err
-	}
-	if _, ok := ingress.Annotations["nginx.ingress.kubernetes.io/proxy-connect-timeout"]; !ok {
-		err = regv1.MakeRegistryError("Ingress Error")
-		return err
-	}
-	if _, ok := ingress.Annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"]; !ok {
-		err = regv1.MakeRegistryError("Ingress Error")
-		return err
-	}
-	if _, ok := ingress.Annotations["nginx.ingress.kubernetes.io/ssl-redirect"]; !ok {
-		err = regv1.MakeRegistryError("Ingress Error")
-		return err
-	}
-	if val, ok := ingress.Annotations["nginx.ingress.kubernetes.io/backend-protocol"]; ok {
-		if val != "HTTPS" {
-			err = regv1.MakeRegistryError("Ingress Error")
-			return err
-		}
-	} else {
-		err = regv1.MakeRegistryError("Ingress Error")
-		return err
-	}
-	if _, ok := ingress.Annotations["nginx.ingress.kubernetes.io/proxy-body-size"]; !ok {
-		err = regv1.MakeRegistryError("Ingress Error")
-		return err
+		return false, err
 	}
 
 	if len(ingress.Spec.TLS) > 0 {
@@ -113,7 +83,8 @@ func (r *RegistryIngress) ReconcileByConditionStatus(reg *regv1.Registry) error 
 			Status:  corev1.ConditionTrue,
 			Message: "Success",
 		})
-	return nil
+	r.logger.Info("fine")
+	return false, nil
 }
 
 func (r *RegistryIngress) Require(cond status.ConditionType) ResourceController {

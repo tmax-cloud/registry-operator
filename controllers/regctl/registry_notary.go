@@ -2,7 +2,6 @@ package regctl
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-lib/status"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
@@ -32,7 +31,7 @@ func NewRegistryNotary(client client.Client, manifest func() (interface{}, error
 	}
 }
 
-func (r *RegistryNotary) ReconcileByConditionStatus(reg *regv1.Registry) error {
+func (r *RegistryNotary) ReconcileByConditionStatus(reg *regv1.Registry) (bool, error) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -47,30 +46,31 @@ func (r *RegistryNotary) ReconcileByConditionStatus(reg *regv1.Registry) error {
 
 	for _, dep := range r.requirements {
 		if !reg.Status.Conditions.GetCondition(dep).IsTrue() {
-			err = fmt.Errorf("required conditions is not ready")
-			return err
+			r.logger.Info(string(r.cond) + " needs " + string(dep))
+			return true, nil
 		}
 	}
 
 	ctx := context.TODO()
 	m, err := r.manifest()
 	if err != nil {
-		return err
+		return false, err
 	}
-	manifest := m.(regv1.Notary)
+	manifest := m.(*regv1.Notary)
 	notary := &regv1.Notary{}
 	if err = r.c.Get(ctx, types.NamespacedName{Name: manifest.Name, Namespace: manifest.Namespace}, notary); err != nil {
 		if errors.IsNotFound(err) {
-			if err = r.c.Create(ctx, &manifest); err != nil {
-				return err
+			r.logger.Info("not found. create new one.")
+			if err = r.c.Create(ctx, manifest); err != nil {
+				return true, err
 			}
-			return nil
+			return true, nil
 		}
-		return err
+		return true, err
 	}
 	if notary.Status.NotaryURL == "" {
 		err = regv1.MakeRegistryError("NotReady")
-		return err
+		return true, err
 	}
 
 	reg.Status.NotaryURL = notary.Status.NotaryURL
@@ -80,7 +80,8 @@ func (r *RegistryNotary) ReconcileByConditionStatus(reg *regv1.Registry) error {
 			Status:  corev1.ConditionTrue,
 			Message: "Success",
 		})
-	return nil
+	r.logger.Info("fine")
+	return true, nil
 }
 
 func (r *RegistryNotary) Require(cond status.ConditionType) ResourceController {

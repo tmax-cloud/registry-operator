@@ -19,9 +19,6 @@ type AuthValue struct {
 }
 
 func DCJSecret(reg *regv1.Registry) *corev1.Secret {
-	if !regBodyCheckForDCJSecret(reg) {
-		return nil
-	}
 	serviceType := reg.Spec.RegistryService.ServiceType
 	var domainList []string
 	data := map[string][]byte{}
@@ -54,15 +51,4 @@ func DCJSecret(reg *regv1.Registry) *corev1.Secret {
 		Type: corev1.SecretTypeDockerConfigJson,
 		Data: data,
 	}
-}
-
-func regBodyCheckForDCJSecret(reg *regv1.Registry) bool {
-	regService := reg.Spec.RegistryService
-	if reg.Status.ClusterIP == "" {
-		return false
-	}
-	if regService.ServiceType == regv1.RegServiceTypeLoadBalancer && reg.Status.LoadBalancerIP == "" {
-		return false
-	}
-	return true
 }
