@@ -25,8 +25,6 @@ const (
 	ConditionTypePvc = status.ConditionType("PvcExist")
 	// ConditionTypeConfigMap is a condition that confimap exists
 	ConditionTypeConfigMap = status.ConditionType("ConfigMapExist")
-	// ConditionTypeKeycloakResources is a condition that keycloak realm/client/certificate/user resource exists
-	ConditionTypeKeycloakResources = status.ConditionType("KeycloakResourcesExist")
 	// ConditionTypeNotary is a condition that notary exists
 	ConditionTypeNotary = status.ConditionType("NotaryExist")
 
