@@ -5,8 +5,8 @@ const (
 	ConfigImageRegistry = "image.registry"
 	// ConfigImageRegistryPullRequest is the key to get image.registry_pull_request config
 	ConfigImageRegistryPullRequest = "image.registry_pull_request"
-	// ConfigKeycloakService is the key to get keycloak.service config
-	ConfigKeycloakService = "keycloak.service"
+	ConfigTokenServiceAddr         = "token.url"
+	ConfigTokenServiceInsecure     = "token.insecure"
 	// ConfigClusterName is the key to get cluster.name config
 	ConfigClusterName = "cluster.name"
 	// ConfigImageScanSvr is the key to get clair.url config

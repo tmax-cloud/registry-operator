@@ -64,12 +64,18 @@ func (r *RegistryPod) ReconcileByConditionStatus(reg *regv1.Registry) (bool, err
 		return false, err
 	}
 
-	if len(podList.Items) == 0 {
-		r.logger.Info("no pod found")
+	if len(podList.Items) == 0 || podList.Items[0].Status.Phase != "Running" {
+		r.logger.Info("pod not ready")
 		return true, nil
 	}
-	r.logger.Info("pod phase: " + string(podList.Items[0].Status.Phase))
-	r.logger.Info("fine")
+
+	reg.Status.Conditions.SetCondition(
+		status.Condition{
+			Type:    r.cond,
+			Status:  corev1.ConditionTrue,
+			Message: "Success",
+		})
+
 	return false, nil
 }
 
