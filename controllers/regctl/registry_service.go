@@ -107,7 +107,7 @@ func (r *RegistryService) ReconcileByConditionStatus(reg *regv1.Registry) (bool,
 			Status:  corev1.ConditionTrue,
 			Message: "Success",
 		})
-	r.logger.Info("fine")
+
 	return false, nil
 }
 

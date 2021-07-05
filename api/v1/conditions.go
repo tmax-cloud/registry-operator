@@ -9,8 +9,6 @@ const (
 	ConditionTypeDeployment = status.ConditionType("DeploymentExist")
 	// ConditionTypePod is a condition that pod is running
 	ConditionTypePod = status.ConditionType("PodRunning")
-	// ConditionTypeContainer is a condition that container is ready
-	ConditionTypeContainer = status.ConditionType("ContainerReady")
 	// ConditionTypeService is a condition that service exists
 	ConditionTypeService = status.ConditionType("ServiceExist")
 	// ConditionTypeSecretOpaque is a condition that opaque secret exists

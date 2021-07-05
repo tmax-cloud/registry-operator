@@ -18,28 +18,26 @@ package controllers
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"github.com/Nerzal/gocloak/v7"
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-lib/status"
+	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/controllers/regctl"
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	exv1beta1 "k8s.io/api/extensions/v1beta1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"net/http"
 	"path"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"strings"
-
-	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/controllers/regctl"
 )
 
 // RegistryReconciler reconciles a Registry object
@@ -52,8 +50,15 @@ type RegistryReconciler struct {
 var keycloak gocloak.GoCloak
 
 func init() {
-	address := config.Config.GetString(config.ConfigKeycloakService)
+	address := config.Config.GetString(config.ConfigTokenServiceAddr)
+	insecure := config.Config.GetBool(config.ConfigTokenServiceInsecure)
 	keycloak = gocloak.NewClient(address)
+
+	// Configure gocloak to skip TLS verification
+	// FIXME: load value from manager_config.
+	restyKeycloak := keycloak.RestyClient()
+	restyKeycloak.SetDebug(false)
+	restyKeycloak.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: insecure})
 }
 
 // +kubebuilder:rbac:groups=tmax.io,resources=registries,verbs=get;list;watch;create;update;patch;delete
@@ -72,8 +77,8 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	logger := r.Log.WithValues("registry", req.NamespacedName)
 
-	reg := &regv1.Registry{}
-	err := r.Get(ctx, req.NamespacedName, reg)
+	o := &regv1.Registry{}
+	err := r.Get(ctx, req.NamespacedName, o)
 	if err != nil {
 		if k8serr.IsNotFound(err) {
 			username := config.Config.GetString("keycloak.username")
@@ -84,22 +89,39 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				logger.Error(err, "failed to login keycloak")
 				return reconcile.Result{}, err
 			}
-			realmName := fmt.Sprintf("%s-%s", reg.Namespace, reg.Name)
-			if err = keycloak.DeleteRealm(ctx, token.AccessToken, realmName); err != nil {
-				logger.Error(err, "failed to delete realm")
-				return reconcile.Result{}, err
+
+			realmName := req.Namespace
+			clientId := req.Name
+			logger.Info("delete client info:", "realm", req.Namespace, "client", clientId)
+
+			clients, err := keycloak.GetClients(ctx, token.AccessToken, realmName, gocloak.GetClientsParams{})
+			if err != nil {
+				logger.Error(err, "failed to get clients")
+				return ctrl.Result{}, err
 			}
+
+			for _, c := range clients {
+				if *c.ClientID == clientId {
+					if err = keycloak.DeleteClient(ctx, token.AccessToken, realmName, *c.ID); err != nil {
+						logger.Error(err, "failed to delete client")
+						return ctrl.Result{}, err
+					}
+				}
+			}
+
+			// TODO: 더 이상 사용되지 않는 realm(namespace) 정리: 일정 주기로 realm을 감시하는 백그라운드 잡?
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err
 	}
 
 	// FIXME: move to validating webhook
-	if err = r.validate(reg); err != nil {
+	if err = r.validate(o); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if reg.Status.Phase == "" {
+	switch o.Status.Phase {
+	case "":
 		username := config.Config.GetString("keycloak.username")
 		password := config.Config.GetString("keycloak.password")
 
@@ -109,25 +131,59 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			return reconcile.Result{}, err
 		}
 
-		realmName := fmt.Sprintf("%s-%s", reg.Namespace, reg.Name)
 		enabled := true
-		if _, err = keycloak.CreateRealm(ctx, token.AccessToken, gocloak.RealmRepresentation{
-			ID:      &realmName,
-			Realm:   &realmName,
-			Enabled: &enabled,
-		}); err != nil {
-			logger.Error(err, "failed to create realm")
+		realmName := o.Namespace
+		realm, err := keycloak.GetRealm(ctx, token.AccessToken, realmName)
+		if err != nil {
+			if apiError := err.(*gocloak.APIError); apiError.Code == http.StatusNotFound {
+				_, err := keycloak.CreateRealm(ctx, token.AccessToken, gocloak.RealmRepresentation{
+					ID:      &realmName,
+					Realm:   &realmName,
+					Enabled: &enabled,
+				})
+				if err != nil {
+					logger.Error(err, "failed to create realm")
+					return reconcile.Result{}, err
+				}
+			} else {
+				return ctrl.Result{}, err
+			}
+		}
+		if realm == nil {
+			return ctrl.Result{}, fmt.Errorf("nil realm")
+		}
+		logger.Info("found realm", "realmID", realm.ID, "realm", realm.Realm)
+
+		clientName := o.Name
+		protocol := "docker-v2"
+		isClientExist, err := func() (bool, error) {
+			clients, err := keycloak.GetClients(ctx, token.AccessToken, *realm.Realm, gocloak.GetClientsParams{})
+			if err != nil {
+				logger.Error(err, "failed to get clients")
+				return false, err
+			}
+
+			for _, c := range clients {
+				if *c.ClientID == clientName {
+					return true, nil
+				}
+			}
+			return false, nil
+		}()
+		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		clientName := realmName + "-docker-client"
-		protocol := "docker-v2"
-		if _, err = keycloak.CreateClient(ctx, token.AccessToken, realmName, gocloak.Client{
-			ClientID: &clientName,
-			Protocol: &protocol,
-		}); err != nil {
-			logger.Error(err, "Couldn't create docker client in realm "+realmName)
-			return reconcile.Result{}, err
+		if !isClientExist {
+			created, err := keycloak.CreateClient(ctx, token.AccessToken, realmName, gocloak.Client{
+				ClientID: &clientName,
+				Protocol: &protocol,
+			})
+			if err != nil {
+				logger.Error(err, "failed to create docker client")
+				return reconcile.Result{}, err
+			}
+			logger.Info("client created: " + created)
 		}
 
 		//if err := c.AddCertificate(); err != nil {
@@ -135,74 +191,82 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		//	return reconcile.Result{}, err
 		//}
 
-		user, err := keycloak.CreateUser(ctx, token.AccessToken, realmName, gocloak.User{
-			Username: &reg.Spec.LoginID,
-			Enabled:  &enabled,
-		})
-		if err != nil {
-			logger.Error(err, "failed to create user")
-			return reconcile.Result{}, err
+		// ***** DO NOT CREATE USER *****
+		//_, err = keycloak.GetUserByID(ctx, token.AccessToken, realmName, o.Spec.LoginID)
+		//if err != nil {
+		//	if apiError := err.(*gocloak.APIError); apiError.Code == http.StatusNotFound {
+		//		created, err := keycloak.CreateUser(ctx, token.AccessToken, realmName, gocloak.User{
+		//			Username: &o.Spec.LoginID,
+		//			Enabled:  &enabled,
+		//		})
+		//		if err != nil {
+		//			logger.Error(err, "failed to create user")
+		//			return reconcile.Result{}, err
+		//		}
+		//
+		//		logger.Info("user created: " + created)
+		//		if err = keycloak.SetPassword(ctx, token.AccessToken, o.Spec.LoginID, realmName, o.Spec.LoginPassword, false); err != nil {
+		//			logger.Error(err, "failed to set password")
+		//			return reconcile.Result{}, err
+		//		}
+		//	} else {
+		//		return ctrl.Result{}, err
+		//	}
+		//}
+
+		typesToManage := []status.ConditionType{
+			regv1.ConditionTypeConfigMap,
+			regv1.ConditionTypeDeployment,
+			regv1.ConditionTypeService,
+			regv1.ConditionTypeSecretDockerConfigJSON,
+			regv1.ConditionTypeSecretTLS,
+			regv1.ConditionTypeSecretOpaque,
+			regv1.ConditionTypePod,
+			regv1.ConditionTypePvc,
+		}
+		if o.Spec.Notary.Enabled {
+			typesToManage = append(typesToManage, regv1.ConditionTypeNotary)
+		}
+		if o.Spec.RegistryService.ServiceType == "Ingress" {
+			typesToManage = append(typesToManage, regv1.ConditionTypeIngress)
 		}
 
-		if err = keycloak.SetPassword(ctx, token.AccessToken, user, realmName, reg.Spec.LoginPassword, false); err != nil {
-			logger.Error(err, "failed to set password")
-			return reconcile.Result{}, err
+		conds := status.Conditions{}
+		for _, t := range typesToManage {
+			conds = append(conds, status.Condition{Type: t, Status: corev1.ConditionFalse})
 		}
-
 		// -------------------
-		reg.Status.Conditions = status.NewConditions(getResourceConditionList(reg)...)
-		reg.Status.Message = "registry is creating. All resources in registry has not yet been created."
-		reg.Status.Reason = "AllConditionsNotTrue"
-		reg.Status.Phase = regv1.StatusCreating
-		reg.Status.PhaseChangedAt = metav1.Now()
-		if err := r.Status().Update(ctx, reg); err != nil {
+		o.Status.Conditions = status.NewConditions(conds...)
+		o.Status.Message = "registry is creating. All resources in registry has not yet been created."
+		o.Status.Reason = "AllConditionsNotTrue"
+		o.Status.Phase = regv1.StatusCreating
+		o.Status.PhaseChangedAt = metav1.Now()
+		if err := r.Status().Update(ctx, o); err != nil {
 			logger.Error(err, "failed to initialize conditions.")
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{}, nil
+	case regv1.StatusRunning:
+		return reconcile.Result{}, nil
 	}
 
-	// Check if all subresources are true
-	if err := r.updatePhaseByCondition(ctx, reg); err != nil {
-		logger.Error(err, "failed to update")
-		return reconcile.Result{}, err
+	requeue := false
+	components := r.getComponentControllerList(o)
+	for _, component := range components {
+		if requeue, err = component.ReconcileByConditionStatus(o); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
-	if requeue, err := r.handleAllSubresources(reg); err != nil {
-		return reconcile.Result{}, err
-	} else if requeue {
-		return reconcile.Result{Requeue: true}, nil
+	r.setPhaseByCondition(o)
+	if err = r.Status().Update(ctx, o); err != nil {
+		return ctrl.Result{}, err
 	}
-	return ctrl.Result{}, nil
+
+	return ctrl.Result{Requeue: requeue}, nil
 }
 
-func getResourceConditionList(reg *regv1.Registry) status.Conditions {
-	condTypes := []status.ConditionType{
-		regv1.ConditionTypeDeployment,
-		regv1.ConditionTypePod,
-		regv1.ConditionTypeContainer,
-		regv1.ConditionTypeService,
-		regv1.ConditionTypeSecretTLS,
-		regv1.ConditionTypeSecretOpaque,
-		regv1.ConditionTypeSecretDockerConfigJSON,
-		regv1.ConditionTypePvc,
-		regv1.ConditionTypeConfigMap,
-	}
-	if reg.Spec.Notary.Enabled {
-		condTypes = append(condTypes, regv1.ConditionTypeNotary)
-	}
-	if reg.Spec.RegistryService.ServiceType == "Ingress" {
-		condTypes = append(condTypes, regv1.ConditionTypeIngress)
-	}
-
-	conds := status.Conditions{}
-	for _, t := range condTypes {
-		conds = append(conds, status.Condition{Type: t, Status: corev1.ConditionFalse})
-	}
-	return conds
-}
-
-func (r *RegistryReconciler) updatePhaseByCondition(ctx context.Context, reg *regv1.Registry) error {
+func (r *RegistryReconciler) setPhaseByCondition(reg *regv1.Registry) {
 	badConditions := []status.ConditionType{}
 	for _, cond := range reg.Status.Conditions {
 		if reg.Status.Conditions.IsFalseFor(cond.Type) {
@@ -215,9 +279,9 @@ func (r *RegistryReconciler) updatePhaseByCondition(ctx context.Context, reg *re
 		reg.Status.Phase = regv1.StatusRunning
 		reg.Status.Message = "Registry is running. All registry resources are operating normally."
 		reg.Status.Reason = "Running"
-	case len(badConditions) == 1 && badConditions[0] == regv1.ConditionTypeContainer:
+	case len(badConditions) == 1 && badConditions[0] == regv1.ConditionTypePod:
 		reg.Status.Phase = regv1.StatusNotReady
-		reg.Status.Message = "Registry is not ready."
+		reg.Status.Message = "Container not ready."
 		reg.Status.Reason = "NotReady"
 	case len(badConditions) > 1:
 		reg.Status.Phase = regv1.StatusCreating
@@ -225,22 +289,11 @@ func (r *RegistryReconciler) updatePhaseByCondition(ctx context.Context, reg *re
 		reg.Status.Reason = "AllConditionsNotTrue"
 	}
 	reg.Status.PhaseChangedAt = metav1.Now()
-	if err := r.Status().Update(ctx, reg); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (r *RegistryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&regv1.Registry{}).
-		Owns(&regv1.Notary{}).
-		Owns(&corev1.Service{}).
-		Owns(&corev1.PersistentVolumeClaim{}).
-		Owns(&corev1.Secret{}).
-		Owns(&corev1.ConfigMap{}).
-		Owns(&appsv1.Deployment{}).
-		Owns(&exv1beta1.Ingress{}).
 		Complete(r)
 }
 
@@ -254,45 +307,12 @@ func (r *RegistryReconciler) validate(reg *regv1.Registry) error {
 	return nil
 }
 
-func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) (bool, error) { // if want to requeue, return true
-	logger := r.Log.WithValues("namespace", reg.Namespace, "name", reg.Name)
-	gErrors := []error{}
-	gRequeue := false
-
-	defer func() {
-		if err := r.Status().Update(context.TODO(), reg); err != nil {
-			logger.Error(err, "failed to update condition")
-		}
-	}()
-
-	components := r.getComponentControllerList(reg)
-	for _, component := range components {
-		requeue, err := component.ReconcileByConditionStatus(reg)
-		if requeue {
-			gRequeue = true
-		}
-		if err != nil {
-			gErrors = append(gErrors, err)
-			continue
-		}
-	}
-
-	if len(gErrors) > 0 {
-		eMsgs := []string{}
-		for _, e := range gErrors {
-			eMsgs = append(eMsgs, e.Error())
-		}
-		return gRequeue, fmt.Errorf(strings.Join(eMsgs, ", "))
-	}
-	return gRequeue, nil
-}
-
 func (r *RegistryReconciler) getComponentControllerList(reg *regv1.Registry) []regctl.ResourceController {
 	logger := r.Log.WithValues("namespace", reg.Namespace, "name", reg.Name)
 
-	serverAddr := config.Config.GetString(config.ConfigKeycloakService)
-	realmName := fmt.Sprintf("%s-%s", reg.Namespace, reg.Name)
-	clientName := realmName + "-docker-client"
+	serverAddr := config.Config.GetString(config.ConfigTokenServiceAddr)
+	realmName := reg.Namespace
+	clientName := reg.Name
 	authcfg := &regv1.AuthConfig{
 		Realm:   path.Join(serverAddr, "auth", "realms", realmName, "protocol", "docker-v2", "auth"),
 		Service: clientName,
@@ -317,10 +337,6 @@ func (r *RegistryReconciler) getComponentControllerList(reg *regv1.Registry) []r
 			collection = append(collection, regctl.NewRegistryPod(r.Client, func() (interface{}, error) {
 				return nil, nil
 			}, cond.Type, logger))
-		case regv1.ConditionTypeContainer:
-			collection = append(collection, regctl.NewRegistryContainer(r.Client, func() (interface{}, error) {
-				return nil, nil
-			}, cond.Type, logger).Require(regv1.ConditionTypeDeployment).Require(regv1.ConditionTypeDeployment).Require(regv1.ConditionTypePod))
 		case regv1.ConditionTypeService:
 			collection = append(collection, regctl.NewRegistryService(r.Client, func() (interface{}, error) {
 				manifest := schemes.Service(reg)
