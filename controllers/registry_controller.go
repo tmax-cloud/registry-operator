@@ -146,6 +146,18 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	switch o.Status.Phase {
 	case "":
+		defer func() {
+			if err != nil {
+				logger.Info("handle error on empty phase")
+				o.Status.Phase = regv1.StatusError
+				o.Status.Message = err.Error()
+				o.Status.Reason = "failed to initialize"
+				o.Status.PhaseChangedAt = metav1.Now()
+				if err = r.Status().Update(ctx, o); err != nil {
+					logger.Error(err, "failed to set error status")
+				}
+			}
+		}()
 		username := config.Config.GetString("keycloak.username")
 		password := config.Config.GetString("keycloak.password")
 
@@ -311,30 +323,36 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		o.Status.Reason = "AllConditionsNotTrue"
 		o.Status.Phase = regv1.StatusCreating
 		o.Status.PhaseChangedAt = metav1.Now()
-		if err := r.Status().Update(ctx, o); err != nil {
+		if err = r.Status().Update(ctx, o); err != nil {
 			logger.Error(err, "failed to initialize conditions.")
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{}, nil
+	case regv1.StatusNotReady:
+		fallthrough
+	case regv1.StatusCreating:
+		requeue := false
+		components := r.getComponentControllerList(o)
+		for _, component := range components {
+			if requeue, err = component.ReconcileByConditionStatus(o); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+		r.setPhaseByCondition(o)
+		if err = r.Status().Update(ctx, o); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{Requeue: requeue}, nil
 	case regv1.StatusRunning:
 		// TODO: if spec modified, set phase empty to re-configure
 		return reconcile.Result{}, nil
+	case regv1.StatusError:
+		return reconcile.Result{}, nil
+	default:
+		logger.Info("undefined phase.")
+		return reconcile.Result{}, nil
 	}
-
-	requeue := false
-	components := r.getComponentControllerList(o)
-	for _, component := range components {
-		if requeue, err = component.ReconcileByConditionStatus(o); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
-	r.setPhaseByCondition(o)
-	if err = r.Status().Update(ctx, o); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{Requeue: requeue}, nil
 }
 
 func (r *RegistryReconciler) setPhaseByCondition(reg *regv1.Registry) {
