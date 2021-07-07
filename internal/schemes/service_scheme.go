@@ -7,18 +7,7 @@ import (
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 )
 
-const (
-	RegistryTargetPort   = 443
-	RegistryPortProtocol = "TCP"
-	RegistryPortName     = "tls"
-)
-
 func Service(reg *regv1.Registry) *corev1.Service {
-	label := map[string]string{}
-	label["app"] = "registry"
-	label["apps"] = SubresourceName(reg, SubTypeRegistryService)
-	port := 443
-
 	serviceName := reg.Spec.RegistryService.ServiceType
 	if serviceName != regv1.RegServiceTypeLoadBalancer {
 		serviceName = regv1.RegServiceTypeIngress
@@ -28,7 +17,10 @@ func Service(reg *regv1.Registry) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      SubresourceName(reg, SubTypeRegistryService),
 			Namespace: reg.Namespace,
-			Labels:    label,
+			Labels: map[string]string{
+				"app":  "registry",
+				"apps": SubresourceName(reg, SubTypeRegistryService),
+			},
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceType(serviceName),
@@ -37,9 +29,9 @@ func Service(reg *regv1.Registry) *corev1.Service {
 			},
 			Ports: []corev1.ServicePort{
 				{
-					Name:     RegistryPortName,
-					Protocol: RegistryPortProtocol,
-					Port:     int32(port),
+					Name:     "tls",
+					Protocol: "TCP",
+					Port:     443,
 				},
 			},
 		},

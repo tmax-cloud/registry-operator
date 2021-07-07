@@ -1,12 +1,9 @@
 package schemes
 
 import (
-	"path"
-	"strconv"
-
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/internal/common/certs"
 	"github.com/tmax-cloud/registry-operator/internal/common/config"
+	"path"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -27,7 +24,7 @@ const (
 
 	registryTLSCrtPath = "/certs/registry/tls.crt"
 	registryTLSKeyPath = "/certs/registry/tls.key"
-	registryRootCAPath = "/certs/rootca/ca.crt"
+	authTokenKeyPath   = "/certs/rootca/ca.crt"
 )
 
 // Deployment is a scheme of registry deployment
@@ -72,10 +69,6 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment
 		configMapName = reg.Spec.CustomConfigYml
 	} else {
 		configMapName = SubresourceName(reg, SubTypeRegistryConfigmap)
-	}
-
-	if _, err := certs.GetRootCert(reg.Namespace); err != nil {
-		return nil, err
 	}
 
 	registryImage := reg.Spec.Image
@@ -134,9 +127,9 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment
 							},
 							Ports: []corev1.ContainerPort{
 								{
-									Name:          RegistryPortName,
-									ContainerPort: RegistryTargetPort,
-									Protocol:      RegistryPortProtocol,
+									Name:          "tls",
+									ContainerPort: 443,
+									Protocol:      "TCP",
 								},
 							},
 							Env: []corev1.EnvVar{
@@ -158,11 +151,11 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment
 								},
 								{
 									Name:  "REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE",
-									Value: registryRootCAPath,
+									Value: authTokenKeyPath,
 								},
 								{
 									Name:  "REGISTRY_HTTP_ADDR",
-									Value: string("0.0.0.0:") + strconv.Itoa(RegistryTargetPort),
+									Value: "0.0.0.0:443",
 								},
 								{
 									Name:  "REGISTRY_HTTP_TLS_CERTIFICATE",
@@ -181,14 +174,17 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment
 								{
 									Name:      "config",
 									MountPath: configMapMountPath,
+									ReadOnly:  true,
 								},
 								{
-									Name:      "tls",
+									Name:      "https",
 									MountPath: path.Dir(registryTLSKeyPath),
+									ReadOnly:  true,
 								},
 								{
-									Name:      "rootca",
-									MountPath: path.Dir(registryRootCAPath),
+									Name:      "auth",
+									MountPath: path.Dir(authTokenKeyPath),
+									ReadOnly:  true,
 								},
 							},
 							ReadinessProbe: &corev1.Probe{
@@ -200,7 +196,7 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path:   "/",
-										Port:   intstr.IntOrString{IntVal: RegistryTargetPort},
+										Port:   intstr.IntOrString{IntVal: 443},
 										Scheme: corev1.URISchemeHTTPS,
 									},
 								},
@@ -214,7 +210,7 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path:   "/",
-										Port:   intstr.IntOrString{IntVal: RegistryTargetPort},
+										Port:   intstr.IntOrString{IntVal: 443},
 										Scheme: corev1.URISchemeHTTPS,
 									},
 								},
@@ -239,7 +235,7 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment
 							},
 						},
 						{
-							Name: "tls",
+							Name: "https",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName: SubresourceName(reg, SubTypeRegistryTLSSecret),
@@ -247,10 +243,10 @@ func Deployment(reg *regv1.Registry, auth *regv1.AuthConfig) (*appsv1.Deployment
 							},
 						},
 						{
-							Name: "rootca",
+							Name: "auth",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: certs.RootCASecretName,
+									SecretName: "registry-token-key",
 								},
 							},
 						},
