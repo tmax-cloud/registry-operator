@@ -17,10 +17,8 @@ limitations under the License.
 package controllers
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"github.com/Nerzal/gocloak/v7"
 	"github.com/go-logr/logr"
@@ -63,26 +61,6 @@ func init() {
 	restyKeycloak := keycloak.RestyClient()
 	restyKeycloak.SetDebug(debug)
 	restyKeycloak.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: insecure})
-}
-
-type KeycloakComponents []KeycloakComponent
-
-type KeycloakComponent struct {
-	Name            string                   `json:"name,omitempty"`
-	ProviderID      string                   `json:"providerId,omitempty"`
-	ProviderType    string                   `json:"providerType,omitempty"`
-	ParentID        string                   `json:"parentId,omitempty"`
-	ComponentConfig *KeycloakComponentConfig `json:"config,omitempty"`
-	SubType         string                   `json:"subType,omitempty"`
-}
-
-type KeycloakComponentConfig struct {
-	Priority    []string `json:"priority,omitempty"`
-	Enabled     []string `json:"enabled,omitempty"`
-	Active      []string `json:"active,omitempty"`
-	Algorithm   []string `json:"algorithm,omitempty"`
-	PrivateKey  []string `json:"privateKey,omitempty"`
-	Certificate []string `json:"certificate,omitempty"`
 }
 
 // +kubebuilder:rbac:groups=tmax.io,resources=registries,verbs=get;list;watch;create;update;patch;delete
@@ -222,55 +200,57 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			logger.Info("client created: " + created)
 		}
 
-		// FIXME: Get public realm key and set rootcertbundle env of registry
-		// Add certificate
 		secret := &corev1.Secret{}
-		if err := r.Get(ctx, types.NamespacedName{Namespace: "registry-system", Name: "registry-ca"}, secret); err != nil {
-			logger.Error(err, "failed to add certificate")
-			return reconcile.Result{}, err
-		}
+		err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: "registry-token-key"}, secret)
+		if err != nil {
+			if k8serr.IsNotFound(err) {
+				storeConfig, err := keycloak.GetKeyStoreConfig(ctx, token.AccessToken, realmName)
+				if err != nil {
+					logger.Error(err, "failed to get keystoreconfig")
+					return ctrl.Result{}, err
+				}
 
-		component := KeycloakComponent{
-			Name:         "hpcd-registry-rootca",
-			ProviderID:   "rsa",
-			ProviderType: "org.keycloak.keys.KeyProvider",
-			ParentID:     realmName,
-			ComponentConfig: &KeycloakComponentConfig{
-				Priority:    []string{"500"},
-				Enabled:     []string{"true"},
-				Active:      []string{"true"},
-				Algorithm:   []string{"RS256"},
-				PrivateKey:  []string{string(secret.Data["ca.key"])},
-				Certificate: []string{string(secret.Data["ca.crt"])},
-			},
-		}
-		body, err := json.Marshal(component)
-		if err != nil {
-			logger.Error(err, "failed to add certificate")
-			return reconcile.Result{}, err
-		}
+				var tokenCACrt string
+				for _, k := range *storeConfig.Key {
+					if *k.Kid == *storeConfig.ActiveKeys.RS256 {
+						tokenCACrt = *k.Certificate
+					}
+				}
+				if len(tokenCACrt) == 0 {
+					err = fmt.Errorf("no key found")
+					logger.Error(err, "failed to get realm key")
+					return ctrl.Result{}, err
+				}
+				tokenCACrt = strings.Join([]string{
+					"-----BEGIN \"CERTIFICATE\"-----",
+					tokenCACrt,
+					"-----END \"CERTIFICATE\"-----"}, "\n")
+				logger.Info(tokenCACrt)
+				//key, err := x509.ParsePKCS1PublicKey([]byte(tokenCACrt))
+				//if err != nil {
+				//	logger.Error(err, "failed to parse public key")
+				//	return ctrl.Result{}, err
+				//}
+				//logger.Info(string(x509.MarshalPKCS1PublicKey(key)))
 
-		base := config.Config.GetString(config.ConfigTokenServiceAddr)
-		componentPath := path.Join("auth", username, "realms", realmName, "components")
-		addComponentUrl := fmt.Sprintf("%s/%s", strings.TrimRight(base, "/"), strings.TrimLeft(componentPath, "/"))
-		req, err := http.NewRequest(http.MethodPost, addComponentUrl, bytes.NewBuffer(body))
-		if err != nil {
-			logger.Error(err, "failed to add certificate")
-			return reconcile.Result{}, err
-		}
-		req.Header.Set("Content-type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+token.AccessToken)
-		httpCli := http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
-			},
-		}
-		_, err = httpCli.Do(req)
-		if err != nil {
-			logger.Error(err, "failed to add certificate")
-			return reconcile.Result{}, err
+				if err = r.Create(ctx, &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: req.Namespace,
+						Name:      "registry-token-key",
+					},
+					Type: corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						//"tls.key": x509.MarshalPKCS1PublicKey(key),
+						"ca.crt": []byte(tokenCACrt),
+					},
+				}); err != nil {
+					logger.Error(err, "failed to create registry token key secret")
+					return ctrl.Result{}, err
+				}
+			} else {
+				logger.Error(err, "failed to get registry token key secret")
+				return ctrl.Result{}, err
+			}
 		}
 
 		// ***** DO NOT CREATE USER *****
@@ -300,9 +280,9 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			regv1.ConditionTypeConfigMap,
 			regv1.ConditionTypeDeployment,
 			regv1.ConditionTypeService,
-			regv1.ConditionTypeSecretDockerConfigJSON,
+			//regv1.ConditionTypeSecretDockerConfigJSON,
 			regv1.ConditionTypeSecretTLS,
-			regv1.ConditionTypeSecretOpaque,
+			//regv1.ConditionTypeSecretOpaque,
 			regv1.ConditionTypePod,
 			regv1.ConditionTypePvc,
 		}
@@ -398,8 +378,10 @@ func (r *RegistryReconciler) validate(reg *regv1.Registry) error {
 
 func (r *RegistryReconciler) getComponentControllerList(reg *regv1.Registry) []regctl.ResourceController {
 	logger := r.Log.WithValues("namespace", reg.Namespace, "name", reg.Name)
+
 	realmName := reg.Namespace
 	clientName := reg.Name
+
 	base := config.Config.GetString(config.ConfigTokenServiceAddr)
 	realmPath := path.Join("auth", "realms", realmName, "protocol", "docker-v2", "auth", "/")
 	issuerPath := path.Join("auth", "realms", realmName, "/")
@@ -447,22 +429,22 @@ func (r *RegistryReconciler) getComponentControllerList(reg *regv1.Registry) []r
 				}
 				return manifest, nil
 			}, cond.Type, logger).Require(regv1.ConditionTypeService))
-		case regv1.ConditionTypeSecretOpaque:
-			collection = append(collection, regctl.NewRegistryCrendentialSecret(r.Client, func() (interface{}, error) {
-				manifest := schemes.CredentialSecret(reg)
-				if err := controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
-					return nil, err
-				}
-				return manifest, nil
-			}, cond.Type, logger).Require(regv1.ConditionTypeService))
-		case regv1.ConditionTypeSecretDockerConfigJSON:
-			collection = append(collection, regctl.NewRegistryDCJSecret(r.Client, func() (interface{}, error) {
-				manifest := schemes.DCJSecret(reg)
-				if err := controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
-					return nil, err
-				}
-				return manifest, nil
-			}, cond.Type, logger).Require(regv1.ConditionTypeService))
+		//case regv1.ConditionTypeSecretOpaque:
+		//	collection = append(collection, regctl.NewRegistryCrendentialSecret(r.Client, func() (interface{}, error) {
+		//		manifest := schemes.CredentialSecret(reg)
+		//		if err := controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
+		//			return nil, err
+		//		}
+		//		return manifest, nil
+		//	}, cond.Type, logger).Require(regv1.ConditionTypeService))
+		//case regv1.ConditionTypeSecretDockerConfigJSON:
+		//	collection = append(collection, regctl.NewRegistryDCJSecret(r.Client, func() (interface{}, error) {
+		//		manifest := schemes.DCJSecret(reg)
+		//		if err := controllerutil.SetControllerReference(reg, manifest, r.Scheme); err != nil {
+		//			return nil, err
+		//		}
+		//		return manifest, nil
+		//	}, cond.Type, logger).Require(regv1.ConditionTypeService))
 		case regv1.ConditionTypePvc:
 			collection = append(collection, regctl.NewRegistryPVC(r.Client, func() (interface{}, error) {
 				manifest := schemes.PersistentVolumeClaim(reg)
