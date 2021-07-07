@@ -222,16 +222,9 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 					return ctrl.Result{}, err
 				}
 				tokenCACrt = strings.Join([]string{
-					"-----BEGIN \"CERTIFICATE\"-----",
+					"-----BEGIN CERTIFICATE-----",
 					tokenCACrt,
-					"-----END \"CERTIFICATE\"-----"}, "\n")
-				logger.Info(tokenCACrt)
-				//key, err := x509.ParsePKCS1PublicKey([]byte(tokenCACrt))
-				//if err != nil {
-				//	logger.Error(err, "failed to parse public key")
-				//	return ctrl.Result{}, err
-				//}
-				//logger.Info(string(x509.MarshalPKCS1PublicKey(key)))
+					"-----END CERTIFICATE-----"}, "\n")
 
 				if err = r.Create(ctx, &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
@@ -240,7 +233,6 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 					},
 					Type: corev1.SecretTypeOpaque,
 					Data: map[string][]byte{
-						//"tls.key": x509.MarshalPKCS1PublicKey(key),
 						"ca.crt": []byte(tokenCACrt),
 					},
 				}); err != nil {
