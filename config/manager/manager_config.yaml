@@ -26,6 +26,7 @@ data:
     token:
       url: https://token-service
       insecure: true
+      debug: false
     scanning:
       scanner:
         url: "http://clair.registry-system.svc.cluster.local:6060"
