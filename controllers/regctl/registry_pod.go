@@ -69,6 +69,15 @@ func (r *RegistryPod) ReconcileByConditionStatus(reg *regv1.Registry) (bool, err
 		return true, nil
 	}
 
+	for _, stat := range podList.Items[0].Status.ContainerStatuses {
+		if !stat.Ready {
+			return true, nil
+		}
+		if !*stat.Started {
+			return true, nil
+		}
+	}
+
 	reg.Status.Conditions.SetCondition(
 		status.Condition{
 			Type:    r.cond,
