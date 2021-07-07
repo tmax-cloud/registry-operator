@@ -55,12 +55,13 @@ var keycloak gocloak.GoCloak
 func init() {
 	address := config.Config.GetString(config.ConfigTokenServiceAddr)
 	insecure := config.Config.GetBool(config.ConfigTokenServiceInsecure)
+	debug := config.Config.GetBool(config.ConfigTokenServiceDebug)
 	keycloak = gocloak.NewClient(address)
 
 	// Configure gocloak to skip TLS verification
 	// FIXME: load value from manager_config.
 	restyKeycloak := keycloak.RestyClient()
-	restyKeycloak.SetDebug(false)
+	restyKeycloak.SetDebug(debug)
 	restyKeycloak.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: insecure})
 }
 
@@ -209,6 +210,7 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			logger.Info("client created: " + created)
 		}
 
+		// FIXME: Get public realm key and set rootcertbundle env of registry
 		// Add certificate
 		secret := &corev1.Secret{}
 		if err := r.Get(ctx, types.NamespacedName{Namespace: "registry-system", Name: "registry-ca"}, secret); err != nil {
@@ -305,7 +307,7 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 		// -------------------
 		o.Status.Conditions = status.NewConditions(conds...)
-		o.Status.Message = "registry is creating. All resources in registry has not yet been created."
+		o.Status.Message = ""
 		o.Status.Reason = "AllConditionsNotTrue"
 		o.Status.Phase = regv1.StatusCreating
 		o.Status.PhaseChangedAt = metav1.Now()

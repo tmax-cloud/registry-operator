@@ -7,6 +7,7 @@ const (
 	ConfigImageRegistryPullRequest = "image.registry_pull_request"
 	ConfigTokenServiceAddr         = "token.url"
 	ConfigTokenServiceInsecure     = "token.insecure"
+	ConfigTokenServiceDebug        = "token.debug"
 	// ConfigClusterName is the key to get cluster.name config
 	ConfigClusterName = "cluster.name"
 	// ConfigImageScanSvr is the key to get clair.url config
