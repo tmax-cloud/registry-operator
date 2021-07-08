@@ -45,7 +45,7 @@ fi
 
 # Create keycloak-cert secret
 KEYCLOAK_CRT_FILE=./config/pki/keycloak.crt
-if [[ -f "$KEYCLOAK_CRT_FILE" ]]; then 
+if [[ -f "$KEYCLOAK_CRT_FILE" ]]; then
     . ./config/scripts/newCertSecret.sh keycloak-cert $KEYCLOAK_CRT_FILE
 fi
 
@@ -53,6 +53,10 @@ fi
 kubectl apply -f config/manager/manager.yaml
 kubectl apply -f config/manager/job_manager.yaml
 kubectl apply -f config/manager/service.yaml
+
+# Deploy token-service
+kubectl apply -f config/token/keycloak.yaml
+kubectl apply -f config/token/postgresql.yaml
 
 echo
 echo "Deploy registry-operator success!!"

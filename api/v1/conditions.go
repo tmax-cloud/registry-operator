@@ -12,9 +12,9 @@ const (
 	// ConditionTypeService is a condition that service exists
 	ConditionTypeService = status.ConditionType("ServiceExist")
 	// ConditionTypeSecretOpaque is a condition that opaque secret exists
-	//ConditionTypeSecretOpaque = status.ConditionType("SecretOpaqueExist")
+	ConditionTypeSecretOpaque = status.ConditionType("SecretOpaqueExist")
 	// ConditionTypeSecretDockerConfigJSON is a condition that docker config json secret exists
-	//ConditionTypeSecretDockerConfigJSON = status.ConditionType("SecretDockerConfigJsonExist")
+	ConditionTypeSecretDockerConfigJSON = status.ConditionType("SecretDockerConfigJsonExist")
 	// ConditionTypeSecretTLS is a condition that tls secret exists
 	ConditionTypeSecretTLS = status.ConditionType("SecretTlsExist")
 	// ConditionTypeIngress is a condition that ingress exists
