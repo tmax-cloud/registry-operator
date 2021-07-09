@@ -56,19 +56,35 @@ func (r *RegistryPod) ReconcileByConditionStatus(reg *regv1.Registry) (bool, err
 	podList := &corev1.PodList{}
 	if err = r.c.List(ctx, podList, &client.ListOptions{
 		Namespace: reg.Namespace,
-		LabelSelector: labels.SelectorFromSet(labels.Set(map[string]string{
-			"app":  "registry",
-			"apps": schemes.SubresourceName(reg, schemes.SubTypeRegistryDeployment),
-		})),
+		LabelSelector: labels.SelectorFromSet(
+			map[string]string{
+				"app":  "registry",
+				"apps": schemes.SubresourceName(reg, schemes.SubTypeRegistryDeployment),
+			}),
 	}); err != nil {
 		return false, err
 	}
 
-	if len(podList.Items) == 0 {
-		r.logger.Info("no pod found")
+	if len(podList.Items) == 0 || podList.Items[0].Status.Phase != "Running" {
+		r.logger.Info("pod not ready")
 		return true, nil
 	}
-	r.logger.Info("pod phase: " + string(podList.Items[0].Status.Phase))
+
+	for _, stat := range podList.Items[0].Status.ContainerStatuses {
+		if !stat.Ready {
+			return true, nil
+		}
+		if !*stat.Started {
+			return true, nil
+		}
+	}
+
+	reg.Status.Conditions.SetCondition(
+		status.Condition{
+			Type:    r.cond,
+			Status:  corev1.ConditionTrue,
+			Message: "Success",
+		})
 	r.logger.Info("fine")
 	return false, nil
 }

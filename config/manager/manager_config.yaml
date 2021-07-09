@@ -24,7 +24,7 @@ data:
         image: tmaxcloudck/notary_mysql:0.6.2-rc2
         image_pull_secret: ""
     keycloak:
-      service: https://172.22.11.9:8443
+      service: https://hyperauth.org
     scanning:
       scanner:
         url: "http://clair.registry-system.svc.cluster.local:6060"

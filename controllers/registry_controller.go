@@ -123,7 +123,6 @@ func getResourceConditionList(reg *regv1.Registry) status.Conditions {
 	condTypes := []status.ConditionType{
 		regv1.ConditionTypeDeployment,
 		regv1.ConditionTypePod,
-		regv1.ConditionTypeContainer,
 		regv1.ConditionTypeService,
 		regv1.ConditionTypeSecretTLS,
 		regv1.ConditionTypeSecretOpaque,
@@ -217,6 +216,13 @@ func (r *RegistryReconciler) handleAllSubresources(reg *regv1.Registry) (bool, e
 		return false, err
 	}
 
+	reg.Status.Conditions.SetCondition(
+		status.Condition{
+			Type:    regv1.ConditionTypeKeycloakResources,
+			Status:  corev1.ConditionTrue,
+			Message: "Success",
+		})
+
 	components := r.getComponentControllerList(reg)
 	for _, component := range components {
 		requeue, err := component.ReconcileByConditionStatus(reg)
@@ -278,10 +284,6 @@ func (r *RegistryReconciler) getComponentControllerList(reg *regv1.Registry) []r
 			collection = append(collection, regctl.NewRegistryPod(r.Client, func() (interface{}, error) {
 				return nil, nil
 			}, cond.Type, logger))
-		case regv1.ConditionTypeContainer:
-			collection = append(collection, regctl.NewRegistryContainer(r.Client, func() (interface{}, error) {
-				return nil, nil
-			}, cond.Type, logger).Require(regv1.ConditionTypeDeployment).Require(regv1.ConditionTypeDeployment).Require(regv1.ConditionTypePod))
 		case regv1.ConditionTypeService:
 			collection = append(collection, regctl.NewRegistryService(r.Client, func() (interface{}, error) {
 				manifest := schemes.Service(reg)
