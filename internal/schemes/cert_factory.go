@@ -8,10 +8,7 @@ import (
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-var schemeLogger = logf.Log.WithName("scheme")
 
 const (
 	TLSCert = "tls.crt"

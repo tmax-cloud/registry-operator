@@ -6,7 +6,7 @@ require (
 	github.com/Nerzal/gocloak/v7 v7.8.0
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869
 	github.com/bugsnag/bugsnag-go v1.7.0 // indirect
-	github.com/cloudflare/cfssl v1.5.0
+	github.com/cloudflare/cfssl v1.5.0 // indirect
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v1.4.2-0.20190916154449-92cc603036dd
 	github.com/docker/go-metrics v0.0.1 // indirect
@@ -26,10 +26,11 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.1
 	github.com/operator-framework/operator-lib v0.1.0
-	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron v1.2.0
 	github.com/spf13/viper v1.3.2
 	github.com/theupdateframework/notary v0.6.2-0.20200804143915-84287fd8df4f
+	go.uber.org/zap v1.16.0
+	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	k8s.io/api v0.19.4
 	k8s.io/apimachinery v0.19.4
 	k8s.io/client-go v0.19.4

@@ -49,7 +49,6 @@ func (r *ExternalRegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	err := r.Get(context.TODO(), req.NamespacedName, reg)
 	if err != nil {
 		r.Log.Info("Error on get registry")
-
 		return ctrl.Result{}, err
 	}
 
