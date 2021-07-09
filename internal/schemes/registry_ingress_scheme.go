@@ -47,7 +47,7 @@ func Ingress(reg *regv1.Registry) *v1beta1.Ingress {
 					IngressRuleValue: v1beta1.IngressRuleValue{
 						HTTP: &v1beta1.HTTPIngressRuleValue{
 							Paths: []v1beta1.HTTPIngressPath{
-								v1beta1.HTTPIngressPath{
+								{
 									Path: "/",
 									Backend: v1beta1.IngressBackend{
 										ServiceName: SubresourceName(reg, SubTypeRegistryService),
