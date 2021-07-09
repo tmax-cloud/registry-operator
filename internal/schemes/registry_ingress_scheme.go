@@ -36,13 +36,13 @@ func Ingress(reg *regv1.Registry) *v1beta1.Ingress {
 		},
 		Spec: v1beta1.IngressSpec{
 			TLS: []v1beta1.IngressTLS{
-				v1beta1.IngressTLS{
+				{
 					Hosts:      []string{registryDomain},
 					SecretName: SubresourceName(reg, SubTypeRegistryTLSSecret),
 				},
 			},
 			Rules: []v1beta1.IngressRule{
-				v1beta1.IngressRule{
+				{
 					Host: registryDomain,
 					IngressRuleValue: v1beta1.IngressRuleValue{
 						HTTP: &v1beta1.HTTPIngressRuleValue{
