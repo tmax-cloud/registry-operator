@@ -57,6 +57,7 @@ kubectl apply -f config/manager/service.yaml
 # Deploy token-service
 kubectl apply -f config/token/keycloak.yaml
 kubectl apply -f config/token/postgresql.yaml
+kubectl apply -f config/token/ingress.yaml
 
 echo
 echo "Deploy registry-operator success!!"

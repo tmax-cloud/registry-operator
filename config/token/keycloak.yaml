@@ -88,12 +88,12 @@ spec:
           volumeMounts:
             - name: log
               mountPath: /opt/jboss/keycloak/standalone/log/token-service
-            - name: ssl
-              mountPath: /etc/x509/https
+#            - name: ssl
+#              mountPath: /etc/x509/https
       volumes:
         - name: log
           persistentVolumeClaim:
             claimName: token-service-log-pvc
-        - name: ssl
-          secret:
-            secretName: registry-ca
+#        - name: ssl
+#          secret:
+#            secretName: registry-ca

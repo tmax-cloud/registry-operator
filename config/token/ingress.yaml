@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: token-service-ingress
+  namespace: registry-system
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    kubernetes.io/ingress.class: nginx-shd
+spec:
+  rules:
+    - host: token-service.__DOMAIN__
+      http:
+        paths:
+          - backend:
+              service:
+                name: token-service
+                port:
+                  number: 8080
+            path: /
+            pathType: Prefix
+  tls:
+    - hosts:
+        - token-service.__DOMAIN__
+      secretName: token-service-ingress
