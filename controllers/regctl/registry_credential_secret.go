@@ -72,7 +72,7 @@ func (r *RegistryCrendentialSecret) ReconcileByConditionStatus(reg *regv1.Regist
 			Status:  corev1.ConditionTrue,
 			Message: "Success",
 		})
-	r.logger.Info("fine")
+
 	return false, nil
 }
 

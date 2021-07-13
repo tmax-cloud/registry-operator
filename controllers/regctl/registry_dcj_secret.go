@@ -82,7 +82,7 @@ func (r *RegistryDockerConfigSecret) ReconcileByConditionStatus(reg *regv1.Regis
 			Status:  corev1.ConditionTrue,
 			Message: "Success",
 		})
-	r.logger.Info("fine")
+
 	return false, nil
 }
 

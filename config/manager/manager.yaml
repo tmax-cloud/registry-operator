@@ -46,6 +46,8 @@ spec:
                 secretKeyRef:
                   name: keycloak-secret
                   key: password
+          - name: ROOTCA_PATH
+            value: /etc/ssl/certs/ca.crt
         resources:
           limits:
             cpu: "200m"
