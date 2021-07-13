@@ -2,122 +2,81 @@ package exregctl
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 
 	"github.com/operator-framework/operator-lib/status"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/internal/schemes"
-	"github.com/tmax-cloud/registry-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type RegistryCronJob struct {
-	cron   *regv1.RegistryCronJob
-	logger *utils.RegistryLogger
+	c            client.Client
+	manifest     func() (interface{}, error)
+	cond         status.ConditionType
+	requirements []status.ConditionType
+	logger       logr.Logger
 }
 
-// Handle is to create external registry cron job.
-func (r *RegistryCronJob) Handle(c client.Client, exreg *regv1.ExternalRegistry, patchExreg *regv1.ExternalRegistry, scheme *runtime.Scheme) error {
-	if err := r.get(c, exreg); err != nil {
-		if errors.IsNotFound(err) {
-			if err := r.create(c, exreg, patchExreg, scheme); err != nil {
-				r.logger.Error(err, "create external registry cron job error")
-				return err
-			}
-		} else {
-			r.logger.Error(err, "external registry cron job error")
-			return err
+func NewRegistryCronJob(client client.Client, manifest func() (interface{}, error), cond status.ConditionType, logger logr.Logger) *RegistryCronJob {
+	return &RegistryCronJob{
+		c:        client,
+		manifest: manifest,
+		cond:     cond,
+		logger:   logger.WithName("cronjob"),
+	}
+}
+
+func (r *RegistryCronJob) ReconcileByConditionStatus(reg *regv1.ExternalRegistry) (bool, error) {
+	var err error
+	defer func() {
+		if err != nil {
+			reg.Status.Conditions.SetCondition(
+				status.Condition{
+					Type:    r.cond,
+					Status:  corev1.ConditionFalse,
+					Message: err.Error(),
+				})
+		}
+	}()
+
+	for _, dep := range r.requirements {
+		if !reg.Status.Conditions.GetCondition(dep).IsTrue() {
+			r.logger.Info(string(r.cond) + " needs " + string(dep))
+			return true, nil
 		}
 	}
 
-	return nil
-}
-
-// Ready is to check if the external registry cron job is ready
-func (r *RegistryCronJob) Ready(c client.Client, exreg *regv1.ExternalRegistry, patchExreg *regv1.ExternalRegistry, useGet bool) error {
-	var err error = nil
-	condition := &status.Condition{
-		Status: corev1.ConditionFalse,
-		Type:   regv1.ConditionTypeExRegistryCronJobExist,
-	}
-
-	defer utils.SetCondition(err, patchExreg, condition)
-
-	if useGet {
-		if err = r.get(c, exreg); err != nil {
-			r.logger.Error(err, "get external registry cron job error")
-			return err
-		}
-	}
-
-	diff := r.compare(exreg)
-	if diff == nil {
-		r.logger.Error(nil, "Invalid cron job!!!")
-		if err = r.delete(c, patchExreg); err != nil {
-			return err
-		}
-	} else if len(diff) > 0 {
-		r.logger.Info("NotReady")
-		err = regv1.MakeRegistryError("NotReady")
-		return err
-	}
-
-	r.logger.Info("Ready")
-	condition.Status = corev1.ConditionTrue
-	return nil
-}
-
-func (r *RegistryCronJob) create(c client.Client, exreg *regv1.ExternalRegistry, patchExreg *regv1.ExternalRegistry, scheme *runtime.Scheme) error {
-	if err := controllerutil.SetControllerReference(exreg, r.cron, scheme); err != nil {
-		r.logger.Error(err, "SetOwnerReference Failed")
-		return err
-	}
-
-	r.logger.Info("Create external registry cron job")
-	if err := c.Create(context.TODO(), r.cron); err != nil {
-		r.logger.Error(err, "Creating external registry cron job is failed.")
-		return err
-	}
-
-	return nil
-}
-
-func (r *RegistryCronJob) get(c client.Client, exreg *regv1.ExternalRegistry) error {
-	r.cron = schemes.ExternalRegistryCronJob(exreg)
-	r.logger = utils.NewRegistryLogger(*r, r.cron.Namespace, r.cron.Name)
-
-	req := types.NamespacedName{Name: r.cron.Name, Namespace: r.cron.Namespace}
-	err := c.Get(context.TODO(), req, r.cron)
+	ctx := context.TODO()
+	m, err := r.manifest()
 	if err != nil {
-		r.logger.Error(err, "Get external registry cron job is failed")
-		return err
+		return false, err
 	}
-
-	return nil
-}
-
-func (r *RegistryCronJob) compare(reg *regv1.ExternalRegistry) []utils.Diff {
-	diff := []utils.Diff{}
-
-	// TODO
-
-	return diff
-}
-
-func (r *RegistryCronJob) patch(c client.Client, exreg *regv1.ExternalRegistry, patchExreg *regv1.ExternalRegistry, diff []utils.Diff) error {
-
-	return nil
-}
-
-func (r *RegistryCronJob) delete(c client.Client, patchExreg *regv1.ExternalRegistry) error {
-	if err := c.Delete(context.TODO(), r.cron); err != nil {
-		r.logger.Error(err, "Unknown error delete deployment")
-		return err
+	manifest := m.(*regv1.RegistryCronJob)
+	cronjob := &regv1.RegistryCronJob{}
+	if err = r.c.Get(ctx, types.NamespacedName{Name: manifest.Name, Namespace: manifest.Namespace}, cronjob); err != nil {
+		if errors.IsNotFound(err) {
+			r.logger.Info("not found. create new one.")
+			if err = r.c.Create(ctx, manifest); err != nil {
+				return false, err
+			}
+			return false, nil
+		}
+		return false, err
 	}
+	reg.Status.Conditions.SetCondition(
+		status.Condition{
+			Type:    r.cond,
+			Status:  corev1.ConditionTrue,
+			Message: "Success",
+		})
 
-	return nil
+	return false, nil
+}
+
+func (r *RegistryCronJob) Require(cond status.ConditionType) ResourceController {
+	r.requirements = append(r.requirements, cond)
+	return r
 }

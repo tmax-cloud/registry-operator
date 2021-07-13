@@ -9,21 +9,14 @@ import (
 
 // ExternalRegistryCronJob is a scheme of external registry cron job
 func ExternalRegistryCronJob(exreg *regv1.ExternalRegistry) *regv1.RegistryCronJob {
-	labels := make(map[string]string)
-	resName := SubresourceName(exreg, SubTypeExternalRegistryCronJob)
-	labels["app"] = "external-registry-cron-job"
-	labels["apps"] = resName
-
-	schedule := exreg.Spec.Schedule
-	if schedule == "" {
-		schedule = config.Config.GetString(config.ConfigExternalRegistrySyncPeriod)
-	}
-
 	return &regv1.RegistryCronJob{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      resName,
+			Name:      SubresourceName(exreg, SubTypeExternalRegistryCronJob),
 			Namespace: exreg.Namespace,
-			Labels:    labels,
+			Labels: map[string]string{
+				"app":  "external-registry-cron-job",
+				"apps": SubresourceName(exreg, SubTypeExternalRegistryCronJob),
+			},
 		},
 		Spec: regv1.RegistryCronJobSpec{
 			JobSpec: regv1.RegistryJobSpec{
@@ -36,7 +29,14 @@ func ExternalRegistryCronJob(exreg *regv1.ExternalRegistry) *regv1.RegistryCronJ
 				},
 				TTL: 180,
 			},
-			Schedule: schedule,
+			Schedule: func(s string) string {
+				switch s {
+				case "":
+					return config.Config.GetString(config.ConfigExternalRegistrySyncPeriod)
+				default:
+					return s
+				}
+			}(exreg.Spec.Schedule),
 		},
 	}
 }

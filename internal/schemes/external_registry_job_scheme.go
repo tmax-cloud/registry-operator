@@ -8,16 +8,14 @@ import (
 
 // ExternalRegistryJob is a scheme of external registry job
 func ExternalRegistryJob(exreg *regv1.ExternalRegistry) *regv1.RegistryJob {
-	labels := make(map[string]string)
-	resName := SubresourceName(exreg, SubTypeExternalRegistryJob)
-	labels["app"] = "external-registry-job"
-	labels["apps"] = resName
-
 	return &regv1.RegistryJob{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      resName,
+			Name:      SubresourceName(exreg, SubTypeExternalRegistryJob),
 			Namespace: exreg.Namespace,
-			Labels:    labels,
+			Labels: map[string]string{
+				"app":  "external-registry-job",
+				"apps": SubresourceName(exreg, SubTypeExternalRegistryJob),
+			},
 		},
 		Spec: regv1.RegistryJobSpec{
 			Priority: 100,

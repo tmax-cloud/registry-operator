@@ -18,16 +18,18 @@ package controllers
 
 import (
 	"context"
-	"reflect"
-
 	"github.com/go-logr/logr"
+	"github.com/operator-framework/operator-lib/status"
+	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"github.com/tmax-cloud/registry-operator/controllers/exregctl"
+	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/controllers/exregctl"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // ExternalRegistryReconciler reconciles a ExternalRegistry object
@@ -41,29 +43,54 @@ type ExternalRegistryReconciler struct {
 // +kubebuilder:rbac:groups=tmax.io,resources=externalregistries/status,verbs=get;update;patch
 
 func (r *ExternalRegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("externalregistry", req.NamespacedName)
+	ctx := context.Background()
+	logger := r.Log.WithValues("externalregistry", req.NamespacedName)
 
-	// Fetch the External Registry reg
-	reg := &regv1.ExternalRegistry{}
-	err := r.Get(context.TODO(), req.NamespacedName, reg)
+	o := &regv1.ExternalRegistry{}
+	err := r.Get(ctx, req.NamespacedName, o)
 	if err != nil {
-		r.Log.Info("Error on get registry")
+		logger.Info("Error on get registry")
 		return ctrl.Result{}, err
 	}
 
-	updated, err := exregctl.UpdateRegistryStatus(r.Client, reg)
-	if err != nil {
-		return ctrl.Result{}, err
-	} else if updated {
+	switch o.Status.State {
+	case "":
+		typesToManage := []status.ConditionType{
+			regv1.ConditionTypeExRegistryCronJobExist,
+			regv1.ConditionTypeExRegistryInitialized,
+			regv1.ConditionTypeExRegistryLoginSecretExist,
+		}
+		conds := status.Conditions{}
+		for _, t := range typesToManage {
+			conds = append(conds, status.Condition{Type: t, Status: corev1.ConditionFalse})
+		}
+
+		o.Status.Conditions = conds
+		o.Status.State = regv1.ExternalRegistryNotReady
+		o.Status.StateChangedAt = metav1.Now()
+		if err = r.Status().Update(ctx, o); err != nil {
+			logger.Error(err, "failed to update status")
+			return ctrl.Result{}, err
+		}
+
+	case regv1.ExternalRegistryNotReady:
+		requeue := false
+		for _, c := range r.getComponentControllerList(o) {
+			if requeue, err = c.ReconcileByConditionStatus(o); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+		if err = r.Status().Update(ctx, o); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{Requeue: requeue}, nil
+
+	case regv1.ExternalRegistryReady:
 		return ctrl.Result{}, nil
-	}
 
-	if err = r.handleAllSubresources(reg); err != nil {
-		r.Log.Error(err, "Subresource creation failed")
-		return ctrl.Result{}, err
+	default:
+		logger.Info("unknown condition type.")
 	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -75,71 +102,43 @@ func (r *ExternalRegistryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *ExternalRegistryReconciler) handleAllSubresources(exreg *regv1.ExternalRegistry) error { // if want to requeue, return true
-	subResourceLogger := r.Log.WithValues("SubResource.Namespace", exreg.Namespace, "SubResource.Name", exreg.Name)
-	subResourceLogger.Info("Creating all Subresources")
+func (r *ExternalRegistryReconciler) getComponentControllerList(exreg *regv1.ExternalRegistry) []exregctl.ResourceController {
+	logger := r.Log.WithValues("namespace", exreg.Namespace, "name", exreg.Name)
 
-	patchReg := exreg.DeepCopy() // Target to Patch object
-
-	defer func() {
-		if err := r.update(exreg, patchReg); err != nil {
-			subResourceLogger.Error(err, "failed to update")
-		}
-	}()
-
-	collectSubController := collectExRegSubController(exreg)
-
-	// Check if subresources are created.
-	for _, sctl := range collectSubController {
-		subresourceType := reflect.TypeOf(sctl).String()
-		subResourceLogger.Info("Check subresource", "subresourceType", subresourceType)
-
-		// Check if subresource is handled.
-		if err := sctl.Handle(r.Client, exreg, patchReg, r.Scheme); err != nil {
-			subResourceLogger.Error(err, "Got an error in creating subresource ")
-			return err
-		}
-
-		// Check if subresource is ready.
-		if err := sctl.Ready(r.Client, exreg, patchReg, false); err != nil {
-			subResourceLogger.Error(err, "Got an error in checking ready")
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *ExternalRegistryReconciler) update(origin, target *regv1.ExternalRegistry) error {
-	subResourceLogger := r.Log.WithValues("SubResource.Namespace", origin.Namespace, "SubResource.Name", origin.Name)
-
-	// Update spec, if patch exists
-	if !reflect.DeepEqual(origin.Spec, target.Spec) {
-		subResourceLogger.Info("Update registry")
-		if err := r.Update(context.TODO(), target); err != nil {
-			subResourceLogger.Error(err, "Unknown error updating")
-			return err
+	collection := []exregctl.ResourceController{}
+	for _, cond := range exreg.Status.Conditions {
+		switch cond.Type {
+		case regv1.ConditionTypeExRegistryCronJobExist:
+			collection = append(collection, exregctl.NewRegistryCronJob(r.Client, func() (interface{}, error) {
+				manifest := schemes.ExternalRegistryCronJob(exreg)
+				if err := controllerutil.SetControllerReference(exreg, manifest, r.Scheme); err != nil {
+					return nil, err
+				}
+				return manifest, nil
+			}, cond.Type, logger))
+		case regv1.ConditionTypeExRegistryInitialized:
+			collection = append(collection, exregctl.NewRegistryJob(r.Client, func() (interface{}, error) {
+				manifest := schemes.ExternalRegistryJob(exreg)
+				if err := controllerutil.SetControllerReference(exreg, manifest, r.Scheme); err != nil {
+					return nil, err
+				}
+				return manifest, nil
+			}, cond.Type, logger).Require(regv1.ConditionTypeExRegistryLoginSecretExist))
+		case regv1.ConditionTypeExRegistryLoginSecretExist:
+			collection = append(collection, exregctl.NewLoginSecret(r.Client, func() (interface{}, error) {
+				manifest, err := schemes.ExternalRegistryLoginSecret(exreg)
+				if err != nil {
+					return nil, err
+				}
+				if err = controllerutil.SetControllerReference(exreg, manifest, r.Scheme); err != nil {
+					return nil, err
+				}
+				return manifest, nil
+			}, cond.Type, logger))
+		default:
+			logger.Info("[WARN] Unknown condition: " + string(cond.Type))
 		}
 	}
-
-	// Update status, if patch exists
-	if !reflect.DeepEqual(origin.Status, target.Status) {
-		if err := r.Status().Update(context.TODO(), target); err != nil {
-			subResourceLogger.Error(err, "Unknown error updating status")
-			return err
-		}
-	}
-
-	return nil
-}
-
-func collectExRegSubController(exreg *regv1.ExternalRegistry) []exregctl.ExternalRegistrySubresource {
-	collection := []exregctl.ExternalRegistrySubresource{}
-
-	if exreg.Spec.LoginID != "" || exreg.Spec.LoginPassword != "" || exreg.Status.LoginSecret != "" {
-		collection = append(collection, &exregctl.LoginSecret{})
-	}
-
-	collection = append(collection, &exregctl.RegistryCronJob{}, &exregctl.RegistryJob{})
 
 	return collection
 }
