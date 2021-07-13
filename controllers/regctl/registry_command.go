@@ -50,19 +50,3 @@ func PodName(c client.Client, reg *regv1.Registry) (string, error) {
 
 	return pod.Name, nil
 }
-
-// DeletePod deletes registry pod
-func DeletePod(c client.Client, reg *regv1.Registry) error {
-	pod, err := getPod(c, reg)
-	if err != nil {
-		log.Error(err, "Pod error")
-		return err
-	}
-
-	if err := c.Delete(context.TODO(), pod); err != nil {
-		log.Error(err, "Unknown error delete pod")
-		return err
-	}
-
-	return nil
-}

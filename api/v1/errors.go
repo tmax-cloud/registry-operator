@@ -1,10 +1,5 @@
 package v1
 
-import (
-	"errors"
-	"fmt"
-)
-
 const (
 	// PodNotFound is an error that pod is not found
 	PodNotFound = "PodNotFound"
@@ -43,21 +38,4 @@ func MakeRegistryError(e string) error {
 		RegistryError.errorMessage = &e
 	}
 	return RegistryError
-}
-
-// IsPodError returns true if the specified error was created by PodNotFound, ContainerStatusIsNil, or PodNotRunning.
-func IsPodError(err error) bool {
-	if err.Error() == PodNotFound || err.Error() == ContainerStatusIsNil || err.Error() == PodNotRunning {
-		return true
-	}
-
-	return false
-}
-
-func AppendError(err error, appendMessage string) error {
-	if err == nil || err.Error() == "" {
-		return errors.New(appendMessage)
-	}
-
-	return fmt.Errorf("%s, %s", err.Error(), appendMessage)
 }

@@ -180,7 +180,7 @@ func getScanResultFromInternal(req *http.Request) (map[string]scan.ResultRespons
 		return nil, errors.NewInternalError(err)
 	}
 
-	authStr, ok := secret.Data[schemes.DockerConfigJson]
+	authStr, ok := secret.Data[corev1.DockerConfigJsonKey]
 	if !ok {
 		msg := "cannot find .dockerconfigjson from the secret"
 		log.Info(msg)
@@ -264,7 +264,7 @@ func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultRespons
 		return nil, errors.NewInternalError(fmt.Errorf("Failed to get ImagePullSecret(%s)", reg.Status.LoginSecret))
 	}
 
-	imagePullSecretData, ok := imagePullSecret.Data[schemes.DockerConfigJson]
+	imagePullSecretData, ok := imagePullSecret.Data[corev1.DockerConfigJsonKey]
 	if !ok {
 		return nil, errors.NewInternalError(fmt.Errorf("Failed to get dockerconfig from ImagePullSecret"))
 	}

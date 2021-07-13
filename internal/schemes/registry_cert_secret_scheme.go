@@ -2,57 +2,46 @@ package schemes
 
 import (
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
-	"github.com/tmax-cloud/registry-operator/internal/utils"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secret) {
-	logger := utils.GetRegistryLogger(corev1.Secret{}, reg.Namespace, reg.Name+"secret")
-	if !regBodyCheckForSecrets(reg) {
-		return nil, nil
+func CredentialSecret(reg *regv1.Registry) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      SubresourceName(reg, SubTypeRegistryOpaqueSecret),
+			Namespace: reg.Namespace,
+			Labels: map[string]string{
+				"secret": "data",
+			},
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"ID":     []byte(reg.Spec.LoginID),
+			"PASSWD": []byte(reg.Spec.LoginPassword),
+		},
 	}
-	data := map[string][]byte{}
-	tlsData := map[string][]byte{}
+}
 
-	data["ID"] = []byte(reg.Spec.LoginID)
-	data["PASSWD"] = []byte(reg.Spec.LoginPassword)
+func TlsSecret(reg *regv1.Registry, c client.Client) (*corev1.Secret, error) {
 
 	cert, err := NewCertFactory(c).CreateCertPair(reg, certTypeRegistry)
 	if err != nil {
-		logger.Error(err, "")
-		return nil, nil
+		return nil, err
 	}
 
 	certPem, err := cert.CertDataToPem()
 	if err != nil {
-		logger.Error(err, "")
-		return nil, nil
+		return nil, err
 	}
 
 	keyPem, err := cert.KeyToPem()
 	if err != nil {
-		logger.Error(err, "")
-		return nil, nil
+		return nil, err
 	}
 
-	tlsData[TLSCert] = certPem
-	tlsData[TLSKey] = keyPem
-
 	return &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      SubresourceName(reg, SubTypeRegistryOpaqueSecret),
-				Namespace: reg.Namespace,
-				Labels: map[string]string{
-					"secret": "data",
-				},
-			},
-			Type: corev1.SecretTypeOpaque,
-			Data: data,
-		},
-		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      SubresourceName(reg, SubTypeRegistryTLSSecret),
 				Namespace: reg.Namespace,
@@ -61,17 +50,10 @@ func Secrets(reg *regv1.Registry, c client.Client) (*corev1.Secret, *corev1.Secr
 				},
 			},
 			Type: corev1.SecretTypeTLS,
-			Data: tlsData,
-		}
-}
-
-func regBodyCheckForSecrets(reg *regv1.Registry) bool {
-	regService := reg.Spec.RegistryService
-	if reg.Status.ClusterIP == "" {
-		return false
-	}
-	if regService.ServiceType == regv1.RegServiceTypeLoadBalancer && reg.Status.LoadBalancerIP == "" {
-		return false
-	}
-	return true
+			Data: map[string][]byte{
+				corev1.TLSCertKey:       certPem,
+				corev1.TLSPrivateKeyKey: keyPem,
+			},
+		},
+		nil
 }

@@ -12,36 +12,9 @@ import (
 )
 
 func Ingress(reg *regv1.Registry) *v1beta1.Ingress {
-	if !regBodyCheckForIngress(reg) {
-		schemeLogger.Info("failed to check registry body for ingress")
-		return nil
-	}
 	registryDomain := RegistryDomainName(reg)
 	if registryDomain == "" {
 		return nil
-	}
-
-	ingressTLS := v1beta1.IngressTLS{
-		Hosts:      []string{registryDomain},
-		SecretName: SubresourceName(reg, SubTypeRegistryTLSSecret),
-	}
-	httpIngressPath := v1beta1.HTTPIngressPath{
-		Path: "/",
-		Backend: v1beta1.IngressBackend{
-			ServiceName: SubresourceName(reg, SubTypeRegistryService),
-			ServicePort: intstr.FromInt(443),
-		},
-	}
-
-	rule := v1beta1.IngressRule{
-		Host: registryDomain,
-		IngressRuleValue: v1beta1.IngressRuleValue{
-			HTTP: &v1beta1.HTTPIngressRuleValue{
-				Paths: []v1beta1.HTTPIngressPath{
-					httpIngressPath,
-				},
-			},
-		},
 	}
 
 	return &v1beta1.Ingress{
@@ -63,18 +36,31 @@ func Ingress(reg *regv1.Registry) *v1beta1.Ingress {
 		},
 		Spec: v1beta1.IngressSpec{
 			TLS: []v1beta1.IngressTLS{
-				ingressTLS,
+				{
+					Hosts:      []string{registryDomain},
+					SecretName: SubresourceName(reg, SubTypeRegistryTLSSecret),
+				},
 			},
 			Rules: []v1beta1.IngressRule{
-				rule,
+				{
+					Host: registryDomain,
+					IngressRuleValue: v1beta1.IngressRuleValue{
+						HTTP: &v1beta1.HTTPIngressRuleValue{
+							Paths: []v1beta1.HTTPIngressPath{
+								{
+									Path: "/",
+									Backend: v1beta1.IngressBackend{
+										ServiceName: SubresourceName(reg, SubTypeRegistryService),
+										ServicePort: intstr.FromInt(443),
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
-}
-
-func regBodyCheckForIngress(reg *regv1.Registry) bool {
-	regService := reg.Spec.RegistryService
-	return regService.ServiceType == "Ingress"
 }
 
 func RegistryDomainName(reg *regv1.Registry) string {

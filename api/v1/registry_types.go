@@ -11,16 +11,13 @@ const (
 	RegistryTypeHpcdRegistry RegistryType = "HpcdRegistry"
 )
 
-// Status is registry status type
-type Status string
-
 const (
 	// StatusNotReady is a status that registry is not ready
-	StatusNotReady = Status("NotReady")
+	StatusNotReady = "NotReady"
 	// StatusRunning is a status taht registry is running
-	StatusRunning = Status("Running")
+	StatusRunning = "Running"
 	// StatusCreating is a status that registry subresources are being created
-	StatusCreating = Status("Creating")
+	StatusCreating = "Creating"
 )
 
 // RegistrySpec defines the desired state of Registry
