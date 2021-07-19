@@ -5,11 +5,6 @@ metadata:
   namespace: registry-system
 data:
   manager_config.yaml: |
-    # cluster:
-      # name: my-kube
-    # image:
-      # registry: <image_registry>
-      # registry_pull_secret: <registry-pull-secret>
     registry:
       image: registry:2.7.1
       image_pull_secret: ""
@@ -23,8 +18,10 @@ data:
       db:
         image: tmaxcloudck/notary_mysql:0.6.2-rc2
         image_pull_secret: ""
-    keycloak:
-      service: https://hyperauth.org
+    token:
+      url: https://auth.hyperregistry.__DOMAIN__
+      insecure: false
+      debug: false
     scanning:
       scanner:
         url: "http://clair.registry-system.svc.cluster.local:6060"

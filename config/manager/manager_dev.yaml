@@ -48,6 +48,8 @@ spec:
                   key: password
           - name: ENV
             value: "dev"
+          - name: ROOTCA_PATH
+            value: /etc/ssl/certs/ca.crt
         volumeMounts:
         - name: manager-mnt
           mountPath: /bin/dev

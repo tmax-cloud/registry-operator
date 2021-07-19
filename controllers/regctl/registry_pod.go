@@ -56,11 +56,10 @@ func (r *RegistryPod) ReconcileByConditionStatus(reg *regv1.Registry) (bool, err
 	podList := &corev1.PodList{}
 	if err = r.c.List(ctx, podList, &client.ListOptions{
 		Namespace: reg.Namespace,
-		LabelSelector: labels.SelectorFromSet(
-			map[string]string{
-				"app":  "registry",
-				"apps": schemes.SubresourceName(reg, schemes.SubTypeRegistryDeployment),
-			}),
+		LabelSelector: labels.SelectorFromSet(labels.Set(map[string]string{
+			"app":  "registry",
+			"apps": schemes.SubresourceName(reg, schemes.SubTypeRegistryDeployment),
+		})),
 	}); err != nil {
 		return false, err
 	}
@@ -85,7 +84,7 @@ func (r *RegistryPod) ReconcileByConditionStatus(reg *regv1.Registry) (bool, err
 			Status:  corev1.ConditionTrue,
 			Message: "Success",
 		})
-	r.logger.Info("fine")
+
 	return false, nil
 }
 

@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: token-service
+  namespace: registry-system
+  labels:
+    app: token-service
+spec:
+  selector:
+    app: token-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+    - name: https
+      port: 443
+      targetPort: 8443
+  type: NodePort
+  externalTrafficPolicy: Local
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: token-service-log-pvc
+  namespace: registry-system
+  labels:
+    hyperauth: log
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: token-service
+  namespace: registry-system
+  labels:
+    app: token-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: token-service
+  template:
+    metadata:
+      labels:
+        app: token-service
+    spec:
+      containers:
+        - name: token-service
+          image: jboss/keycloak:14.0.0
+          args: [ "-c standalone-ha.xml", "-Dkeycloak.profile.feature.docker=enabled -b 0.0.0.0" ]
+          env:
+            - name: KEYCLOAK_USER
+              value: "admin"
+            - name: KEYCLOAK_PASSWORD
+              value: admin
+            - name: DB_VENDOR     # postgres / tibero
+              value: "postgres"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_ADDR
+              value: token-service-db
+            - name: DB_USER
+              value: "keycloak"
+            - name: DB_PASSWORD
+              value: keycloak
+            - name: TZ
+              value: Asia/Seoul
+            - name: PROXY_ADDRESS_FORWARDING
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: https
+              containerPort: 8443
+          readinessProbe:
+            httpGet:
+              path: /auth/realms/master
+              port: 8080
+          resources:
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+          volumeMounts:
+            - name: log
+              mountPath: /opt/jboss/keycloak/standalone/log/token-service
+            - name: ssl
+              mountPath: /etc/x509/https
+      volumes:
+        - name: log
+          persistentVolumeClaim:
+            claimName: token-service-log-pvc
+        - name: ssl
+          secret:
+            secretName: token-service

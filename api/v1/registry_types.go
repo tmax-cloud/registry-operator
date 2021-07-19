@@ -18,6 +18,7 @@ const (
 	StatusRunning = "Running"
 	// StatusCreating is a status that registry subresources are being created
 	StatusCreating = "Creating"
+	StatusError    = "Error"
 )
 
 // RegistrySpec defines the desired state of Registry
