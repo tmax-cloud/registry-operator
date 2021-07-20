@@ -50,7 +50,7 @@ func reviewAccessImageSigner(req *v1beta1.AdmissionRequest) error {
 			ResourceAttributes: &authorization.ResourceAttributes{
 				Name:     resourceName,
 				Group:    "tmax.io",
-				Version:  ApiVersion,
+				Version:  "v1",
 				Resource: "signerkeys",
 				Verb:     "get",
 			},

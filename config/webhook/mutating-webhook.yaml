@@ -1,4 +1,4 @@
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   name: registry-operator-webhook-cfg
@@ -16,6 +16,8 @@ webhooks:
     apiGroups: ["tmax.io"]
     apiVersions: ["v1"]
     resources: ["imagesigners"]
+  admissionReviewVersions: ["v1"]
+  sideEffects: NoneOnDryRun
 - name: isr.registry-operator.tmax-cloud.github.com
   clientConfig:
     service:
@@ -29,3 +31,5 @@ webhooks:
     apiGroups: ["tmax.io"]
     apiVersions: ["v1"]
     resources: ["imagesignrequests"]
+  admissionReviewVersions: ["v1"]
+  sideEffects: NoneOnDryRun

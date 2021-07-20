@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"fmt"
 	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,16 +14,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/tmax-cloud/registry-operator/internal/utils"
-	"github.com/tmax-cloud/registry-operator/internal/wrapper"
 )
 
 const (
-	ApiGroup   = "registry.tmax.io"
-	ApiVersion = "v1"
-	SignerKind = "imagesigners"
-
 	NamespaceParamKey = "namespace"
-	ResourceParamKey  = "resourceName"
 )
 
 var logger = ctrl.Log.WithName("signer-apis")
@@ -53,46 +46,46 @@ func Initiate() {
 	k8sClient = cli
 }
 
-func AddV1Apis(parent *wrapper.RouterWrapper) error {
-	versionWrapper := wrapper.New(fmt.Sprintf("/%s/%s", ApiGroup, ApiVersion), nil, versionHandler)
-	if err := parent.Add(versionWrapper); err != nil {
-		return err
+func ApisHandler(w http.ResponseWriter, _ *http.Request) {
+	groupVersion := metav1.GroupVersionForDiscovery{
+		GroupVersion: "registry.tmax.io/v1",
+		Version:      "v1",
 	}
-
-	namespaceWrapper := wrapper.New(fmt.Sprintf("/namespaces/{%s}", NamespaceParamKey), nil, nil)
-	if err := versionWrapper.Add(namespaceWrapper); err != nil {
-		return err
-	}
-
-	// Add auth middleware
-	namespaceWrapper.Router.Use(authenticate)
-	// TODO : Authorize
-
-	// Image scan request
-	if err := AddScanRequest(namespaceWrapper); err != nil {
-		return err
-	}
-
-	// Image scan result
-	if err := AddScanResult(namespaceWrapper); err != nil {
-		return err
-	}
-
-	return nil
+	_ = utils.RespondJSON(w, &metav1.APIGroupList{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "APIGroupList",
+		},
+		Groups: []metav1.APIGroup{
+			{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "APIGroup",
+					APIVersion: "",
+				},
+				Name:             "registry.tmax.io",
+				Versions:         []metav1.GroupVersionForDiscovery{groupVersion},
+				PreferredVersion: groupVersion,
+				ServerAddressByClientCIDRs: []metav1.ServerAddressByClientCIDR{
+					{
+						ClientCIDR:    "0.0.0.0/0",
+						ServerAddress: "",
+					},
+				},
+			},
+		},
+	})
 }
 
-func versionHandler(w http.ResponseWriter, _ *http.Request) {
-	apiResourceList := &metav1.APIResourceList{}
-	apiResourceList.Kind = "APIResourceList"
-	apiResourceList.GroupVersion = fmt.Sprintf("%s/%s", ApiGroup, ApiVersion)
-	apiResourceList.APIVersion = ApiVersion
-
-	apiResourceList.APIResources = []metav1.APIResource{
-		{
-			Name:       fmt.Sprintf("%s/keys", SignerKind),
-			Namespaced: true,
+func VersionHandler(w http.ResponseWriter, _ *http.Request) {
+	_ = utils.RespondJSON(w, &metav1.APIResourceList{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "APIResourceList",
 		},
-	}
-
-	_ = utils.RespondJSON(w, apiResourceList)
+		GroupVersion: "registry.tmax.io/v1",
+		APIResources: []metav1.APIResource{
+			{
+				Name:       "imagesigners/keys",
+				Namespaced: true,
+			},
+		},
+	})
 }

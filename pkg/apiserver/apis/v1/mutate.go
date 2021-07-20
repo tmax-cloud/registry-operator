@@ -7,7 +7,6 @@ import (
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type patchOperation struct {
@@ -16,7 +15,7 @@ type patchOperation struct {
 	Value interface{} `json:"value,omitempty"`
 }
 
-func Mutate(ar *v1beta1.AdmissionReview, client client.Client) *v1beta1.AdmissionResponse {
+func Mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	req := ar.Request
 
 	// AdmissionReview for Kind=tmax.io/v1, Kind=ImageSigner, Namespace= Name=yun  UID=685e6c98-a47c-4fb5-b2c5-8d8140eb0ffd patchOperation=CREATE UserInfo={admin@tmax.co.kr  [system:authenticated] map[]}

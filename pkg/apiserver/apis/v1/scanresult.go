@@ -19,7 +19,6 @@ import (
 	config "github.com/tmax-cloud/registry-operator/internal/common/config"
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
-	"github.com/tmax-cloud/registry-operator/internal/wrapper"
 	"github.com/tmax-cloud/registry-operator/pkg/image"
 	"github.com/tmax-cloud/registry-operator/pkg/scan"
 	clairReg "github.com/tmax-cloud/registry-operator/pkg/scan/clair"
@@ -29,40 +28,12 @@ import (
 )
 
 const (
-	RepositoryKind    = "repositories"
-	ExtRepositoryKind = "ext-repositories"
-	ScanResultKind    = "imagescanresults"
-
 	RepositoryParamKey = "repositoryName"
 	TagParamKey        = "tagName"
 )
 
-func AddScanResult(parent *wrapper.RouterWrapper) error {
-	listScanSummaryWrapper := wrapper.New(fmt.Sprintf("/%s/{%s}/%s", RepositoryKind, RepositoryParamKey, ScanResultKind), []string{http.MethodGet}, listScanSummaryHandler)
-	if err := parent.Add(listScanSummaryWrapper); err != nil {
-		return err
-	}
-
-	scanResultWrapper := wrapper.New(fmt.Sprintf("/%s/{%s}/%s/{%s}", RepositoryKind, RepositoryParamKey, ScanResultKind, TagParamKey), []string{http.MethodGet}, scanResultHandler)
-	if err := parent.Add(scanResultWrapper); err != nil {
-		return err
-	}
-
-	listExtScanSummaryWrapper := wrapper.New(fmt.Sprintf("/%s/{%s}/%s", ExtRepositoryKind, RepositoryParamKey, ScanResultKind), []string{http.MethodGet}, listExtScanSummaryHandler)
-	if err := parent.Add(listExtScanSummaryWrapper); err != nil {
-		return err
-	}
-
-	scanExtResultWrapper := wrapper.New(fmt.Sprintf("/%s/{%s}/%s/{%s}", ExtRepositoryKind, RepositoryParamKey, ScanResultKind, TagParamKey), []string{http.MethodGet}, extScanResultHandler)
-	if err := parent.Add(scanExtResultWrapper); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Return summary of vulnerabilities
-func listScanSummaryHandler(w http.ResponseWriter, req *http.Request) {
+func ListScanSummaryHandler(w http.ResponseWriter, req *http.Request) {
 	results, err := getScanResultFromInternal(req)
 	if err != nil {
 		code := http.StatusInternalServerError
@@ -87,7 +58,7 @@ func listScanSummaryHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // Return summary of vulnerabilities
-func listExtScanSummaryHandler(w http.ResponseWriter, req *http.Request) {
+func ListExtScanSummaryHandler(w http.ResponseWriter, req *http.Request) {
 	results, err := getScanResultFromExternal(req)
 	if err != nil {
 		code := http.StatusInternalServerError
@@ -112,7 +83,7 @@ func listExtScanSummaryHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // Return actual list of vulnerabilities
-func scanResultHandler(w http.ResponseWriter, req *http.Request) {
+func ScanResultHandler(w http.ResponseWriter, req *http.Request) {
 	results, err := getScanResultFromInternal(req)
 	if err != nil {
 		code := http.StatusInternalServerError
@@ -128,7 +99,7 @@ func scanResultHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // Return actual list of vulnerabilities
-func extScanResultHandler(w http.ResponseWriter, req *http.Request) {
+func ExtScanResultHandler(w http.ResponseWriter, req *http.Request) {
 	results, err := getScanResultFromExternal(req)
 	if err != nil {
 		code := http.StatusInternalServerError

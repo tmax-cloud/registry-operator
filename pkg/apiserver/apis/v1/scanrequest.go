@@ -10,34 +10,17 @@ import (
 	"github.com/gorilla/mux"
 	v1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
-	"github.com/tmax-cloud/registry-operator/internal/wrapper"
 	"github.com/tmax-cloud/registry-operator/pkg/scan"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
-	ScanKind                        = "scans"
 	ScanRequestNameParamKey         = "scanReqName"
-	ExternalScanKind                = "ext-scans"
 	ExternalScanRequestNameParamKey = "ext-scanReqName"
 )
 
-func AddScanRequest(parent *wrapper.RouterWrapper) error {
-	scanRequestWrapper := wrapper.New(fmt.Sprintf("/%s/{%s}", ScanKind, ScanRequestNameParamKey), []string{http.MethodPost}, scanRequestHandler)
-	if err := parent.Add(scanRequestWrapper); err != nil {
-		return err
-	}
-
-	extScanRequestWrapper := wrapper.New(fmt.Sprintf("/%s/{%s}", ExternalScanKind, ExternalScanRequestNameParamKey), []string{http.MethodPost}, extScanRequestHandler)
-	if err := parent.Add(extScanRequestWrapper); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func scanRequestHandler(w http.ResponseWriter, req *http.Request) {
+func ScanRequestHandler(w http.ResponseWriter, req *http.Request) {
 	reqId := utils.RandomString(10)
 	log := logger.WithValues("request", reqId)
 
@@ -78,7 +61,7 @@ func scanRequestHandler(w http.ResponseWriter, req *http.Request) {
 	_ = utils.RespondJSON(w, &scan.RequestResponse{ImageScanRequestName: scanRequest.Name})
 }
 
-func extScanRequestHandler(w http.ResponseWriter, req *http.Request) {
+func ExtScanRequestHandler(w http.ResponseWriter, req *http.Request) {
 	reqId := utils.RandomString(10)
 	log := logger.WithValues("request", reqId)
 
