@@ -24,8 +24,7 @@ var logger = ctrl.Log.WithName("signer-apis")
 var authClient *authorization.AuthorizationV1Client
 var k8sClient client.Client
 
-func Initiate() {
-	// Auth Client
+func init() {
 	authCli, err := utils.AuthClient()
 	if err != nil {
 		logger.Error(err, "")
@@ -33,7 +32,6 @@ func Initiate() {
 	}
 	authClient = authCli
 
-	// K8s Client
 	opt := client.Options{Scheme: runtime.NewScheme()}
 	utilruntime.Must(tmaxiov1.AddToScheme(opt.Scheme))
 	utilruntime.Must(corev1.AddToScheme(opt.Scheme))

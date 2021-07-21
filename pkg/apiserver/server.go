@@ -1,129 +1,169 @@
 package apiserver
 
 import (
-	"encoding/json"
+	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"github.com/gorilla/mux"
+	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
-	wbapiv1 "github.com/tmax-cloud/registry-operator/pkg/apiserver/apis/v1"
+	wbapi "github.com/tmax-cloud/registry-operator/pkg/apiserver/apis"
+	whapiv1 "github.com/tmax-cloud/registry-operator/pkg/apiserver/apis/v1"
 	"io/ioutil"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admissionregistration/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/util/cert"
+	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+	certResources "knative.dev/pkg/webhook/certificates/resources"
 	"net/http"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"os"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"time"
 )
 
 var (
-	runtimeScheme = runtime.NewScheme()
-	codecs        = serializer.NewCodecFactory(runtimeScheme)
-	deserializer  = codecs.UniversalDeserializer()
-	log           = ctrl.Log.WithName("extension-api-server")
+	scheme = runtime.NewScheme()
 )
 
-func RootHandler(w http.ResponseWriter, _ *http.Request) {
-	paths := metav1.RootPaths{}
-	_ = utils.RespondJSON(w, paths)
+func init() {
+	utilruntime.Must(apiregv1.AddToScheme(scheme))
+	utilruntime.Must(corev1.AddToScheme(scheme))
+	utilruntime.Must(admissionv1.AddToScheme(scheme))
+	utilruntime.Must(regv1.AddToScheme(scheme))
+	utilruntime.Must(rbacv1.AddToScheme(scheme))
+	// +kubebuilder:scaffold:scheme
 }
 
-func MutateHandler(w http.ResponseWriter, r *http.Request) {
-	var body []byte
-	if r.Body != nil {
-		if data, err := ioutil.ReadAll(r.Body); err == nil {
-			body = data
-		}
-	}
-	if len(body) == 0 {
-		log.Error(nil, "empty body")
-		http.Error(w, "empty body", http.StatusBadRequest)
-		return
-	}
-	// verify the content type is accurate
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		log.Error(nil, "Content-Type=%s, expect application/json", contentType)
-		http.Error(w, "invalid Content-Type, expect `application/json`", http.StatusUnsupportedMediaType)
-		return
-	}
-	var admissionResponse *v1beta1.AdmissionResponse
-	ar := v1beta1.AdmissionReview{}
-	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
-		log.Error(nil, "Can't decode body: %v", err)
-		admissionResponse = &v1beta1.AdmissionResponse{
-			Result: &metav1.Status{
-				Message: err.Error(),
-			},
-		}
-	} else {
-		admissionResponse = wbapiv1.Mutate(&ar)
-	}
-	admissionReview := v1beta1.AdmissionReview{}
-	if admissionResponse != nil {
-		admissionReview.Response = admissionResponse
-		if ar.Request != nil {
-			admissionReview.Response.UID = ar.Request.UID
-		}
-	}
-
-	resp, err := json.Marshal(admissionReview)
-	if err != nil {
-		log.Error(nil, "Can't encode response: %v", err)
-		http.Error(w, fmt.Sprintf("could not encode response: %v", err), http.StatusInternalServerError)
-	}
-	log.Info("Ready to write reponse ...")
-	if _, err := w.Write(resp); err != nil {
-		log.Error(nil, "Can't write response: %v", err)
-		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
-	}
+type ApiServer struct {
+	http.Server
 }
 
-func ImageSignRequestHandler(w http.ResponseWriter, r *http.Request) {
-	var body []byte
-	if r.Body != nil {
-		if data, err := ioutil.ReadAll(r.Body); err == nil {
-			body = data
-		}
+func NewApiServer() (*ApiServer, error) {
+	r := mux.NewRouter()
+	r.HandleFunc("/", wbapi.RootHandler)
+	r.HandleFunc("/mutate", wbapi.MutateHandler)
+	r.HandleFunc("/imagesignrequest", wbapi.ImageSignRequestHandler)
+
+	s := r.PathPrefix("/apis/registry.tmax.io").Subrouter()
+	s.Use(whapiv1.Authenticate)
+
+	s.HandleFunc("/", whapiv1.ApisHandler)
+	s.HandleFunc("/v1", whapiv1.VersionHandler)
+	s.HandleFunc("/v1/namespaces/{namespace}/scans/{scanReqName}", whapiv1.ScanRequestHandler)
+	s.HandleFunc("/v1/namespaces/{namespace}/ext-scans/{ext-scanReqName}", whapiv1.ExtScanRequestHandler)
+	s.HandleFunc("/v1/namespaces/{namespace}/repositories/{repositoryName}/imagescanresults", whapiv1.ListScanSummaryHandler)
+	s.HandleFunc("/v1/namespaces/{namespace}/repositories/{repositoryName}/imagescanresults/{tagName}", whapiv1.ScanResultHandler)
+	s.HandleFunc("/v1/namespaces/{namespace}/ext-repositories/repositoryName}/imagescanresults", whapiv1.ListExtScanSummaryHandler)
+	s.HandleFunc("/v1/namespaces/{namespace}/ext-repositories/{repositoryName}/imagescanresults/{tagName}", whapiv1.ExtScanResultHandler)
+
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return nil, err
 	}
-	if len(body) == 0 {
-		log.Error(nil, "empty body")
-		http.Error(w, "empty body", http.StatusBadRequest)
-		return
-	}
-	// verify the content type is accurate
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		log.Error(nil, "Content-Type=%s, expect application/json", contentType)
-		http.Error(w, "invalid Content-Type, expect `application/json`", http.StatusUnsupportedMediaType)
-		return
-	}
-	var admissionResponse *v1beta1.AdmissionResponse
-	ar := v1beta1.AdmissionReview{}
-	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
-		log.Error(nil, "Can't decode body: %v", err)
-		admissionResponse = &v1beta1.AdmissionResponse{
-			Result: &metav1.Status{
-				Message: err.Error(),
-			},
-		}
-	} else {
-		admissionResponse = wbapiv1.ImageSignRequest(&ar, w, r)
-	}
-	admissionReview := v1beta1.AdmissionReview{}
-	if admissionResponse != nil {
-		admissionReview.Response = admissionResponse
-		if ar.Request != nil {
-			admissionReview.Response.UID = ar.Request.UID
-		}
+	c, err := client.New(cfg, client.Options{Scheme: scheme})
+	if err != nil {
+		return nil, err
 	}
 
-	resp, err := json.Marshal(admissionReview)
+	if err = renewCertForWebhook(c); err != nil {
+		return nil, err
+	}
+
+	configMap := &corev1.ConfigMap{}
+	if err = c.Get(context.TODO(), types.NamespacedName{
+		Namespace: metav1.NamespaceSystem,
+		Name:      "extension-apiserver-authentication",
+	}, configMap); err != nil {
+		return nil, fmt.Errorf("failed to get 'extension-apiserver-authentication' configmap")
+	}
+	clientCA, ok := configMap.Data["requestheader-client-ca-file"]
+	if !ok {
+		return nil, fmt.Errorf("failed to get requestheader-client CA")
+	}
+	certs, err := cert.ParseCertsPEM([]byte(clientCA))
 	if err != nil {
-		log.Error(nil, "Can't encode response: %v", err)
-		http.Error(w, fmt.Sprintf("could not encode response: %v", err), http.StatusInternalServerError)
+		return nil, fmt.Errorf("failed to parse requestheader-client CA PEM")
 	}
-	log.Info("Ready to write reponse ...")
-	if _, err := w.Write(resp); err != nil {
-		log.Error(nil, "Can't write response: %v", err)
-		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
+	caPool := x509.NewCertPool()
+	for _, c := range certs {
+		caPool.AddCert(c)
 	}
+
+	//v1.Initiate()
+
+	webhook := http.Server{
+		Addr:    "0.0.0.0:24335",
+		Handler: r,
+		TLSConfig: &tls.Config{
+			ClientCAs:  caPool,
+			ClientAuth: tls.VerifyClientCertIfGiven,
+		},
+	}
+
+	return &ApiServer{
+		Server: webhook,
+	}, nil
+}
+
+func renewCertForWebhook(c client.Client) error {
+	if err := os.MkdirAll("/tmp/run-api", os.ModePerm); err != nil {
+		return err
+	}
+
+	// Get service name and namespace
+	svc := utils.OperatorServiceName()
+	ns, err := utils.Namespace()
+	if err != nil {
+		return err
+	}
+
+	// Create certs
+	ctx := context.Background()
+
+	tlsKey, tlsCrt, caCrt, err := certResources.CreateCerts(ctx, svc, ns, time.Now().AddDate(10, 0, 0))
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile("/tmp/run-api/tls.key", tlsKey, 0644)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile("/tmp/run-api/tls.crt", tlsCrt, 0644)
+	if err != nil {
+		return err
+	}
+
+	apiService := &apiregv1.APIService{}
+	if err = c.Get(ctx, types.NamespacedName{Name: "v1.registry.tmax.io"}, apiService); err != nil {
+		return err
+	}
+	apiService.Spec.CABundle = caCrt
+	if err = c.Update(ctx, apiService); err != nil {
+		return err
+	}
+
+	mwConfig := &admissionv1.MutatingWebhookConfiguration{}
+	if err = c.Get(ctx, types.NamespacedName{Name: "registry-operator-webhook-cfg"}, mwConfig); err != nil {
+		return err
+	}
+
+	if len(mwConfig.Webhooks) != 2 {
+		return fmt.Errorf("MutatingWebhookConfiguration's webhook must be two, but there is/are %d", len(mwConfig.Webhooks))
+	}
+
+	mwConfig.Webhooks[0].ClientConfig.CABundle = caCrt
+	mwConfig.Webhooks[1].ClientConfig.CABundle = caCrt
+
+	if err = c.Update(ctx, mwConfig); err != nil {
+		return err
+	}
+
+	return nil
 }
