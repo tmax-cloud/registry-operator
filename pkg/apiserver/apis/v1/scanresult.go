@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/tmax-cloud/registry-operator/pkg/apiserver/models"
 	"net/http"
 	"path"
 	"strings"
@@ -20,7 +21,6 @@ import (
 	"github.com/tmax-cloud/registry-operator/internal/schemes"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
 	"github.com/tmax-cloud/registry-operator/pkg/image"
-	"github.com/tmax-cloud/registry-operator/pkg/scan"
 	clairReg "github.com/tmax-cloud/registry-operator/pkg/scan/clair"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -33,8 +33,8 @@ const (
 )
 
 // Return summary of vulnerabilities
-func ListScanSummaryHandler(w http.ResponseWriter, req *http.Request) {
-	results, err := getScanResultFromInternal(req)
+func (h *RegistryAPI) ScanResultSummaryList(w http.ResponseWriter, req *http.Request) {
+	results, err := h.getScanResultFromInternal(req)
 	if err != nil {
 		code := http.StatusInternalServerError
 		msg := err.Error()
@@ -58,8 +58,8 @@ func ListScanSummaryHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // Return summary of vulnerabilities
-func ListExtScanSummaryHandler(w http.ResponseWriter, req *http.Request) {
-	results, err := getScanResultFromExternal(req)
+func (h *RegistryAPI) ExternalScanResultSummaryList(w http.ResponseWriter, req *http.Request) {
+	results, err := h.getScanResultFromExternal(req)
 	if err != nil {
 		code := http.StatusInternalServerError
 		msg := err.Error()
@@ -83,8 +83,8 @@ func ListExtScanSummaryHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // Return actual list of vulnerabilities
-func ScanResultHandler(w http.ResponseWriter, req *http.Request) {
-	results, err := getScanResultFromInternal(req)
+func (h *RegistryAPI) ScanResultHandler(w http.ResponseWriter, req *http.Request) {
+	results, err := h.getScanResultFromInternal(req)
 	if err != nil {
 		code := http.StatusInternalServerError
 		msg := err.Error()
@@ -99,8 +99,8 @@ func ScanResultHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // Return actual list of vulnerabilities
-func ExtScanResultHandler(w http.ResponseWriter, req *http.Request) {
-	results, err := getScanResultFromExternal(req)
+func (h *RegistryAPI) ExtScanResultHandler(w http.ResponseWriter, req *http.Request) {
+	results, err := h.getScanResultFromExternal(req)
 	if err != nil {
 		code := http.StatusInternalServerError
 		msg := err.Error()
@@ -114,31 +114,27 @@ func ExtScanResultHandler(w http.ResponseWriter, req *http.Request) {
 	_ = utils.RespondJSON(w, results)
 }
 
-func getScanResultFromInternal(req *http.Request) (map[string]scan.ResultResponse, error) {
-	reqId := utils.RandomString(10)
-	log := logger.WithValues("request", reqId)
-
-	// Get path parameters
-	vars := mux.Vars(req)
-
-	ns, nsExist := vars[NamespaceParamKey]
-	repoName, repoNameExist := vars[RepositoryParamKey]
-	if !nsExist || !repoNameExist {
+func (h *RegistryAPI) getScanResultFromInternal(r *http.Request) (map[string]models.ResultResponse, error) {
+	vars := mux.Vars(r)
+	namespace, namespaceOk := vars[NamespaceParamKey]
+	name, nameOk := vars[RepositoryParamKey]
+	if !namespaceOk || !nameOk {
 		return nil, errors.NewBadRequest("url is malformed")
 	}
-
-	// Get tag
 	tag, tagExist := vars[TagParamKey]
 
+	ctx := r.Context()
+	log := h.logger.WithValues("namespace", namespace, "name", name)
+
 	repo := &v1.Repository{}
-	if err := k8sClient.Get(context.Background(), types.NamespacedName{Name: repoName, Namespace: ns}, repo); err != nil {
-		log.Info(err.Error())
+	if err := h.c.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, repo); err != nil {
+		log.Error(err, "failed to get XXXX")
 		return nil, errors.NewInternalError(err)
 	}
 
 	reg := &v1.Registry{}
-	if err := k8sClient.Get(context.Background(), types.NamespacedName{Name: repo.Spec.Registry, Namespace: ns}, reg); err != nil {
-		log.Info(err.Error())
+	if err := h.c.Get(ctx, types.NamespacedName{Name: repo.Spec.Registry, Namespace: namespace}, reg); err != nil {
+		log.Error(err, "failed to get XXXX")
 		return nil, errors.NewInternalError(err)
 	}
 
@@ -146,8 +142,8 @@ func getScanResultFromInternal(req *http.Request) (map[string]scan.ResultRespons
 
 	// TODO - functionize
 	secret := &corev1.Secret{}
-	if err := k8sClient.Get(context.Background(), types.NamespacedName{Name: v1.K8sPrefix + v1.K8sRegistryPrefix + strings.ToLower(reg.Name), Namespace: ns}, secret); err != nil {
-		log.Info(err.Error())
+	if err := h.c.Get(ctx, types.NamespacedName{Name: v1.K8sPrefix + v1.K8sRegistryPrefix + strings.ToLower(reg.Name), Namespace: namespace}, secret); err != nil {
+		log.Error(err, "failed to get XXXX")
 		return nil, errors.NewInternalError(err)
 	}
 
@@ -160,10 +156,9 @@ func getScanResultFromInternal(req *http.Request) (map[string]scan.ResultRespons
 
 	basicAuth := &schemes.DockerConfig{}
 	if err := json.Unmarshal(authStr, basicAuth); err != nil {
-		log.Info(err.Error())
+		log.Error(err, "failed to get XXXX")
 		return nil, errors.NewInternalError(err)
 	}
-
 	basicAuthObj, ok := basicAuth.Auths[regBaseUrl]
 	if !ok {
 		msg := "cannot find cred for " + regBaseUrl + " from the secret"
@@ -173,7 +168,7 @@ func getScanResultFromInternal(req *http.Request) (map[string]scan.ResultRespons
 
 	img, err := image.NewImage(path.Join(regBaseUrl, repo.Spec.Name), "https://"+regBaseUrl, basicAuthObj.Auth, nil)
 	if err != nil {
-		log.Info(err.Error())
+		log.Error(err, "failed to get XXXX")
 		return nil, errors.NewInternalError(err)
 	}
 
@@ -184,54 +179,47 @@ func getScanResultFromInternal(req *http.Request) (map[string]scan.ResultRespons
 		versions = repo.Spec.Versions
 	}
 
-	results := map[string]scan.ResultResponse{}
+	results := map[string]models.ResultResponse{}
 	for _, version := range versions {
 		img.Tag = version.Version
-		res, err := scan.GetScanResult(img)
+		res, err := models.GetScanResult(img)
 		if err != nil {
-			log.Info(err.Error())
+			log.Error(err, "failed to get XXXX")
 			continue
 		}
-
 		results[version.Version] = res
 	}
 
 	return results, nil
 }
 
-func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultResponse, error) {
-	reqId := utils.RandomString(10)
-	log := logger.WithValues("request", reqId)
-
-	// Get path parameters
-	vars := mux.Vars(req)
-
-	namespace, isNamespaceExist := vars[NamespaceParamKey]
-	repository, isRepositoryExist := vars[RepositoryParamKey]
-	tag, isTagExist := vars[TagParamKey]
-
-	if !isNamespaceExist || !isRepositoryExist {
+func (h *RegistryAPI) getScanResultFromExternal(r *http.Request) (map[string]models.ResultResponse, error) {
+	vars := mux.Vars(r)
+	namespace, namespaceOk := vars[NamespaceParamKey]
+	repository, repositoryOk := vars[RepositoryParamKey]
+	if !namespaceOk || !repositoryOk {
 		return nil, errors.NewBadRequest("url is malformed")
 	}
+	tag, isTagExist := vars[TagParamKey]
 
-	log.Info(fmt.Sprintf("*** namespace: %s/ repository: %s / tag: %s", namespace, repository, tag))
+	ctx := r.Context()
+	log := h.logger.WithValues("namespace", namespace, "name", repository)
 
-	ctx := context.Background()
 	repo := &v1.Repository{}
-	if err := k8sClient.Get(ctx, types.NamespacedName{Name: repository, Namespace: namespace}, repo); err != nil {
-		log.Info(err.Error())
+	if err := h.c.Get(ctx, types.NamespacedName{Name: repository, Namespace: namespace}, repo); err != nil {
+		log.Error(err, "failed to get XXX")
 		return nil, errors.NewInternalError(err)
 	}
 
 	reg := &v1.ExternalRegistry{}
-	if err := k8sClient.Get(ctx, types.NamespacedName{Name: repo.Spec.Registry, Namespace: namespace}, reg); err != nil {
-		log.Info(err.Error())
+	if err := h.c.Get(ctx, types.NamespacedName{Name: repo.Spec.Registry, Namespace: namespace}, reg); err != nil {
+		log.Error(err, "failed to get XXX")
 		return nil, errors.NewInternalError(err)
 	}
 
 	imagePullSecret := &corev1.Secret{}
-	if err := k8sClient.Get(ctx, types.NamespacedName{Name: reg.Status.LoginSecret, Namespace: namespace}, imagePullSecret); err != nil {
-		log.Info(err.Error())
+	if err := h.c.Get(ctx, types.NamespacedName{Name: reg.Status.LoginSecret, Namespace: namespace}, imagePullSecret); err != nil {
+		log.Error(err, "failed to get XXX")
 		return nil, errors.NewInternalError(fmt.Errorf("Failed to get ImagePullSecret(%s)", reg.Status.LoginSecret))
 	}
 
@@ -263,7 +251,7 @@ func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultRespons
 	password := decodedCredential[sepIdx+1:]
 
 	certSecret := &corev1.Secret{}
-	if err := k8sClient.Get(ctx, types.NamespacedName{Name: reg.Spec.CertificateSecret, Namespace: namespace}, certSecret); err != nil {
+	if err := h.c.Get(ctx, types.NamespacedName{Name: reg.Spec.CertificateSecret, Namespace: namespace}, certSecret); err != nil {
 		return nil, errors.NewInternalError(fmt.Errorf("Failed to get dockerconfig[%s].auths", reg.Spec.RegistryURL))
 	}
 
@@ -295,7 +283,7 @@ func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultRespons
 	}
 
 	// Create the registry client.
-	r, err := newRegistryClient(reg.Spec.RegistryURL, username, password, tlsCertData)
+	regCli, err := newRegistryClient(reg.Spec.RegistryURL, username, password, tlsCertData)
 	if err != nil {
 		log.Error(err, "Failed to create registry client")
 		return nil, err
@@ -312,15 +300,12 @@ func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultRespons
 		return nil, err
 	}
 
-	log.Info(fmt.Sprintf("*** registry: %s/ clair: %s", r.URL, cr.URL))
-
 	// Get the vulnerability report.
-	report, err := cr.Vulnerabilities(ctx, r, img.Path, img.Reference())
+	report, err := cr.Vulnerabilities(ctx, regCli, img.Path, img.Reference())
 	if err != nil {
 		log.Error(err, "failed to get image vulnerabilities")
 		return nil, err
 	}
-
 	var versions []v1.ImageVersion
 	if isTagExist {
 		versions = []v1.ImageVersion{{Version: tag}}
@@ -328,7 +313,7 @@ func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultRespons
 		versions = repo.Spec.Versions
 	}
 
-	results := map[string]scan.ResultResponse{}
+	results := map[string]models.ResultResponse{}
 	for _, version := range versions {
 		results[version.Version] = report.VulnsBySeverity
 	}
@@ -337,7 +322,6 @@ func getScanResultFromExternal(req *http.Request) (map[string]scan.ResultRespons
 }
 
 func newRegistryClient(url, username, password string, ca []byte) (*registry.Registry, error) {
-
 	// get keycloak ca if exists
 	keycloakCA, err := certs.GetSystemKeycloakCert(nil)
 	if err != nil && !errors.IsNotFound(err) {

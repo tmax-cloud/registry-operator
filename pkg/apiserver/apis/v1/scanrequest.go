@@ -1,16 +1,16 @@
 package v1
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/tmax-cloud/registry-operator/pkg/apiserver/models"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
 	v1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
-	"github.com/tmax-cloud/registry-operator/pkg/scan"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -20,226 +20,165 @@ const (
 	ExternalScanRequestNameParamKey = "ext-scanReqName"
 )
 
-func ScanRequestHandler(w http.ResponseWriter, req *http.Request) {
-	reqId := utils.RandomString(10)
-	log := logger.WithValues("request", reqId)
-
-	// Get path parameters
-	vars := mux.Vars(req)
-
-	ns, nsExist := vars[NamespaceParamKey]
-	reqName, reqNameExist := vars[ScanRequestNameParamKey]
-	if !nsExist || !reqNameExist {
+func (h *RegistryAPI) CreateImageScanRequest(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	namespace, namespaceOk := vars[NamespaceParamKey]
+	name, nameOk := vars[ScanRequestNameParamKey]
+	if !namespaceOk || !nameOk {
 		_ = utils.RespondError(w, http.StatusBadRequest, "url is malformed")
 		return
 	}
 
-	// Decode request body
-	reqBody := &scan.Request{}
-	decoder := json.NewDecoder(req.Body)
-	if err := decoder.Decode(reqBody); err != nil {
-		log.Info(err.Error())
-		_ = utils.RespondError(w, http.StatusBadRequest, fmt.Sprintf("req: %s, body is not in json form or is malformed, err : %s", reqId, err.Error()))
-		return
-	}
-
-	// Create ImageScanRequest
-	scanRequest, err := newImageScanReq(reqName, ns, reqBody)
-	if err != nil {
-		log.Info(err.Error())
-		_ = utils.RespondError(w, http.StatusInternalServerError, fmt.Sprintf("req: %s, cannot create ImageScanRequest, err: %s", reqId, err.Error()))
-		return
-	}
-
-	if err := k8sClient.Create(context.Background(), scanRequest); err != nil {
-		log.Info(err.Error())
-		_ = utils.RespondError(w, http.StatusInternalServerError, fmt.Sprintf("req: %s, cannot create ImageScanRequest, err: %s", reqId, err.Error()))
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	_ = utils.RespondJSON(w, &scan.RequestResponse{ImageScanRequestName: scanRequest.Name})
-}
-
-func ExtScanRequestHandler(w http.ResponseWriter, req *http.Request) {
-	reqId := utils.RandomString(10)
-	log := logger.WithValues("request", reqId)
-
-	log.Info("**** External registry scan request")
-	// Get path parameters
-	vars := mux.Vars(req)
-
-	ns, nsExist := vars[NamespaceParamKey]
-	reqName, reqNameExist := vars[ExternalScanRequestNameParamKey]
-	if !nsExist || !reqNameExist {
-		_ = utils.RespondError(w, http.StatusBadRequest, "url is malformed")
-		return
-	}
+	ctx := r.Context()
+	log := h.logger.WithName("ScanAPI").WithValues("name", name, "namespace", namespace)
 
 	// Decode request body
-	reqBody := &scan.Request{}
-	decoder := json.NewDecoder(req.Body)
-	if err := decoder.Decode(reqBody); err != nil {
-		log.Info(err.Error())
-		_ = utils.RespondError(w, http.StatusBadRequest, fmt.Sprintf("req: %s, body is not in json form or is malformed, err : %s", reqId, err.Error()))
+	reqBody := &models.ScanApiRequest{}
+	if err := json.NewDecoder(r.Body).Decode(reqBody); err != nil {
+		log.Error(err, "failed to decode request body")
+		_ = utils.RespondError(w, http.StatusInternalServerError, "failed to decode request body")
 		return
 	}
-
-	// Create ImageScanRequest
-	scanRequest, err := newExtImageScanReq(reqName, ns, reqBody)
-	if err != nil {
-		log.Info(err.Error())
-		_ = utils.RespondError(w, http.StatusInternalServerError, fmt.Sprintf("req: %s, cannot create ImageScanRequest, err: %s", reqId, err.Error()))
-		return
-	}
-
-	if err := k8sClient.Create(context.Background(), scanRequest); err != nil {
-		log.Info(err.Error())
-		_ = utils.RespondError(w, http.StatusInternalServerError, fmt.Sprintf("req: %s, cannot create ImageScanRequest, err: %s", reqId, err.Error()))
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	_ = utils.RespondJSON(w, &scan.RequestResponse{ImageScanRequestName: scanRequest.Name})
-}
-
-func newImageScanReq(name, ns string, reqBody *scan.Request) (*v1.ImageScanRequest, error) {
-	if reqBody == nil {
-		return nil, fmt.Errorf("reqBody is nil")
-	}
-
-	randId := utils.RandomString(5)
 
 	var targets []v1.ScanTarget
-
-	// Parse registry url
 	for _, reg := range reqBody.Registries {
-		regName := reg.Name
-		regObj := &v1.Registry{}
-		if err := k8sClient.Get(context.Background(), types.NamespacedName{Name: regName, Namespace: ns}, regObj); err != nil {
-			return nil, err
+		o := &v1.Registry{}
+		if err := h.c.Get(ctx, types.NamespacedName{Name: reg.Name, Namespace: namespace}, o); err != nil {
+			log.Error(err, "failed to get registry")
+			_ = utils.RespondError(w, http.StatusNotFound, "registry not found")
+			return
 		}
 
-		regCred := v1.K8sPrefix + v1.K8sRegistryPrefix + strings.ToLower(regName)
-
-		var repoUrls []string
-		for _, repo := range reg.Repositories {
-			repoName := repo.Name
-
-			// Repo wild card
-			if repoName == "*" {
-				repoUrls = []string{"*"}
+		var images []string
+		for _, repository := range reg.Repositories {
+			if repository.Name == "*" {
+				images = []string{"*"}
 				break
 			}
-
-			// Get Repo
-			repoObj := &v1.Repository{}
-			if err := k8sClient.Get(context.Background(), types.NamespacedName{Name: repoName, Namespace: ns}, repoObj); err != nil {
-				return nil, err
+			repo := &v1.Repository{}
+			if err := h.c.Get(ctx, types.NamespacedName{Name: repository.Name, Namespace: namespace}, repo); err != nil {
+				log.Error(err, "failed to get repository", "repository", repository.Name)
+				_ = utils.RespondError(w, http.StatusNotFound, "repository not found")
+				return
 			}
 
-			repoBaseUrl := repoObj.Spec.Name
-
-			var tagUrls []string
-			for _, tag := range repo.Versions {
-				// Tag wild card
+			var taggedImageNames []string
+			for _, tag := range repository.Versions {
+				// FIXME: Change if ImageScanRequest Controller support for tag pattern
 				if tag == "*" {
-					tagUrls = []string{fmt.Sprintf("%s:*", repoBaseUrl)}
+					taggedImageNames = append(taggedImageNames, repo.Spec.Name)
 					break
 				}
-
-				tagUrls = append(tagUrls, fmt.Sprintf("%s:%s", repoBaseUrl, tag))
+				taggedImageNames = append(taggedImageNames, fmt.Sprintf("%s:%s", repo.Spec.Name, tag))
 			}
-
-			repoUrls = append(repoUrls, tagUrls...)
+			images = append(images, taggedImageNames...)
 		}
-
 		targets = append(targets, v1.ScanTarget{
-			Images:          repoUrls,
-			ImagePullSecret: regCred,
-			RegistryURL:     strings.TrimPrefix(regObj.Status.ServerURL, "https://"),
+			RegistryURL:     strings.TrimPrefix(o.Status.ServerURL, "https://"),
+			Images:          images,
+			ImagePullSecret: v1.K8sPrefix + v1.K8sRegistryPrefix + strings.ToLower(reg.Name),
 		})
 	}
 
-	return &v1.ImageScanRequest{
+	imageScanRequest := &v1.ImageScanRequest{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name + "-" + randId,
-			Namespace: ns,
+			Name:      name + "-" + rand.String(10),
+			Namespace: namespace,
 		},
 		Spec: v1.ImageScanRequestSpec{
 			ScanTargets: targets,
 			SendReport:  true,
 			Insecure:    true,
 		},
-	}, nil
+	}
+	if err := h.c.Create(ctx, imageScanRequest); err != nil {
+		log.Error(err, "failed to create resource ImageScanRequest")
+		_ = utils.RespondError(w, http.StatusInternalServerError, "failed to create resource ImageScanRequest")
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	_ = utils.RespondJSON(w, &models.ScanApiResponse{Name: imageScanRequest.Name})
 }
 
-func newExtImageScanReq(name, ns string, reqBody *scan.Request) (*v1.ImageScanRequest, error) {
-	if reqBody == nil {
-		return nil, fmt.Errorf("reqBody is nil")
+func (h *RegistryAPI) CreateImageScanRequestFromExternalReg(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	namespace, namespaceOk := vars[NamespaceParamKey]
+	name, nameOk := vars[ExternalScanRequestNameParamKey]
+	if !namespaceOk || !nameOk {
+		_ = utils.RespondError(w, http.StatusBadRequest, "url is malformed")
+		return
 	}
 
-	randId := utils.RandomString(5)
+	ctx := r.Context()
+	log := h.logger.WithName("ExternalScanAPI").WithValues("name", name, "namespace", namespace)
+
+	reqBody := &models.ScanApiRequest{}
+	if err := json.NewDecoder(r.Body).Decode(reqBody); err != nil {
+		log.Error(err, "failed to decode request body")
+		_ = utils.RespondError(w, http.StatusBadRequest, "failed to decode request body")
+		return
+	}
 
 	var targets []v1.ScanTarget
-
-	// Parse registry url
 	for _, reg := range reqBody.Registries {
-		regName := reg.Name
-		regObj := &v1.ExternalRegistry{}
-		if err := k8sClient.Get(context.Background(), types.NamespacedName{Name: regName, Namespace: ns}, regObj); err != nil {
-			return nil, err
+		o := &v1.ExternalRegistry{}
+		if err := h.c.Get(ctx, types.NamespacedName{Name: reg.Name, Namespace: namespace}, o); err != nil {
+			log.Error(err, "failed to get external registry")
+			_ = utils.RespondError(w, http.StatusNotFound, "external registry not found")
+			return
 		}
 
-		var repoUrls []string
-		for _, repo := range reg.Repositories {
-			repoName := repo.Name
-
-			// Repo wild card
-			if repoName == "*" {
-				repoUrls = []string{"*"}
+		var images []string
+		for _, repository := range reg.Repositories {
+			if repository.Name == "*" {
+				images = []string{"*"}
 				break
 			}
 
-			// Get Repo
-			repoObj := &v1.Repository{}
-			if err := k8sClient.Get(context.Background(), types.NamespacedName{Name: repoName, Namespace: ns}, repoObj); err != nil {
-				return nil, err
+			repo := &v1.Repository{}
+			if err := h.c.Get(ctx, types.NamespacedName{Name: repository.Name, Namespace: namespace}, repo); err != nil {
+				log.Error(err, "failed to get repository", "repository", repository.Name)
+				_ = utils.RespondError(w, http.StatusNotFound, "repository not found")
+				return
 			}
 
-			repoBaseUrl := repoObj.Spec.Name
-
-			var tagUrls []string
-			for _, tag := range repo.Versions {
-				// Tag wild card
+			var taggedImageNames []string
+			for _, tag := range repository.Versions {
 				if tag == "*" {
-					tagUrls = []string{fmt.Sprintf("%s:*", repoBaseUrl)}
+					images = append(images, repo.Spec.Name)
 					break
 				}
-
-				tagUrls = append(tagUrls, fmt.Sprintf("%s:%s", repoBaseUrl, tag))
+				taggedImageNames = append(taggedImageNames, fmt.Sprintf("%s:%s", repo.Spec.Name, tag))
 			}
-
-			repoUrls = append(repoUrls, tagUrls...)
+			images = append(images, taggedImageNames...)
 		}
 
 		targets = append(targets, v1.ScanTarget{
-			Images:            repoUrls,
-			ImagePullSecret:   regObj.Status.LoginSecret,
-			CertificateSecret: regObj.Spec.CertificateSecret,
-			RegistryURL:       strings.TrimPrefix(regObj.Spec.RegistryURL, "https://"),
+			RegistryURL:       strings.TrimPrefix(o.Spec.RegistryURL, "https://"),
+			Images:            images,
+			ImagePullSecret:   o.Status.LoginSecret,
+			CertificateSecret: o.Spec.CertificateSecret,
 		})
 	}
 
-	return &v1.ImageScanRequest{
+	imageScanRequest := &v1.ImageScanRequest{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name + "-" + randId,
-			Namespace: ns,
+			Name:      name + "-" + rand.String(10),
+			Namespace: namespace,
 		},
 		Spec: v1.ImageScanRequestSpec{
 			ScanTargets: targets,
 			SendReport:  true,
 			Insecure:    true,
 		},
-	}, nil
+	}
+
+	if err := h.c.Create(ctx, imageScanRequest); err != nil {
+		log.Error(err, "failed to create resource ImageScanRequest")
+		_ = utils.RespondError(w, http.StatusInternalServerError, "failed to create resource ImageScanRequest")
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	_ = utils.RespondJSON(w, &models.ScanApiResponse{Name: imageScanRequest.Name})
 }

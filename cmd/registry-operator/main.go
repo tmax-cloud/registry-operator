@@ -148,7 +148,7 @@ func main() {
 	// +kubebuilder:scaffold:builder
 
 	// API Server
-	webhook, err := apiserver.NewApiServer()
+	webhook, err := apiserver.NewApiServer(ctrl.Log.WithName("apiserver"))
 	if err != nil {
 		setupLog.Error(err, "failed to create apiserver")
 		os.Exit(1)

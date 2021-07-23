@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"github.com/tmax-cloud/registry-operator/internal/utils"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	authorization "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/util/cert"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	certResources "knative.dev/pkg/webhook/certificates/resources"
@@ -43,34 +45,43 @@ func init() {
 
 type ApiServer struct {
 	http.Server
+	logger logr.Logger
 }
 
-func NewApiServer() (*ApiServer, error) {
-	r := mux.NewRouter()
-	r.HandleFunc("/", wbapi.RootHandler)
-	r.HandleFunc("/mutate", wbapi.MutateHandler)
-	r.HandleFunc("/imagesignrequest", wbapi.ImageSignRequestHandler)
-
-	s := r.PathPrefix("/apis/registry.tmax.io").Subrouter()
-	s.Use(whapiv1.Authenticate)
-
-	s.HandleFunc("/", whapiv1.ApisHandler)
-	s.HandleFunc("/v1", whapiv1.VersionHandler)
-	s.HandleFunc("/v1/namespaces/{namespace}/scans/{scanReqName}", whapiv1.ScanRequestHandler)
-	s.HandleFunc("/v1/namespaces/{namespace}/ext-scans/{ext-scanReqName}", whapiv1.ExtScanRequestHandler)
-	s.HandleFunc("/v1/namespaces/{namespace}/repositories/{repositoryName}/imagescanresults", whapiv1.ListScanSummaryHandler)
-	s.HandleFunc("/v1/namespaces/{namespace}/repositories/{repositoryName}/imagescanresults/{tagName}", whapiv1.ScanResultHandler)
-	s.HandleFunc("/v1/namespaces/{namespace}/ext-repositories/repositoryName}/imagescanresults", whapiv1.ListExtScanSummaryHandler)
-	s.HandleFunc("/v1/namespaces/{namespace}/ext-repositories/{repositoryName}/imagescanresults/{tagName}", whapiv1.ExtScanResultHandler)
-
+func NewApiServer(logger logr.Logger) (*ApiServer, error) {
 	cfg, err := config.GetConfig()
 	if err != nil {
+		logger.Error(err, "failed to get config")
+		return nil, err
+	}
+	a, err := authorization.NewForConfig(cfg)
+	if err != nil {
+		logger.Error(err, "failed to create authorization client")
 		return nil, err
 	}
 	c, err := client.New(cfg, client.Options{Scheme: scheme})
 	if err != nil {
+		logger.Error(err, "failed to create k8s client")
 		return nil, err
 	}
+
+	r := mux.NewRouter()
+	m := wbapi.NewAdmissionWebhook(a, logger)
+	r.HandleFunc("/", m.RootHandler)
+	r.HandleFunc("/mutate", m.MutateHandler)
+	r.HandleFunc("/imagesignrequest", m.ImageSignRequestHandler)
+
+	s := r.PathPrefix("/apis/registry.tmax.io").Subrouter()
+	h := whapiv1.NewRegistryAPI(c, logger)
+	s.Use(h.Authenticate)
+	s.HandleFunc("/", h.ApisHandler)
+	s.HandleFunc("/v1", h.VersionHandler)
+	s.HandleFunc("/v1/namespaces/{namespace}/scans/{scanReqName}", h.CreateImageScanRequest)
+	s.HandleFunc("/v1/namespaces/{namespace}/ext-scans/{ext-scanReqName}", h.CreateImageScanRequestFromExternalReg)
+	s.HandleFunc("/v1/namespaces/{namespace}/repositories/{repositoryName}/imagescanresults", h.ScanResultSummaryList)
+	s.HandleFunc("/v1/namespaces/{namespace}/repositories/{repositoryName}/imagescanresults/{tagName}", h.ScanResultHandler)
+	s.HandleFunc("/v1/namespaces/{namespace}/ext-repositories/repositoryName}/imagescanresults", h.ExternalScanResultSummaryList)
+	s.HandleFunc("/v1/namespaces/{namespace}/ext-repositories/{repositoryName}/imagescanresults/{tagName}", h.ExtScanResultHandler)
 
 	if err = renewCertForWebhook(c); err != nil {
 		return nil, err
@@ -83,6 +94,7 @@ func NewApiServer() (*ApiServer, error) {
 	}, configMap); err != nil {
 		return nil, fmt.Errorf("failed to get 'extension-apiserver-authentication' configmap")
 	}
+
 	clientCA, ok := configMap.Data["requestheader-client-ca-file"]
 	if !ok {
 		return nil, fmt.Errorf("failed to get requestheader-client CA")
@@ -96,19 +108,16 @@ func NewApiServer() (*ApiServer, error) {
 		caPool.AddCert(c)
 	}
 
-	//v1.Initiate()
-
-	webhook := http.Server{
-		Addr:    "0.0.0.0:24335",
-		Handler: r,
-		TLSConfig: &tls.Config{
-			ClientCAs:  caPool,
-			ClientAuth: tls.VerifyClientCertIfGiven,
-		},
-	}
-
 	return &ApiServer{
-		Server: webhook,
+		Server: http.Server{
+			Addr:    "0.0.0.0:24335",
+			Handler: r,
+			TLSConfig: &tls.Config{
+				ClientCAs:  caPool,
+				ClientAuth: tls.VerifyClientCertIfGiven,
+			},
+		},
+		logger: logger,
 	}, nil
 }
 

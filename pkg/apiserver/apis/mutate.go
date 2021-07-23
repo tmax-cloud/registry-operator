@@ -1,9 +1,8 @@
-package v1
+package apis
 
 import (
 	"encoding/json"
 	"fmt"
-
 	regv1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,16 +14,16 @@ type patchOperation struct {
 	Value interface{} `json:"value,omitempty"`
 }
 
-func Mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (h *AdmissionWebhook) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	req := ar.Request
 
 	// AdmissionReview for Kind=tmax.io/v1, Kind=ImageSigner, Namespace= Name=yun  UID=685e6c98-a47c-4fb5-b2c5-8d8140eb0ffd patchOperation=CREATE UserInfo={admin@tmax.co.kr  [system:authenticated] map[]}
-	logger.Info(fmt.Sprintf("AdmissionReview for Kind=%v, Namespace=%v Name=%v  UID=%v patchOperation=%v UserInfo=%v",
+	h.logger.Info(fmt.Sprintf("AdmissionReview for Kind=%v, Namespace=%v Name=%v  UID=%v patchOperation=%v UserInfo=%v",
 		req.Kind, req.Namespace, req.Name, req.UID, req.Operation, req.UserInfo))
 
 	signer := &regv1.ImageSigner{}
 	if err := json.Unmarshal(req.Object.Raw, signer); err != nil {
-		logger.Error(err, "unable to unmarshal imagesigner", "name", req.Name)
+		h.logger.Error(err, "unable to unmarshal imagesigner", "name", req.Name)
 		return &v1beta1.AdmissionResponse{
 			Result: &metav1.Status{
 				Message: err.Error(),

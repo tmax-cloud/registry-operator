@@ -1,4 +1,4 @@
-package scan
+package models
 
 import (
 	"encoding/json"
@@ -19,22 +19,22 @@ import (
 var log = ctrl.Log.WithName("scan")
 
 // For scan requests
-type Request struct {
-	Registries []RequestRegistry `json:"registries"`
+type ScanApiRequest struct {
+	Registries []ScanApiRegistry `json:"registries"`
 }
 
-type RequestRegistry struct {
+type ScanApiRegistry struct {
 	Name         string              `json:"name"`
-	Repositories []RequestRepository `json:"repositories"`
+	Repositories []ScanApiRepository `json:"repositories"`
 }
 
-type RequestRepository struct {
+type ScanApiRepository struct {
 	Name     string   `json:"name"`
 	Versions []string `json:"versions"`
 }
 
-type RequestResponse struct {
-	ImageScanRequestName string `json:"imageScanRequestName"`
+type ScanApiResponse struct {
+	Name string `json:"imageScanRequestName"`
 }
 
 // For scan responses
