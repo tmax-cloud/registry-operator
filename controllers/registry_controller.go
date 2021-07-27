@@ -250,33 +250,34 @@ func (r *RegistryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				return ctrl.Result{}, err
 			}
 		}
+		logger.Info("Found secret for token auth", "secret", secret.Name)
 
 		// FIXME: DO NOT CREATE USER
-		if _, kerr = keycloak.GetUsers(ctx, token.AccessToken, realmName, gocloak.GetUsersParams{
+		users, kerr := keycloak.GetUsers(ctx, token.AccessToken, realmName, gocloak.GetUsersParams{
 			Username: &o.Spec.LoginID,
-		}); kerr != nil {
-			apiError := kerr.(*gocloak.APIError)
-			switch apiError.Code {
-			case http.StatusNotFound:
-				created, _kerr := keycloak.CreateUser(ctx, token.AccessToken, realmName, gocloak.User{
-					Username: &o.Spec.LoginID,
-					Enabled:  &enabled,
-				})
-				if _kerr != nil {
-					logger.Error(_kerr, "failed to create user")
-					return reconcile.Result{}, _kerr
-				}
-				_kerr = keycloak.SetPassword(ctx, token.AccessToken, created, realmName, o.Spec.LoginPassword, false)
-				if _kerr != nil {
-					logger.Error(_kerr, "failed to set password")
-					return reconcile.Result{}, _kerr
-				}
-			case http.StatusConflict:
-				logger.Error(kerr, "failed to get user")
-			default:
-				logger.Error(kerr, "failed to get user")
-				return ctrl.Result{}, kerr
+		})
+		if kerr != nil {
+			logger.Error(kerr, "failed to get user")
+			return ctrl.Result{}, kerr
+		}
+
+		if len(users) == 0 {
+			logger.Info("not found user. create new one...")
+			created, _kerr := keycloak.CreateUser(ctx, token.AccessToken, realmName, gocloak.User{
+				Username: &o.Spec.LoginID,
+				Enabled:  &enabled,
+			})
+			if _kerr != nil {
+				logger.Error(_kerr, "failed to create user")
+				return reconcile.Result{}, _kerr
 			}
+			_kerr = keycloak.SetPassword(ctx, token.AccessToken, created, realmName, o.Spec.LoginPassword, false)
+			if _kerr != nil {
+				logger.Error(_kerr, "failed to set password")
+				return reconcile.Result{}, _kerr
+			}
+		} else {
+			logger.Info("Found user", "username", users[0].Username, "user-id", users[0].ID)
 		}
 
 		typesToManage := []status.ConditionType{
