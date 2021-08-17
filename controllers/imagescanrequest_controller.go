@@ -84,7 +84,7 @@ func init() {
 		Insecure: config.Config.GetBool("scanning.scanner.insecure"),
 	})
 
-	reporter = scanctl.NewReportClient(config.Config.GetString(config.ConfigImageReportSvr),
+	reporter = scanctl.NewReportClient(config.Config.GetStringSlice(config.ConfigImageReportSvr),
 		&http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,

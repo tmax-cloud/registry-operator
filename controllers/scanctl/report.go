@@ -4,21 +4,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
 	"io/ioutil"
 	"net/http"
-	"strings"
-
-	tmaxiov1 "github.com/tmax-cloud/registry-operator/api/v1"
+	"net/url"
 )
 
 type ReportClient struct {
-	serverUrl string
-	client    *http.Client
+	targets []string
+	client  *http.Client
 }
 
-func NewReportClient(url string, transport *http.Transport) *ReportClient {
+func NewReportClient(targetUrls []string, transport *http.Transport) *ReportClient {
 	return &ReportClient{
-		serverUrl: url,
+		targets: targetUrls,
 		client: &http.Client{
 			Transport: transport,
 		},
@@ -26,28 +25,33 @@ func NewReportClient(url string, transport *http.Transport) *ReportClient {
 }
 
 func (c *ReportClient) SendReport(namespace string, report *tmaxiov1.ImageScanRequestESReport) error {
-	index := "image-scanning-" + namespace
-	doc := strings.ReplaceAll(report.Image, "/", "_")
-	endpoint := fmt.Sprintf("%s/%s/_doc/%s", c.serverUrl, index, doc)
-
 	dat, err := json.Marshal(report)
 	if err != nil {
 		return err
 	}
 
-	response, err := c.client.Post(endpoint, "application/json", bytes.NewReader(dat))
-	if err != nil {
-		return err
-	}
+	for _, target := range c.targets {
+		u := fmt.Sprintf("%s/image-scanning-%s/_doc/%s", target, namespace, url.PathEscape(report.Image))
+		req, err := http.NewRequest(http.MethodPost, u, bytes.NewReader(dat))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
 
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
+		res, err := c.client.Do(req)
+		if err != nil {
+			return err
+		}
 
-	if response.StatusCode >= 400 && response.StatusCode < 600 {
-		return fmt.Errorf(fmt.Sprintf("ES server respond with %d(%s)\n", response.StatusCode, body))
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+
+		res.Body.Close()
+		if res.StatusCode >= 300 {
+			return fmt.Errorf("[%d] failed to send report: %s\n", res.StatusCode, body)
+		}
 	}
 
 	return nil
