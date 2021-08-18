@@ -17,20 +17,13 @@ data:
     [OUTPUT]
         Name          es
         Match         *
-        Host          elasticsearch.kube-logging.svc.cluster.local
-        Port          9200
-        Generate_ID   true
+        Host          ${ES_REPORT_DEST_HOST1}
+        Port          ${ES_REPORT_DEST_PORT1}
+        Id_Key        image
 
     [OUTPUT]
-        Name          http
+        Name          es
         Match         *
-        Host          logstash.reg-test.svc.cluster.local
-        Port          5044
-        Format        json
-
-    [OUTPUT]
-        Name          http
-        Match         *
-        Host          my-echo-go.default.svc.cluster.local
-        Port          8080
-        Format        json
+        Host          ${ES_REPORT_DEST_HOST2}
+        Port          ${ES_REPORT_DEST_PORT2}
+        Id_Key        image

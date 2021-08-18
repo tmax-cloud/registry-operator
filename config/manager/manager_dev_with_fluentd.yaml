@@ -61,6 +61,15 @@ spec:
         - name: fluentbit
           image: "fluentbitdev/fluent-bit:x86_64-master"
           imagePullPolicy: IfNotPresent
+          env:
+            - name: ES_REPORT_DEST_HOST1
+              value: elasticsearch.kube-logging.svc.cluster.local
+            - name: ES_REPORT_DEST_PORT1
+              value: "9200"
+            - name: ES_REPORT_DEST_HOST2
+              value: elasticsearch2.kube-logging.svc.cluster.local
+            - name: ES_REPORT_DEST_PORT2
+              value: "9200"
           ports:
             - name: report
               containerPort: 8888
