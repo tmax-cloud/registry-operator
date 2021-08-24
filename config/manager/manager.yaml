@@ -92,5 +92,5 @@ spec:
           name: manager-config
       - name: fluentd-config
         configMap:
-          name: registry-operator-flb-sidecar
+          name: flb-sidecar-config
       terminationGracePeriodSeconds: 10

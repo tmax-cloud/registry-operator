@@ -17,6 +17,7 @@ kubectl apply -f config/crd/bases
 
 # Apply confimap
 kubectl apply -f config/manager/configmap.yaml
+kubectl apply -f config/manager/flb_sidecar_config.yaml
 
 # Apply keycloak secret
 kubectl apply -f config/manager/keycloak_secret.yaml
@@ -45,7 +46,7 @@ fi
 
 # Create keycloak-cert secret
 KEYCLOAK_CRT_FILE=./config/pki/keycloak.crt
-if [[ -f "$KEYCLOAK_CRT_FILE" ]]; then 
+if [[ -f "$KEYCLOAK_CRT_FILE" ]]; then
     . ./config/scripts/newCertSecret.sh keycloak-cert $KEYCLOAK_CRT_FILE
 fi
 
