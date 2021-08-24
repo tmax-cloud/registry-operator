@@ -57,9 +57,10 @@ type ImageScanRequestReconciler struct {
 
 var (
 	// FIXME: Remove clair library dependency
-	scanner  *clair.Clair
-	reporter *scanctl.ReportClient
-	verbose  = false
+	scanner      *clair.Clair
+	reporter     *scanctl.ReportClient
+	cveWhitelist map[string]bool
+	verbose      = false
 )
 
 const (
@@ -91,6 +92,12 @@ func init() {
 			},
 		},
 	)
+
+	cveWhitelist = make(map[string]bool)
+	ignoreCveIds := config.Config.GetStringSlice(config.ConfigCveWhiltelist)
+	for _, id := range ignoreCveIds {
+		cveWhitelist[id] = true
+	}
 }
 
 // +kubebuilder:rbac:groups=tmax.io,resources=imagescanrequests,verbs=get;list;watch;create;update;patch;delete
@@ -389,10 +396,13 @@ func convertReport(reports *clair.VulnerabilityReport, threshold int) (ret tmaxi
 	for _, n := range SeverityNames {
 		summary[n] = 0
 	}
+
 	for severity, vulnerabilityList := range reports.VulnsBySeverity {
-		summary[severity] = len(vulnerabilityList)
 		vul := tmaxiov1.Vulnerabilities{}
 		for _, v := range vulnerabilityList {
+			if _, exist := cveWhitelist[v.Name]; exist {
+				continue
+			}
 			vul = append(vul, tmaxiov1.Vulnerability{
 				Name:          v.Name,
 				NamespaceName: v.NamespaceName,
@@ -402,6 +412,7 @@ func convertReport(reports *clair.VulnerabilityReport, threshold int) (ret tmaxi
 				//Metadata:      obj,
 				FixedBy: v.FixedBy,
 			})
+			summary[severity]++
 		}
 		vuls[severity] = vul
 		// Count the number of bad vulnerability
