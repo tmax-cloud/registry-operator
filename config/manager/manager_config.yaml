@@ -24,13 +24,13 @@ data:
         image: tmaxcloudck/notary_mysql:0.6.2-rc2
         image_pull_secret: ""
     keycloak:
-      service: https://172.22.11.9:8443
+      service: "https://auth.hyperregistry.172.22.11.14.nip.io"
     scanning:
       scanner:
         url: "http://clair.registry-system.svc.cluster.local:6060"
         insecure: false
       report:
-        url: "http://elasticsearch.kube-logging.svc.cluster.local:9200"
+        url: "http://localhost:8888"
     harbor:
       namespace: harbor
       core:

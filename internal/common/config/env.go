@@ -13,6 +13,8 @@ const (
 	ConfigImageScanSvr = "scanning.scanner.url"
 	// ConfigImageReportSvr is the key to get elastic_search.url config
 	ConfigImageReportSvr = "scanning.report.url"
+	// ConfigCveWhiltelist is the key to get elastic_search.url config
+	ConfigCveWhiltelist = "scanning.cveWhiltelist"
 	// ConfigHarborNamespace is the key to get harbor.namespace config
 	ConfigHarborNamespace = "harbor.namespace"
 	// ConfigHarborCoreIngress is the key to get harbor.core.ingress config

@@ -18,6 +18,7 @@ kubectl apply -f config/crd/bases
 # Apply confimap
 kubectl apply -f config/manager/configmap.yaml
 kubectl apply -f config/manager/flb_sidecar_config.yaml
+kubectl apply -f config/manager/cve-whitelist.yaml
 
 # Apply keycloak secret
 kubectl apply -f config/manager/keycloak_secret.yaml
