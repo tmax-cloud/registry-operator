@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"gopkg.in/yaml.v2"
 	"net/http"
 	"net/url"
 	"os"
@@ -94,10 +95,32 @@ func init() {
 	)
 
 	cveWhitelist = make(map[string]bool)
-	ignoreCveIds := config.Config.GetStringSlice(config.ConfigCveWhiltelist)
+}
+
+func (r *ImageScanRequestReconciler) loadCveWhiteList(ctx context.Context) error {
+	logger := r.Log.WithName("CVE-Whitelist")
+
+	cm := &corev1.ConfigMap{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      "cve-whitelist",
+		Namespace: "registry-system",
+	}, cm); err != nil {
+		logger.Error(err, "failed to get configmap")
+		return err
+	}
+
+	dat := cm.Data["cve-whitelist.yml"]
+	ignoreCveIds := []string{}
+	err := yaml.Unmarshal([]byte(dat), &ignoreCveIds)
+	if err != nil {
+		logger.Error(err, "failed to unmarshal cve-whitelist")
+		return err
+	}
 	for _, id := range ignoreCveIds {
 		cveWhitelist[id] = true
 	}
+
+	return nil
 }
 
 // +kubebuilder:rbac:groups=tmax.io,resources=imagescanrequests,verbs=get;list;watch;create;update;patch;delete
@@ -280,6 +303,12 @@ func (r *ImageScanRequestReconciler) doRecept(o *tmaxiov1.ImageScanRequest) erro
 					return
 				}
 				logger.Info("scanning complete...")
+
+				if err = r.loadCveWhiteList(ctx); err != nil {
+					wgErr = err
+					cancel()
+					return
+				}
 
 				scanResult := convertReport(&vul, o.Spec.MaxFixable)
 				if o.Spec.SendReport {

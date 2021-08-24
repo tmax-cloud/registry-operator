@@ -31,9 +31,6 @@ data:
         insecure: false
       report:
         url: "http://localhost:8888"
-      cveWhiltelist:
-        - "CVE-2019-1349"
-        - "CVE-2019-1352"
     harbor:
       namespace: harbor
       core:
