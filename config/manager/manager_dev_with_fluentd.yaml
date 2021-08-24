@@ -92,7 +92,7 @@ spec:
             name: manager-config
         - name: fluentd-config
           configMap:
-            name: registry-operator-flb-sidecar
+            name: flb-sidecar-config
       nodeSelector:
         kubernetes.io/hostname: node1
       terminationGracePeriodSeconds: 10
