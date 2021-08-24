@@ -61,6 +61,25 @@ spec:
           subPath: ca.crt
         - name: manager-config
           mountPath: /registry-operator/config
+      - name: fluentbit
+        image: "tmaxcloudck/fluent-bit:x86_64-master"
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: ES_REPORT_DEST_HOST1
+            value: elasticsearch.kube-logging.svc.cluster.local
+          - name: ES_REPORT_DEST_PORT1
+            value: "9200"
+          - name: ES_REPORT_DEST_HOST2
+            value: elasticsearch2.kube-logging.svc.cluster.local
+          - name: ES_REPORT_DEST_PORT2
+            value: "9200"
+        ports:
+          - name: report
+            containerPort: 8888
+            protocol: TCP
+        volumeMounts:
+          - name: fluentd-config
+            mountPath: /fluent-bit/etc/
       volumes:
       - name: operator-log-mnt
         hostPath:
@@ -71,4 +90,7 @@ spec:
       - name: manager-config
         configMap:
           name: manager-config
+      - name: fluentd-config
+        configMap:
+          name: flb-sidecar-config
       terminationGracePeriodSeconds: 10

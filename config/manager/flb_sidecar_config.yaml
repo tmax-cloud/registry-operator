@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flb-sidecar-config
+  namespace: registry-system
+  labels:
+    control-plane: registry-operator
+data:
+  fluent-bit.conf: |
+    [INPUT]
+        name          http
+        host          localhost
+        port          8888
+
+    [OUTPUT]
+        Name          es
+        Match         *
+        Host          ${ES_REPORT_DEST_HOST1}
+        Port          ${ES_REPORT_DEST_PORT1}
+        Id_Key        image
+
+    [OUTPUT]
+        Name          es
+        Match         *
+        Host          ${ES_REPORT_DEST_HOST2}
+        Port          ${ES_REPORT_DEST_PORT2}
+        Id_Key        image

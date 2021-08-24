@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: registry-operator
+  namespace: registry-system
+  labels:
+    control-plane: registry-operator
+spec:
+  selector:
+    matchLabels:
+      control-plane: registry-operator
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        control-plane: registry-operator
+    spec:
+      containers:
+        - command:
+            - /bin/dev/manager
+          args:
+            - --enable-leader-election
+          image: tmaxcloudck/registry-operator:0.0.1-dev
+          name: manager
+          imagePullPolicy: Always
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OPERATOR_NAME
+              value: "registry-operator"
+            - name: TZ
+              value: Asia/Seoul
+            - name: KEYCLOAK_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secret
+                  key: username
+            - name: KEYCLOAK_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secret
+                  key: password
+            - name: ENV
+              value: "dev"
+          volumeMounts:
+            - name: manager-mnt
+              mountPath: /bin/dev
+            - name: operator-log-mnt
+              mountPath: /var/log/registry-operator
+            - name: registry-secret
+              mountPath: /etc/ssl/certs/ca.crt
+              subPath: ca.crt
+            - name: manager-config
+              mountPath: /registry-operator/config
+        - name: fluentbit
+          image: "fluentbitdev/fluent-bit:x86_64-master"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ES_REPORT_DEST_HOST1
+              value: elasticsearch.kube-logging.svc.cluster.local
+            - name: ES_REPORT_DEST_PORT1
+              value: "9200"
+            - name: ES_REPORT_DEST_HOST2
+              value: elasticsearch2.kube-logging.svc.cluster.local
+            - name: ES_REPORT_DEST_PORT2
+              value: "9200"
+          ports:
+            - name: report
+              containerPort: 8888
+              protocol: TCP
+          volumeMounts:
+            - name: fluentd-config
+              mountPath: /fluent-bit/etc/
+      volumes:
+        - name: manager-mnt
+          hostPath:
+            path: "/root/go/src/github.com/tmax-cloud/registry-operator/bin/registry-operator"
+        - name: operator-log-mnt
+          hostPath:
+            path: "/root/go/src/github.com/tmax-cloud/registry-operator/logs/registry-operator"
+        - name: registry-secret
+          secret:
+            secretName: registry-ca
+        - name: manager-config
+          configMap:
+            name: manager-config
+        - name: fluentd-config
+          configMap:
+            name: flb-sidecar-config
+      nodeSelector:
+        kubernetes.io/hostname: node1
+      terminationGracePeriodSeconds: 10
