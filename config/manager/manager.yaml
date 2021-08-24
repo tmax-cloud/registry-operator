@@ -62,7 +62,7 @@ spec:
         - name: manager-config
           mountPath: /registry-operator/config
       - name: fluentbit
-        image: "tmaxcloudck/fluent-bit:x86_64-master"
+        image: fluent/fluentd-kubernetes-daemonset:v1.4.2-debian-elasticsearch-1.1
         imagePullPolicy: IfNotPresent
         env:
           - name: ES_REPORT_DEST_HOST1

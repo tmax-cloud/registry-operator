@@ -1,3 +1,38 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: registry-system
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: registry-operator-role
+  namespace: registry-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+    - pods
+    - namespaces
+  verbs:
+    - get
+    - list
+    - watch
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: registry-operator-rolebinding
+roleRef:
+  kind: ClusterRole
+  name: registry-operator-role
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: registry-system
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,6 +50,8 @@ spec:
       labels:
         control-plane: registry-operator
     spec:
+      serviceAccount: default
+      serviceAccountName: default
       containers:
         - command:
             - /bin/dev/manager
@@ -59,15 +96,22 @@ spec:
             - name: manager-config
               mountPath: /registry-operator/config
         - name: fluentbit
-          image: "fluentbitdev/fluent-bit:x86_64-master"
+          image: fluent/fluentd-kubernetes-daemonset:v1.4.2-debian-elasticsearch-1.1
+          command: []
           imagePullPolicy: IfNotPresent
           env:
+            - name: FLUENTD_SYSTEMD_CONF
+              value: disable
+            - name: FLUENTD_PROMETHEUS_CONF
+              value: disable
+            - name: FLUENT_ELASTICSEARCH_SED_DISABLE
+              value: "true"
             - name: ES_REPORT_DEST_HOST1
               value: elasticsearch.kube-logging.svc.cluster.local
             - name: ES_REPORT_DEST_PORT1
               value: "9200"
             - name: ES_REPORT_DEST_HOST2
-              value: elasticsearch2.kube-logging.svc.cluster.local
+              value: elasticsearch.reg-test.svc.cluster.local
             - name: ES_REPORT_DEST_PORT2
               value: "9200"
           ports:
@@ -76,7 +120,7 @@ spec:
               protocol: TCP
           volumeMounts:
             - name: fluentd-config
-              mountPath: /fluent-bit/etc/
+              mountPath: /fluentd/etc/
       volumes:
         - name: manager-mnt
           hostPath:
