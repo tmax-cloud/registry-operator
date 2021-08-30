@@ -39,21 +39,12 @@ test: generate fmt vet manifests
 	source $(ENVTEST_ASSETS_DIR)/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
 
 # Build manager binary
-manager: generate fmt vet
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/registry-operator/manager cmd/registry-operator/main.go
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/registry-job-operator/manager cmd/registry-job-operator/main.go
+manager: generate fmt vet manager-only job-manager-only
 
-# Build manager binary only
 manager-only:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/registry-operator/manager cmd/registry-operator/main.go
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/registry-job-operator/manager cmd/registry-job-operator/main.go
 
-# Build registry-operator binary only
-manager-only-reg:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/registry-operator/manager cmd/registry-operator/main.go
-
-# Build registry-job-operator manager binary only
-manager-only-job:
+job-manager-only:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o bin/registry-job-operator/manager cmd/registry-job-operator/main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
@@ -93,7 +84,7 @@ generate: controller-gen
 docker-build:
 	docker build -t ${IMG} -f images/registry-operator/Dockerfile .
 	docker build -t ${IMG_JOB} -f images/registry-job-operator/Dockerfile .
-	
+
 # Build the docker image
 docker-build-dev:
 	docker build -t ${DEV_IMG} -f images/registry-operator/Dockerfile.dev .
@@ -103,7 +94,7 @@ docker-build-dev:
 docker-push:
 	docker push ${IMG}
 	docker push ${IMG_JOB}
-	
+
 # Push the docker image
 docker-push-dev:
 	docker push ${DEV_IMG}
@@ -185,7 +176,7 @@ compare-sha-gen:
 	$(eval GENSHA_AFTER=$(shell sha512sum $(API_V1_DIR)$(GENERATE_FILE)))
 	@if [ "${GENSHA_AFTER}" = "${GENSHA}" ]; then echo "$(GENERATE_FILE) is not changed"; else echo "$(GENERATE_FILE) file is changed"; exit 1; fi
 
-# variable for test crd 
+# variable for test crd
 CRD_DIR = config/crd/bases/
 CRD_1 = tmax.io_externalregistries.yaml
 CRD_2 = tmax.io_imagereplicates.yaml
@@ -232,7 +223,7 @@ compare-sha-crd:
 	@if [ "${CRDSHA_8_AFTER}" = "${CRDSHA_8}" ]; then echo "$(CRD_8) is not changed"; else echo "$(CRD_8) file is changed"; exit 1; fi
 	@if [ "${CRDSHA_9_AFTER}" = "${CRDSHA_9}" ]; then echo "$(CRD_9) is not changed"; else echo "$(CRD_9) file is changed"; exit 1; fi
 	@if [ "${CRDSHA_10_AFTER}" = "${CRDSHA_10}" ]; then echo "$(CRD_10) is not changed"; else echo "$(CRD_10) file is changed"; exit 1; fi
-	
+
 # variable for mod
 GO_MOD_FILE = go.mod
 GO_SUM_FILE = go.sum
@@ -249,3 +240,56 @@ compare-sha-mod:
 	$(eval SUMSHA_AFTER=$(shell sha512sum $(GO_SUM_FILE)))
 	@if [ "${MODSHA_AFTER}" = "${MODSHA}" ]; then echo "$(GO_MOD_FILE) is not changed"; else echo "$(GO_MOD_FILE) file is changed"; exit 1; fi
 	@if [ "${SUMSHA_AFTER}" = "${SUMSHA}" ]; then echo "$(GO_SUM_FILE) is not changed"; else echo "$(GO_SUM_FILE) file is changed"; exit 1; fi
+
+.PHONY: delete-manager delete-token delete-clair delete
+
+delete-manager:
+	-kubectl delete secret -n registry-system registry-ca
+	-kubectl delete configmap -n registry-system manager-config
+	-kubectl delete configmap -n registry-system registry-config
+	-kubectl delete service -n registry-system registry-operator-service
+	-kubectl delete deployment -n registry-system registry-job-operator
+	-kubectl delete deployment -n registry-system registry-operator
+
+delete-token:
+	-kubectl delete deployment -n registry-system token-service-db
+	-kubectl delete deployment -n registry-system token-service
+	-kubectl delete service -n registry-system token-service-db
+	-kubectl delete service -n registry-system token-service
+	-kubectl delete pvc -n registry-system token-service-db-pvc
+	-kubectl delete pvc -n registry-system token-service-log-pvc
+	-kubectl delete ingress -n registry-system token-service-ingress
+	-kubectl delete secret -n registry-system token-service
+
+delete-clair:
+	-kubectl delete rs -n registry-system clair-db
+	-kubectl delete rs -n registry-system clair
+	-kubectl delete service -n registry-system clair-db
+	-kubectl delete service -n registry-system clair
+	-kubectl delete configmap -n registry-system clair-config
+
+delete: delete-manager delete-token delete-clair
+	-kubectl delete -f config/webhook/mutating-webhook.yaml
+	-kubectl delete -f config/rbac/role.yaml
+	-kubectl delete -f config/rbac/role_binding.yaml
+	-kubectl delete -f config/rbac/image-signer-role.yaml
+	-kubectl delete -f config/apiservice/apiservice.yaml
+	-kubectl delete -f config/manager/namespace.yaml
+
+.PHONY: patch patch-job deploy-poc
+
+patch: manager-only
+	sshpass -p 'tmax@23' ssh root@172.22.11.2 rm -rf /root/go/src/github.com/tmax-cloud/registry-operator/bin/registry-operator/manager
+	sshpass -p 'tmax@23' scp bin/registry-operator/manager root@172.22.11.2:/root/go/src/github.com/tmax-cloud/registry-operator/bin/registry-operator
+	$(eval CURRENT_RUNNING_POD=$(shell kubectl get pod -n registry-system --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | grep registry-operator))
+	kubectl delete po -n registry-system ${CURRENT_RUNNING_POD}
+
+patch-job: job-manager-only
+	sshpass -p 'tmax@23' ssh root@172.22.11.2 rm -rf /root/go/src/github.com/tmax-cloud/registry-operator/bin/registry-job-operator/manager
+	sshpass -p 'tmax@23' scp bin/registry-job-operator/manager root@172.22.11.2:/root/go/src/github.com/tmax-cloud/registry-operator/bin/registry-job-operator
+	$(eval CURRENT_RUNNING_POD=$(shell kubectl get pod -n registry-system --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | grep registry-job-operator))
+	kubectl delete po -n registry-system ${CURRENT_RUNNING_POD}
+
+deploy-poc:
+	sshpass -p 'tmax@23' ssh root@220.90.208.100 rm -rf /root/go/src/github.com/tmax-cloud/registry-operator/bin/registry-operator/manager
+	sshpass -p 'tmax@23' scp bin/registry-operator/manager root@220.90.208.100:/root/go/src/github.com/tmax-cloud/registry-operator/bin/registry-operator
